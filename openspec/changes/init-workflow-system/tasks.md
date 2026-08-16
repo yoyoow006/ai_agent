@@ -15,9 +15,9 @@
 - [x] 3.4 git-worktrees
 - [x] 3.5 parallel-agents
 ## 4. 支撑技能·协作组
-- [ ] 4.1 subagent-driven
-- [ ] 4.2 code-review（请求+接收合并版）
-- [ ] 4.3 writing-skills
+- [x] 4.1 subagent-driven
+- [x] 4.2 code-review（请求+接收合并版）
+- [x] 4.3 writing-skills
 ## 5. 阶段技能·上半
 - [ ] 5.1 open（brainstorming 澄清段 + openspec propose 格式）
 - [ ] 5.2 design（brainstorming 查漏段 + writing-plans 移植）
