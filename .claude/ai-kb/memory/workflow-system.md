@@ -15,3 +15,7 @@
 ## 2026-08-16 · 来源变更 init-workflow-system
 **坑**：本机 core.fileMode=false 掩盖了脚本以 100644 提交的问题，fresh clone 无执行位
 **解**：git update-index --chmod=+x <脚本> 直接改索引模式；校验含执行依赖的文件时留意 fileMode 配置
+
+## 2026-08-16 · 来源变更 init-workflow-system
+**坑**：verify 阶段审查通过后未回写 proposal 状态字段（构建中→待验证→待归档两跳均漏），归档时才发现状态滞后
+**解**：verify 技能后续版本应把状态回写列为显式收尾步；归档开工前先核对 状态: 待归档
