@@ -1,6 +1,6 @@
 ---
 name: archive
-description: 用于两阶段审查已通过、需要合并规格、沉淀知识并收尾分支时。
+description: 用于两阶段审查已通过、需要决定如何收尾合并本次工作时。
 ---
 
 # Archive——归档阶段
@@ -31,7 +31,7 @@ digraph archive {
 }
 ```
 
-## 六步流程（顺序固定）
+## 六步流程（第 6 步提交时点随第 5 步选择调整，见执行顺序说明）
 
 ### 第 1 步：前置检查
 
@@ -63,7 +63,7 @@ digraph archive {
 ### 第 4 步：归档移动与终检
 
 - 变更目录整体移入归档：`openspec/changes/<变更名>/` → `openspec/archive/<变更名>/`（用 `git mv`，历史可追溯）
-- 计划书随之归位：`openspec/plan/<变更名>.md` **移入** `openspec/archive/<变更名>/`——`openspec/plan/` 只留活跃变更的计划
+- 计划书随之归位：`openspec/plan/<变更名>.md` **移入** `openspec/archive/<变更名>/plan.md`——`openspec/plan/` 只留活跃变更的计划
 - 移动后终检：
   - `openspec/changes/` 不再含本变更、`openspec/plan/` 不再含本计划
   - `openspec/archive/<变更名>/tasks.md` 全部勾选（最后一道全勾检查）
@@ -81,7 +81,7 @@ digraph archive {
    > 3. 保留分支暂不处理
 3. **选合并**：先确认基分支（通常 main；拿不准就问——合错基分支代价高昂），执行顺序：
    1. 先做第 6 步的归档提交——未提交的本分支新增文件会被 `git checkout` 摧毁
-   2. 在 worktree 内实现时，先回主仓库根目录再切换——分支被 worktree 占用时，`git checkout main` 会被拒绝
+   2. 在 worktree 内实现时，先回主仓库根目录再切换——`git checkout main` 被拒的原因是 main 已被主仓库工作区检出
    3. `git checkout main` → `git merge --no-ff feature/<变更名>`
    4. 在合并结果上**再跑一次测试**
 4. 合并结果测试红：停下排查，分支与 worktree 原地保留——一切还在本地，可恢复

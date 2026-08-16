@@ -6,6 +6,7 @@
 
 - 变更状态：`openspec/changes/<变更名>/proposal.md` 头部 `状态:` 字段
   取值：`草稿 → 待确认规范 → 设计中 → 待确认计划 → 构建中 → 待验证 → 待归档 → 已归档`
+  活跃变更 = `openspec/changes/` 下各目录（可用 `openspec list` 列出）
 - 进度：`openspec/changes/<变更名>/tasks.md` 勾选率
 - 开始任何工作前：读上述两文件 + `.claude/ai-kb/rules/index.md`，从断点阶段继续，不重做已完成阶段。
 

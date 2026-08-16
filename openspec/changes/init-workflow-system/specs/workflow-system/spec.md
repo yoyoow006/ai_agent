@@ -48,7 +48,7 @@ Verify 阶段 SHALL 由独立子代理执行规格符合性审查与代码质量
 Archive 阶段 SHALL 依次：合并 delta 进主 specs → tasks 全勾终检+状态改已归档 → 知识沉淀 → 变更目录与计划书移入 archive → 合并 feature 分支并删除 → git commit。
 #### Scenario: 计划书归位
 - **WHEN** 归档完成
-- **THEN** openspec/plan/ 不再含该变更计划，archive/ 内含其副本
+- **THEN** openspec/plan/ 不再含该变更计划，计划书已移入 archive/（移动而非复制）
 
 ### Requirement: openspec CLI 兼容
 目录格式 SHALL 兼容 openspec CLI：装有 CLI 的机器可通过 list/validate 校验；未安装时工作流完整可用。

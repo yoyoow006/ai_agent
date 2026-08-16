@@ -172,7 +172,7 @@ git add <本任务文件清单> && git commit -m "feat: <一句话>"
 
 1. 创建分支 `git checkout -b feature/<变更名>`；需要与当前工作区隔离时，用 git-worktrees 技能
 2. `状态:` → `构建中`
-3. 提交计划与状态：`git add openspec/plan/<变更名>.md openspec/changes/<变更名>/proposal.md && git commit -m "docs(plan): <变更名> 实现计划"`
+3. 提交计划与状态：`git add openspec/plan/<变更名>.md openspec/changes/<变更名>/proposal.md && git commit -m "docs(plan): <变更名> 实现计划"`；第 2 步查漏补回过 spec delta 时，`openspec/changes/<变更名>/specs/<能力>/spec.md` 一并提交
 
 **执行交接：** 告知用户计划就绪，执行由 build 技能承接——默认逐任务派发子代理（subagent-driven 技能），任务极小或用户要求时主会话直执。用户当场说"开工"，直接转入 build 技能。
 

@@ -14,11 +14,17 @@ for s in open design build verify archive tdd subagent-driven code-review \
          systematic-debugging verification git-worktrees parallel-agents writing-skills; do
   f=".claude/skills/$s/SKILL.md"
   check "技能存在: .claude/skills/$s" "[ -f '$f' ]"
-  check "frontmatter: .claude/skills/$s" "head -1 '$f' | grep -q '^---' && awk 'NR>1&&/^---/{exit} NR>1' '$f' | grep -q '^name:' && awk 'NR>1&&/^---/{exit} NR>1' '$f' | grep -q '^description:'"
+  nm="$(awk 'NR>1&&/^---/{exit} NR>1' "$f" 2>/dev/null | sed -n 's/^name:[[:space:]]*//p' | head -1 | tr -d '\"' | tr -d '[:space:]')"
+  check "frontmatter: .claude/skills/$s" "head -1 '$f' | grep -q '^---' && awk 'NR>1&&/^---/{exit} NR>1' '$f' | grep -q '^description:' && [ '${nm:-}' = '$s' ]"
+done
+
+for c in openspec/changes/*/; do
+  [ -f "${c}proposal.md" ] || continue
+  check "proposal 状态字段: ${c%/}" "sed -n '1,15p' '${c}proposal.md' | grep -q '^状态:'"
 done
 
 check "CLAUDE.md 硬门禁" "grep -q '硬门禁' CLAUDE.md"
-check "CLAUDE.md 8态" "grep -q '待确认规范' CLAUDE.md && grep -q '已归档' CLAUDE.md"
+check "CLAUDE.md 8态" "grep -q '草稿' CLAUDE.md && grep -q '待确认规范' CLAUDE.md && grep -q '设计中' CLAUDE.md && grep -q '待确认计划' CLAUDE.md && grep -q '构建中' CLAUDE.md && grep -q '待验证' CLAUDE.md && grep -q '待归档' CLAUDE.md && grep -q '已归档' CLAUDE.md"
 check "CLAUDE.md ai-kb" "grep -q 'ai-kb' CLAUDE.md"
 check "rules/index.md" "[ -f .claude/ai-kb/rules/index.md ]"
 check "kb/overview.md" "[ -f .claude/ai-kb/kb/overview.md ]"

@@ -1,6 +1,6 @@
 ---
 name: subagent-driven
-description: 用于在当前会话内执行任务相互独立的实现计划时——逐任务派发全新子代理实现并审查，全部任务完成后由独立子代理做全分支终审。
+description: 用于在当前会话内执行任务相互独立的实现计划时。
 ---
 
 # 子代理驱动开发
@@ -73,7 +73,7 @@ digraph process {
     final [label="派发终审代码审查者\n（code-review 技能·请求侧，最强可用模型）", shape=box];
     finalfix [label="终审有发现？一次性修复派发＋一次范围化复审＋裁决遗留", shape=box];
     clean [label="终审干净：删除本计划工作区", shape=box];
-    finish [label="转入 archive 技能收尾", shape=box, style=filled, fillcolor=lightgreen];
+    finish [label="五阶段工作流：按 build 第 7 步交棒 verify（状态→待验证）\n仅独立使用本技能（非五阶段流程）：转入 archive 技能收尾", shape=box, style=filled, fillcolor=lightgreen];
 
     setup -> dispatch;
     dispatch -> asks;
@@ -252,7 +252,7 @@ digraph process {
 
 全分支终审干净且其修复已合并后，删除本计划工作区（`rm -rf <工作区>`）——git 历史从此就是记录。兄弟目录属于其他计划；别碰。
 
-分支的合并与归档由本仓库 archive 技能承接（源技能此处引用其分支收尾技能，该技能未随本仓库迁移，其职责由归档流程覆盖）。
+五阶段工作流中，终审通过后不直接收尾分支——按 build 技能第 7 步交棒 verify（状态→待验证），两阶段审查通过后再由 archive 技能归档；仅独立使用本技能（非五阶段流程）时，分支的合并与收尾才直接转入本仓库 archive 技能（源技能此处引用其分支收尾技能，该技能未随本仓库迁移，其职责由归档流程覆盖）。
 
 ## 常见自我合理化
 
@@ -331,5 +331,5 @@ digraph process {
 
 [删除本计划工作区——记录现在活在 git 里]
 
-完成！转入 archive 技能。
+完成！五阶段工作流中按 build 第 7 步交棒 verify（状态→待验证）；仅独立使用本技能（非五阶段流程）时才转入 archive 技能收尾。
 ```

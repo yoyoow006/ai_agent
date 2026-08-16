@@ -27,7 +27,7 @@ description: 用于完成任务、实现重大特性或合并到 main 之前需�
 
 **1. 取 git SHA：**
 ```bash
-BASE_SHA=$(git rev-parse HEAD~1)  # 或 origin/main
+BASE_SHA=$(git rev-parse <BASE>)  # 取该任务的 BASE 提交（多提交任务勿用 HEAD~1——会截掉除最后一次提交外的全部）
 HEAD_SHA=$(git rev-parse HEAD)
 ```
 
