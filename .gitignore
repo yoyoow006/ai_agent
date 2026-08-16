@@ -1,2 +1,4 @@
 .claude/settings.local.json
 .superpowers/
+.codex/sdd/*
+!.codex/sdd/.gitkeep
