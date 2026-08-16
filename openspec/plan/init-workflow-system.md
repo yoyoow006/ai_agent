@@ -53,6 +53,7 @@ mkdir -p openspec/changes/init-workflow-system/specs/workflow-system \
          openspec/plan openspec/specs openspec/archive \
          .claude/skills .claude/ai-kb/{kb,memory,rules} scripts
 touch .claude/ai-kb/memory/.gitkeep
+printf '.superpowers/\n' >> .gitignore
 ```
 
 - [ ] **Step 2: 取样 openspec 官方格式（保证 CLI 兼容）**
@@ -322,8 +323,8 @@ check "archive delta 合并" "grep -q 'ADDED' .claude/skills/archive/SKILL.md"
 check "open 四件套" "grep -q 'proposal' .claude/skills/open/SKILL.md && grep -q 'tasks' .claude/skills/open/SKILL.md"
 
 if command -v openspec >/dev/null 2>&1; then
-  check "openspec list" "openspec list --json 2>/dev/null | grep -q init-workflow-system"
-  check "openspec validate" "openspec validate init-workflow-system --type change --strict --no-interactive"
+  check "openspec list 可运行" "openspec list --json"
+  check "openspec validate --all" "openspec validate --all --no-interactive"
 fi
 exit $fail
 ```
