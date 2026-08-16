@@ -21,9 +21,9 @@ digraph open {
     decompose [label="4 分解为多个变更\n各自独立走五阶段", shape=box];
     artifacts [label="5 产出四件套\n状态: 草稿", shape=box];
     selfreview [label="6 自审四查\n内联修复", shape=box];
-    confirm [label="7 请用户确认（G1）\n列出四件套路径", shape=box];
+    confirm [label="7 状态→待确认规范\n请用户确认（G1）\n列出四件套路径", shape=box];
     revise [label="按意见修订四件套", shape=box];
-    done [label="状态→待确认规范\n等待用户确认", shape=box, style=filled, fillcolor=lightgreen];
+    done [label="用户确认（G1）通过\n进入 design 技能", shape=box, style=filled, fillcolor=lightgreen];
 
     kb -> explore -> clarify -> toobig;
     toobig -> decompose [label="是"];
@@ -79,7 +79,7 @@ digraph open {
 | `tasks.md` | 任务清单，`- [ ] N.M` 编号勾选 |
 
 - 动笔时 `状态: 草稿`
-- Scenario 要覆盖每条 Requirement 的主路径；边界与错误路径在第 6 步自审时补齐
+- Scenario 要覆盖每条 Requirement 的主路径；边界与错误路径的系统性查补由 design 技能第 2 步（对照 spec delta 查漏）承接
 - 装有 openspec CLI 的机器上运行 `openspec validate <变更名> --strict --no-interactive`，按报错修正格式；未装 CLI 跳过，格式以 AGENTS.md 为准
 
 ### 第 6 步：自审四查

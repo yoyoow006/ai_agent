@@ -26,9 +26,9 @@
 - [x] 6.2 verify（两阶段审查 + verification）
 - [x] 6.3 archive（归档六步 + 知识沉淀）
 ## 7. 集成验收
-- [ ] 7.1 校验脚本全绿
-- [ ] 7.2 映射表逐条对照
-- [ ] 7.3 openspec CLI 校验
+- [x] 7.1 校验脚本全绿
+- [x] 7.2 映射表逐条对照
+- [x] 7.3 openspec CLI 校验
 ## 8. dogfood 归档
 - [ ] 8.1 知识沉淀（memory/kb/rules）
 - [ ] 8.2 归档六步走完（含分支合并）

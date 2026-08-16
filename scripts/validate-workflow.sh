@@ -13,8 +13,8 @@ done
 for s in open design build verify archive tdd subagent-driven code-review \
          systematic-debugging verification git-worktrees parallel-agents writing-skills; do
   f=".claude/skills/$s/SKILL.md"
-  check "技能存在: $s" "[ -f '$f' ]"
-  check "frontmatter: $s" "head -1 '$f' | grep -q '^---' && awk 'NR>1&&/^---/{exit} NR>1' '$f' | grep -q '^name:' && awk 'NR>1&&/^---/{exit} NR>1' '$f' | grep -q '^description:'"
+  check "技能存在: .claude/skills/$s" "[ -f '$f' ]"
+  check "frontmatter: .claude/skills/$s" "head -1 '$f' | grep -q '^---' && awk 'NR>1&&/^---/{exit} NR>1' '$f' | grep -q '^name:' && awk 'NR>1&&/^---/{exit} NR>1' '$f' | grep -q '^description:'"
 done
 
 check "CLAUDE.md 硬门禁" "grep -q '硬门禁' CLAUDE.md"

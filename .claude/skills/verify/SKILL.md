@@ -39,6 +39,7 @@ digraph verify {
     rereview -> zero;
     zero -> handle [label="否-有新发现"];
     zero -> final [label="是"];
+    final -> handle [label="不绿"];
     final -> done [label="全绿"];
 }
 ```
@@ -51,6 +52,7 @@ digraph verify {
 
 - `状态:` = `待验证` 且全勾 → 通过
 - `构建中` 或有未勾 → G3 未过，回 build 技能收尾——状态字段说什么不重要，勾没勾完才重要
+- `草稿`/`待确认规范` → 四件套未确认，回 open 技能；`设计中`/`待确认计划` → 计划未确认，回 design 技能
 - `待归档`/`已归档` → 审查已过，去 archive 技能
 
 ### 第 2 步：阶段一·规格符合性审查

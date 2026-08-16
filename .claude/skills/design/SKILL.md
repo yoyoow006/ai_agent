@@ -132,7 +132,9 @@ Expected: PASS
 
 - [ ] **Step 5: 提交**
 
+```bash
 git add <本任务文件清单> && git commit -m "feat: <一句话>"
+```
 ````
 
 任务的执行者只看得到自己的任务——**Interfaces 块是他们得知相邻任务所用名称与类型的唯一途径**，精确签名不可省。
