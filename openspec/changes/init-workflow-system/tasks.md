@@ -22,9 +22,9 @@
 - [x] 5.1 open（brainstorming 澄清段 + openspec propose 格式）
 - [x] 5.2 design（brainstorming 查漏段 + writing-plans 移植）
 ## 6. 阶段技能·下半
-- [ ] 6.1 build（subagent-driven + executing-plans + TDD 编排）
-- [ ] 6.2 verify（两阶段审查 + verification）
-- [ ] 6.3 archive（归档六步 + 知识沉淀）
+- [x] 6.1 build（subagent-driven + executing-plans + TDD 编排）
+- [x] 6.2 verify（两阶段审查 + verification）
+- [x] 6.3 archive（归档六步 + 知识沉淀）
 ## 7. 集成验收
 - [ ] 7.1 校验脚本全绿
 - [ ] 7.2 映射表逐条对照
