@@ -19,8 +19,8 @@
 - [x] 4.2 code-review（请求+接收合并版）
 - [x] 4.3 writing-skills
 ## 5. 阶段技能·上半
-- [ ] 5.1 open（brainstorming 澄清段 + openspec propose 格式）
-- [ ] 5.2 design（brainstorming 查漏段 + writing-plans 移植）
+- [x] 5.1 open（brainstorming 澄清段 + openspec propose 格式）
+- [x] 5.2 design（brainstorming 查漏段 + writing-plans 移植）
 ## 6. 阶段技能·下半
 - [ ] 6.1 build（subagent-driven + executing-plans + TDD 编排）
 - [ ] 6.2 verify（两阶段审查 + verification）
