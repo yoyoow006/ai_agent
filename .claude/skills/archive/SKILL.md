@@ -50,8 +50,8 @@ digraph archive {
 | `MODIFIED` | 整条替换主规格中同名标题的 Requirement |
 | `REMOVED` | 从主规格删除对应 Requirement |
 
-- 主规格尚无该能力的 spec.md 时先创建，以 delta 内容为初始全集（去掉 `## ADDED Requirements` 包装层）
-- 合并后重读一遍：无重复 Requirement 标题、无残留 ADDED/MODIFIED/REMOVED 标注——主规格读起来是一份完整规格，不是变更记录
+- 主规格尚无该能力的 spec.md 时先写完整骨架（`# <能力> 规范` + `## Purpose` 一段 + `## Requirements`），再以 delta 内容为初始全集并入（去掉 `## ADDED Requirements` 包装层）——`openspec validate --all` 会校验主规格，缺 Purpose 即红
+- 合并后重读一遍：无重复 Requirement 标题、无残留 ADDED/MODIFIED/REMOVED 标注——主规格读起来是一份完整规格，不是变更记录；装有 CLI 时跑 `openspec validate --all --no-interactive`（覆盖 changes 与主 specs 两类对象）
 
 ### 第 3 步：知识沉淀（ai-kb 三写）
 
