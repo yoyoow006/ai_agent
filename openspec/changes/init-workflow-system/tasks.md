@@ -9,11 +9,11 @@
 ## 2. CLAUDE.md 总纲
 - [x] 2.1 编写并自验
 ## 3. 支撑技能·纪律组
-- [ ] 3.1 tdd
-- [ ] 3.2 systematic-debugging（+记 memory 规则）
-- [ ] 3.3 verification
-- [ ] 3.4 git-worktrees
-- [ ] 3.5 parallel-agents
+- [x] 3.1 tdd
+- [x] 3.2 systematic-debugging（+记 memory 规则）
+- [x] 3.3 verification
+- [x] 3.4 git-worktrees
+- [x] 3.5 parallel-agents
 ## 4. 支撑技能·协作组
 - [ ] 4.1 subagent-driven
 - [ ] 4.2 code-review（请求+接收合并版）
