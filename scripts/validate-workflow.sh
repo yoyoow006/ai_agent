@@ -10,6 +10,10 @@ for d in openspec/changes openspec/plan openspec/specs openspec/archive \
   check "目录存在: $d" "[ -d '$d' ]"
 done
 
+for f in openspec/AGENTS.md openspec/project.md .claude/ai-kb/README.md; do
+  check "文件存在: $f" "[ -f '$f' ]"
+done
+
 for s in open design build verify archive tdd subagent-driven code-review \
          systematic-debugging verification git-worktrees parallel-agents writing-skills; do
   f=".claude/skills/$s/SKILL.md"

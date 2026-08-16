@@ -5,7 +5,7 @@
 2. **冲突策略=扫描-中止-备份覆盖**（用户确认）：默认安全，`--force` 逃生门，备份 `.bak` 防数据丢失。
 3. **通用化最小面**：仅 `openspec/project.md` 写通用占位版（它是项目自述，本仓库版本描述模板仓库自身）；`rules/index.md` 与 `kb/overview.md` 原样装——它们路由/描述的是工作流资产模块（CLAUDE.md/技能/ai-kb/openspec），装完后在目标项目同样成立；`memory/` 装空骨架——踩坑记录属本项目，不传染，目标项目从零积累。
 4. **装后自检复用校验脚本**：`validate-workflow.sh` 就是安装正确性的现成验收器，不另造检查。
-5. **可移植性**（memory 坑约束）：纯 bash、`set -u`、不用 bash 4+ 特性/新 git 特性；`--help`/`--force`/位置参数；彩色输出仅用 tput 兜底的 ANSI 常量。
+5. **可移植性**（memory 坑约束）：纯 bash、`set -u`、不用 bash 4+ 特性/新 git 特性；`--help`/`--force`/位置参数。
 6. **执行位**（memory 坑 4）：脚本提交时 `git update-index --chmod=+x`；复制到目标后 `chmod +x` 校验脚本。
 
 ## 取舍
