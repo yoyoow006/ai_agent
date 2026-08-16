@@ -1,6 +1,6 @@
 # 变更提案：init-workflow-system
 
-状态: 构建中
+状态: 已归档
 分支: feature/init-workflow-system
 创建: 2026-08-16
 

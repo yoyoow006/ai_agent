@@ -1,6 +1,9 @@
-# workflow-system 规范 delta
+# workflow-system 规范
 
-## ADDED Requirements
+## Purpose
+定义五阶段（Open → Design → Build → Verify → Archive）AI 编程工作流系统的行为要求：阶段组织、硬门禁、状态真源与断点续传、原生技能库、ai-kb 知识库、TDD 与两阶段审查纪律、归档流程及兼容性约束。
+
+## Requirements
 
 ### Requirement: 五阶段工作流
 系统 SHALL 以 Open → Design → Build → Verify → Archive 五阶段组织代码变更，每阶段有独立技能与产出物。
@@ -45,7 +48,7 @@ Verify 阶段 SHALL 由独立子代理执行规格符合性审查与代码质量
 - **THEN** 退回 Build 补齐后复审
 
 ### Requirement: 归档六步
-Archive 阶段 SHALL 依次：合并 delta 进主 specs → tasks 全勾终检+状态改已归档 → 知识沉淀 → 变更目录与计划书移入 archive → 合并 feature 分支并删除 → git commit。
+Archive 阶段 SHALL 依次：合并 delta 进主 specs → 知识沉淀 → 变更目录与计划书移入 archive（含 tasks 全勾终检+状态改已归档）→ 分支收尾（用户选择：合并/PR/保留）→ git commit。
 #### Scenario: 计划书归位
 - **WHEN** 归档完成
 - **THEN** openspec/plan/ 不再含该变更计划，计划书已移入 archive/（移动而非复制）
