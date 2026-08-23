@@ -102,3 +102,23 @@ The strengthened suite runs 13 tests and passes. Four isolated mutations now fai
 - `openspec validate add-test-login-project --strict --no-interactive` passed.
 - `git diff --check` exited 0.
 - `bash scripts/validate-workflow.sh --require-openspec` passed with `FAIL=0`.
+
+### Second-stage review hardening
+
+The quality review found four test or lifecycle gaps. Focused tests were added first and produced the expected three behavior failures:
+
+- `test_active_challenge_repr_does_not_expose_the_verification_code`;
+- `test_expired_unused_challenges_are_cleaned_by_later_login_activity`;
+- `test_non_string_and_unhashable_usernames_use_the_same_safe_failure`.
+
+The implementation then added:
+
+- a redacted `_Challenge.__repr__`;
+- safe unknown-user handling for non-string and unhashable usernames;
+- expired-challenge cleanup on later successful credential checks;
+- regression coverage for secure 16-byte salt generation and the default 100,000 PBKDF2 iterations.
+
+The strengthened suite now runs 18 tests and passes. Two isolated mutations are caught:
+
+- deterministic salt: `FAILED (failures=2)`;
+- default iterations reduced to 1: `FAILED (failures=1)`.

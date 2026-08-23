@@ -98,6 +98,38 @@ class LoginServiceTests(unittest.TestCase):
         )
         self.assertEqual(record.password_hash, expected_hash)
 
+    def test_salts_come_from_secure_random_bytes_of_sixteen_bytes(self):
+        dummy_salt = b"a" * 16
+        user_salt = b"b" * 16
+
+        with mock.patch(
+            "login_service.secrets.token_bytes",
+            side_effect=[dummy_salt, user_salt],
+        ) as token_bytes:
+            service = LoginService(
+                clock=self.clock,
+                delivery=self.delivery,
+                pbkdf2_iterations=1_000,
+            )
+            service.register("example", "ValidPassword123")
+
+        self.assertEqual(token_bytes.call_args_list, [mock.call(16), mock.call(16)])
+        self.assertEqual(service._dummy_salt, dummy_salt)
+        self.assertEqual(service._users["example"].salt, user_salt)
+
+    def test_default_pbkdf2_iterations_are_at_least_one_hundred_thousand(self):
+        original_digest = login_service.hashlib.pbkdf2_hmac
+
+        with mock.patch.object(
+            login_service.hashlib,
+            "pbkdf2_hmac",
+            wraps=original_digest,
+        ) as pbkdf2:
+            service = LoginService(clock=self.clock, delivery=self.delivery)
+            service.register("example", "ValidPassword123")
+
+        self.assertEqual(pbkdf2.call_args[0][3], 100_000)
+
     def test_unknown_user_performs_one_equal_parameter_dummy_pbkdf2_calculation(self):
         original_digest = login_service.hashlib.pbkdf2_hmac
 
@@ -136,6 +168,19 @@ class LoginServiceTests(unittest.TestCase):
 
         self.assertIs(type(unknown.exception), type(wrong_password.exception))
         self.assertEqual(str(unknown.exception), str(wrong_password.exception))
+        self.assertEqual(self.delivery.deliveries, [])
+        self.assertEqual(self.service._challenges, {})
+
+    def test_non_string_and_unhashable_usernames_use_the_same_safe_failure(self):
+        self.register_user()
+
+        for username in (None, [], {}):
+            with self.assertRaises(AuthenticationError) as caught:
+                self.service.begin_login(username, "ValidPassword123")
+            self.assertEqual(
+                str(caught.exception), "username or password is incorrect"
+            )
+
         self.assertEqual(self.delivery.deliveries, [])
         self.assertEqual(self.service._challenges, {})
 
@@ -211,6 +256,25 @@ class LoginServiceTests(unittest.TestCase):
         with self.assertRaises(VerificationError):
             self.service.complete_login(challenge_id, code)
         self.assertNotIn(challenge_id, self.service._challenges)
+
+    def test_expired_unused_challenges_are_cleaned_by_later_login_activity(self):
+        username, password = self.register_user()
+        expired_challenge_id = self.service.begin_login(username, password)
+        self.clock.advance(300)
+
+        active_challenge_id = self.service.begin_login(username, password)
+
+        self.assertNotIn(expired_challenge_id, self.service._challenges)
+        self.assertIn(active_challenge_id, self.service._challenges)
+        self.assertEqual(set(self.service._challenges), {active_challenge_id})
+
+    def test_active_challenge_repr_does_not_expose_the_verification_code(self):
+        challenge_id, code = self.begin_challenge()
+
+        rendered = repr(self.service._challenges[challenge_id])
+
+        self.assertNotIn(code, rendered)
+        self.assertIn("code=<redacted>", rendered)
 
 
 if __name__ == "__main__":

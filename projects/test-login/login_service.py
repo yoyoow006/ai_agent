@@ -63,6 +63,12 @@ class _Challenge:
     expires_at: float
     attempts: int = 0
 
+    def __repr__(self) -> str:
+        return (
+            f"_Challenge(username={self.username!r}, code=<redacted>, "
+            f"expires_at={self.expires_at!r}, attempts={self.attempts})"
+        )
+
 
 def generate_verification_code() -> str:
     """Return a cryptographically random six-digit verification code."""
@@ -119,6 +125,16 @@ class LoginService:
     def _ignore_delivery(delivery: VerificationDelivery) -> None:
         return None
 
+    def _remove_expired_challenges(self) -> None:
+        now = self._clock()
+        expired_challenge_ids = [
+            challenge_id
+            for challenge_id, challenge in self._challenges.items()
+            if now >= challenge.expires_at
+        ]
+        for challenge_id in expired_challenge_ids:
+            del self._challenges[challenge_id]
+
     @staticmethod
     def _password_bytes(password: str) -> bytes:
         return password.encode("utf-8")
@@ -173,7 +189,11 @@ class LoginService:
     def begin_login(self, username: str, password: str) -> str:
         """Check credentials and deliver a one-time random verification code."""
 
-        record = self._users.get(username)
+        record = (
+            self._users.get(username)
+            if isinstance(username, str)
+            else None
+        )
         if record is None:
             candidate = self._password_hash(
                 password if isinstance(password, str) else "",
@@ -193,6 +213,8 @@ class LoginService:
 
         if not valid_password:
             raise AuthenticationError("username or password is incorrect")
+
+        self._remove_expired_challenges()
 
         while True:
             challenge_id = self._challenge_generator()
