@@ -1,0 +1,16 @@
+/.ai-local/
+/.codex/sdd/
+/.claude/sdd/
+/.worktrees/
+__pycache__/
+*.py[cod]
+/.claude/settings.local.json
+/.ai/kb/contracts/
+/.ai/kb/projects/*
+!/.ai/kb/projects/README.md
+!/.ai/kb/projects/registry.json
+/.ai/memory/*
+!/.ai/memory/README.md
+!/.ai/memory/workflow.md
+/REVIEW.md
+/*.code-workspace
