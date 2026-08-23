@@ -1,7 +1,7 @@
 # 新增登录随机验证测试项目
 
 模式: 严格
-状态: 待验证
+状态: 待归档
 
 ## Why
 
@@ -95,13 +95,16 @@ The strengthened suite runs 13 tests and passes. Four isolated mutations now fai
 
 ### Build verification
 
-- Project suite: 13 tests passed.
+- Project suite: 18 tests passed.
 - Python compilation for service, CLI, and tests exited 0.
 - `python3 cli.py demo --auto` exited 0 and returned a session token.
 - `python3 cli.py demo --auto --reject` exited 1 with the fixed safe failure message.
 - `openspec validate add-test-login-project --strict --no-interactive` passed.
 - `git diff --check` exited 0.
 - `bash scripts/validate-workflow.sh --require-openspec` passed with `FAIL=0`.
+- Final specification review passed with manifest `d3c007cfb89a10120fa8836484ab9cd38a4df1fae89dc4fd57ecf89ae8ddae8d`.
+- Final quality review passed after delta remediation with manifest `95f4b628795934a9642adf755375349f1dd2debe9b5d601c04de5c0da192cdad`.
+- The final main-session required workflow run output `PASS=169 FAIL=0 SKIP=0`.
 
 ### Second-stage review hardening
 
