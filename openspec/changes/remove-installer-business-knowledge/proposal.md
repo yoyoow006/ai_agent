@@ -1,7 +1,7 @@
 # 从安装工具仓库移除业务项目知识
 
 模式: 严格
-状态: 待验证
+状态: 待归档
 
 ## Why
 
@@ -43,3 +43,16 @@
 - 保留安装器通用能力：空 registry、项目登记契约、`project_facts.py`、review manifest、共享规则与提示词。
 - 不修改安装器运行时代码和资产清单。
 - 不添加 remote、不推送、不创建 pack。
+
+## Verification Evidence
+
+- 任务级内容审查通过；R7 验证命令缺口已最小修复并完成 delta 复审，manifest `c316bf3e6e815d8ee8d198c5ef9fb7e2834af778d91c2de2bb6493603fdde986`。
+- installer-only root：`71f84dcc5fc6bea7b32d97ef04528c0031772a16`；当前分支为 `main`，`git remote -v` 为空。
+- 当前 designated 业务路径为 0，registry 为空；全部 reachable 历史扫描 `designated_history_paths=0`。
+- 旧 `main` 与实施 feature 提交对象查询均失败，说明已从本地对象库修剪。
+- `git fsck --full` 退出码 0，工作区 clean。
+- `.ai/tools/tests` 53 例全部通过。
+- 安装器资产 manifest/content 契约 6 例全部通过。
+- `bash scripts/install-ai-workflow.sh --help` 退出码 0，stderr 为空。
+- `openspec validate --all --no-interactive` 输出 6 passed、0 failed。
+- `bash scripts/validate-workflow.sh --require-openspec` 输出 `PASS=169 FAIL=0 SKIP=0`。

@@ -13,16 +13,16 @@
 - [x] 3.1 删除业务契约、项目卡、业务 memory、业务 review 清单和 workspace 配置。
 - [x] 3.2 恢复空白 registry 并清理 mixed 共享文档。
 - [x] 3.3 增加源仓库业务知识防回流 ignore 规则。
-- [ ] 3.4 重建净化后的本地 Git root 基线。
-- [ ] 3.5 移除旧引用、清理 reflog 并修剪不可达对象。
+- [x] 3.4 重建净化后的本地 Git root 基线。
+- [x] 3.5 移除旧引用、清理 reflog 并修剪不可达对象。
 
 ## 4. 验证范围
 
-- [ ] 4.1 当前树 designated 业务路径扫描。
-- [ ] 4.2 全部 reachable 历史 designated 业务路径扫描。
-- [ ] 4.3 事实工具与安装器资产契约测试。
-- [ ] 4.4 OpenSpec 与严格工作流门禁。
-- [ ] 4.5 Git 完整性、clean status 与无 remote 校验。
+- [x] 4.1 当前树 designated 业务路径扫描。
+- [x] 4.2 全部 reachable 历史 designated 业务路径扫描。
+- [x] 4.3 事实工具与安装器资产契约测试。
+- [x] 4.4 OpenSpec 与严格工作流门禁。
+- [x] 4.5 Git 完整性、clean status 与无 remote 校验。
 
 ## 5. 收尾
 
