@@ -1,7 +1,7 @@
 # 新增登录随机验证测试项目
 
 模式: 严格
-状态: 构建中
+状态: 待验证
 
 ## Why
 
@@ -92,3 +92,13 @@ The strengthened suite runs 13 tests and passes. Four isolated mutations now fai
 - ordinary password equality instead of constant-time comparison: `FAILED (failures=1)`;
 - deterministic session token: `FAILED (failures=1)`;
 - removed unknown-user dummy work: `FAILED (failures=1)`.
+
+### Build verification
+
+- Project suite: 13 tests passed.
+- Python compilation for service, CLI, and tests exited 0.
+- `python3 cli.py demo --auto` exited 0 and returned a session token.
+- `python3 cli.py demo --auto --reject` exited 1 with the fixed safe failure message.
+- `openspec validate add-test-login-project --strict --no-interactive` passed.
+- `git diff --check` exited 0.
+- `bash scripts/validate-workflow.sh --require-openspec` passed with `FAIL=0`.
