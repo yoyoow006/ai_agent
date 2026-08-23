@@ -120,3 +120,7 @@
 ## 2026-08-23 · 来源变更 add-test-login-project
 **坑**：严格模式运行时行为把测试与实现放进同一提交后，审查者无法从 Git 历史独立复现 TDD 红阶段；隔离 worktree 还不会自动 materialize 被忽略的 SDD 占位目录。
 **解**：运行时实现先提交 test-only 状态或保留可复核的临时红输出，再提交实现；隔离 worktree 需按本地忽略规则补齐 SDD 占位目录后运行完整门禁。安全契约测试应覆盖实际算法、随机源、默认参数和错误路径，而不只断言内部结果非空。
+
+## 2026-08-23 · 来源变更 add-origin-remote
+**坑**：标准 Verify 阶段的 OpenSpec 四件套尚未提交时，把 `git status` 笼统断言为 clean 会与实际未跟踪流程产物冲突。
+**解**：远程或本地配置类变更应精确断言分支、tracked/staged 差异和允许的未跟踪流程文件清单；添加 remote 只写 `.git/config`，fetch、pull、push 仍必须另行授权。
