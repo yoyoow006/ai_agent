@@ -36,3 +36,59 @@
 - 不修改安装器运行时代码、资产清单、`.ai/kb/projects/registry.json` 或工作流校验器。
 - 不把测试项目登记为共享知识层的业务项目。
 - 安全边界：这是本地测试项目，不声明适合生产环境直接部署。
+
+## Verification Evidence
+
+### TDD red reconstruction
+
+The initial implementation commit placed the tests and implementation in one commit, which did not preserve independently reviewable red evidence. To close `TLT-TDD-EVIDENCE-001`, the committed test-only set from `d566dd3` was copied to `/tmp/add-test-login-red.ZYt0R4` without `login_service.py`, `cli.py`, or `README.md`, then rerun with:
+
+```bash
+python3 -B -m unittest discover -v -s tests -p 'test_*.py'
+```
+
+The command exited `1` with the expected module-missing failures:
+
+```text
+test_cli (unittest.loader._FailedTest) ... ERROR
+test_login_service (unittest.loader._FailedTest) ... ERROR
+
+======================================================================
+ERROR: test_cli (unittest.loader._FailedTest)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_cli
+Traceback (most recent call last):
+  File "/tmp/add-test-login-red.ZYt0R4/tests/test_cli.py", line 5, in <module>
+    from cli import run_demo
+ModuleNotFoundError: No module named 'cli'
+
+======================================================================
+ERROR: test_login_service (unittest.loader._FailedTest)
+----------------------------------------------------------------------
+ImportError: Failed to import test module: test_login_service
+Traceback (most recent call last):
+  File "/tmp/add-test-login-red.ZYt0R4/tests/test_login_service.py", line 5, in <module>
+    from login_service import (
+ModuleNotFoundError: No module named 'login_service'
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.000s
+
+FAILED (errors=2)
+```
+
+### Security regression hardening
+
+`TLT-SECURITY-REGRESSION-002` was closed by adding tests for:
+
+- exact PBKDF2-HMAC-SHA256 call parameters and digest;
+- one equal-parameter dummy PBKDF2 call for unknown users;
+- password comparison delegation to `hmac.compare_digest`;
+- secure `secrets.token_urlsafe(24)` challenge IDs and `secrets.token_urlsafe(32)` session tokens.
+
+The strengthened suite runs 13 tests and passes. Four isolated mutations now fail:
+
+- wrong PBKDF2 algorithm: `FAILED (failures=2)`;
+- ordinary password equality instead of constant-time comparison: `FAILED (failures=1)`;
+- deterministic session token: `FAILED (failures=1)`;
+- removed unknown-user dummy work: `FAILED (failures=1)`.

@@ -1,7 +1,9 @@
 import re
+import hashlib
 import unittest
 from unittest import mock
 
+import login_service
 from login_service import (
     AuthenticationError,
     LoginService,
@@ -74,6 +76,56 @@ class LoginServiceTests(unittest.TestCase):
             self.assertNotEqual(record.password_hash, b"ValidPassword123")
             self.assertNotEqual(record.password_hash, b"OtherValidPassword123")
 
+    def test_password_hash_uses_pbkdf2_hmac_sha256_with_configured_iterations(self):
+        original_digest = login_service.hashlib.pbkdf2_hmac
+
+        with mock.patch.object(
+            login_service.hashlib,
+            "pbkdf2_hmac",
+            wraps=original_digest,
+        ) as pbkdf2:
+            self.service.register("example", "ValidPassword123")
+
+        self.assertEqual(pbkdf2.call_count, 1)
+        self.assertEqual(
+            pbkdf2.call_args[0],
+            ("sha256", b"ValidPassword123", mock.ANY, 1_000),
+        )
+
+        record = self.service._users["example"]
+        expected_hash = hashlib.pbkdf2_hmac(
+            "sha256", b"ValidPassword123", record.salt, 1_000
+        )
+        self.assertEqual(record.password_hash, expected_hash)
+
+    def test_unknown_user_performs_one_equal_parameter_dummy_pbkdf2_calculation(self):
+        original_digest = login_service.hashlib.pbkdf2_hmac
+
+        with mock.patch.object(
+            login_service.hashlib,
+            "pbkdf2_hmac",
+            wraps=original_digest,
+        ) as pbkdf2:
+            with self.assertRaises(AuthenticationError):
+                self.service.begin_login("missing", "ValidPassword123")
+
+        self.assertEqual(pbkdf2.call_count, 1)
+        self.assertEqual(
+            pbkdf2.call_args[0],
+            ("sha256", b"ValidPassword123", self.service._dummy_salt, 1_000),
+        )
+
+    def test_password_comparison_is_delegated_to_constant_time_compare(self):
+        self.register_user()
+
+        with mock.patch(
+            "login_service.hmac.compare_digest", return_value=False
+        ) as compare_digest:
+            with self.assertRaises(AuthenticationError):
+                self.service.begin_login("example", "ValidPassword123")
+
+        compare_digest.assert_called_once()
+
     def test_unknown_user_and_wrong_password_have_the_same_safe_failure(self):
         username, password = self.register_user()
 
@@ -112,6 +164,29 @@ class LoginServiceTests(unittest.TestCase):
         self.assertFalse(self.service.validate_token("not-a-real-token"))
         with self.assertRaises(VerificationError):
             self.service.complete_login(challenge_id, code)
+
+    def test_default_challenge_ids_and_session_tokens_use_secure_urlsafe_tokens(self):
+        with mock.patch(
+            "login_service.secrets.token_urlsafe",
+            side_effect=["challenge-id", "session-token"],
+        ) as token_urlsafe:
+            service = LoginService(
+                clock=self.clock,
+                delivery=self.delivery,
+                pbkdf2_iterations=1_000,
+            )
+            service.register("example", "ValidPassword123")
+            challenge_id = service.begin_login("example", "ValidPassword123")
+            token = service.complete_login(
+                challenge_id, self.delivery.deliveries[-1].code
+            )
+
+        self.assertEqual(challenge_id, "challenge-id")
+        self.assertEqual(token, "session-token")
+        self.assertEqual(
+            token_urlsafe.call_args_list,
+            [mock.call(24), mock.call(32)],
+        )
 
     def test_wrong_codes_are_limited_and_then_challenge_is_invalidated(self):
         challenge_id, code = self.begin_challenge()
