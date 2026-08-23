@@ -9,6 +9,7 @@
 | 共享知识层 | `.ai/` | kb、memory、rules、prompts、tools | 路由、踩坑、项目卡、知识沉淀、事实查询 |
 | 项目登记 | `.ai/kb/projects/registry.json`, `.ai/kb/projects/` | registry、项目卡 | project-context、server-registry、workspace-search |
 | 安装器知识分层 | `.gitignore`, `.ai/kb/projects/README.md`, `openspec/specs/installer-knowledge-separation/` | 源仓库业务知识、目标项目登记 | 空白 registry、通用骨架、业务项目卡、防回流 |
+| 测试登录项目 | `projects/test-login/` | 登录演示、随机验证 | PBKDF2、验证码、session token、一次性挑战 |
 | OpenSpec 数据层 | `openspec/` | 变更目录 | 模式字段、proposal、delta、tasks、plan、archive |
 | 工作流校验器 | `scripts/validate-workflow.sh` | 结构校验、回归守卫 | mutation、镜像、非法状态、旧重流程、假绿、required、OpenSpec strict、PASS/FAIL/SKIP |
 | 仓库忽略规则 | `.gitignore` | Git 忽略、本地路径 | `.worktrees`、`.codex/sdd`、`.claude/sdd`、外部项目 |
