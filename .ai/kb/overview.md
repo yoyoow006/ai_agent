@@ -9,6 +9,7 @@
 - `.codex/sdd/` / `.claude/sdd/`：仅在确需子代理时使用的本地草稿区，Git 忽略。
 - `openspec/`：标准/严格变更的数据层，与 Claude 共享。
 - `scripts/validate-workflow.sh`：结构、镜像、禁止规则和 mutation 回归校验。
+- `projects/test-login/`：离线 Python 标准库登录与随机验证演示，不承载共享业务项目事实。
 
 本总览合并了原 Claude 风险摘要与 Codex 模块/底线信息；助手特有工具行为仍留在各自适配目录。
 
