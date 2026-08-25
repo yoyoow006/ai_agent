@@ -2,12 +2,12 @@
 
 ## 1. 红阶段：记录现有 Open 技能的需求理解失败
 
-- [ ] 在 `.codex/sdd/improve-open-requirement-discovery/` 创建至少三个压力场景记录：
+- [x] 在 `.codex/sdd/improve-open-requirement-discovery/` 创建至少三个压力场景记录：
    - 模糊目标：用户只给出方向，观察是否先查事实、编号提问、给推荐并等待。
    - 事实与决策混淆：观察是否把仓库可回答的问题推给用户。
    - 术语过载：观察是否引用来源请求确定 canonical term。
-- [ ] 用全新上下文代理按同一提示分别运行基线，逐字保存回答、判定和合理化分类。
-- [ ] 预期：当前技能缺少稳定的问题形状、事实优先边界和回答落盘契约，至少两个场景判 FAIL。
+- [x] 用全新上下文代理按同一提示分别运行基线，逐字保存回答、判定和合理化分类。
+- [x] 预期：当前技能缺少稳定的问题形状、事实优先边界和回答落盘契约，至少两个场景判 FAIL。
 
 ## 2. 绿阶段：实现双侧技能与结构门禁
 
@@ -31,4 +31,3 @@
 - [ ] 完成规格符合性与代码/流程质量两个独立关注面的 Verify 审查。
 - [ ] 运行 `bash scripts/validate-workflow.sh --require-openspec`，预期 `FAIL=0` 且 OpenSpec 不 SKIP。
 - [ ] 归档 delta 到 `openspec/specs/risk-tiered-ai-workflow/spec.md`，沉淀必要 memory/kb 事实，状态置为`已归档`。
-
