@@ -436,6 +436,9 @@ check "核心规则无统一重流程回归" policy_ok "${policy_files[@]}"
 for agent in "${required_agents[@]}"; do
   check "$agent Open 快速豁免" contains_all "$agent/skills/open/SKILL.md" '快速模式' '不创建 proposal' '不切 feature' '默认不提交'
   check "$agent Open 标准直接待确认" contains_all "$agent/skills/open/SKILL.md" '`状态: 待确认计划`' '状态直接置为`待确认计划`' '唯一一次实施前确认' '不得另建 `openspec/plan`'
+  check "$agent Open 需求理解" contains_all "$agent/skills/open/SKILL.md" \
+    '权威事实优先' '只问决策' '当前已解锁问题分轮' '推荐答案' '等待用户回答' 'canonical term' '四件套' \
+    '四个字段缺一不可' '证据: <来源路径>' '具体默认或条件式推荐' '条件式' '重新分类' '严格条件不得因'
   check "$agent Design 仅严格" contains_all "$agent/skills/design/SKILL.md" 'Design 只属于严格模式' '不得创建 `openspec/plan`' '第二次实施前确认'
   check "$agent Design worktree 顺序" contains_all "$agent/skills/design/SKILL.md" '只暂存本变更四件套' '先切回记录的基线分支' '不得在 feature 已检出时执行 `git worktree add`'
   check "$agent Build 标准 feature 落点" contains_all "$agent/skills/build/SKILL.md" '创建并切到 `feature/<变更名>`' '不得在 main/master 写实现' '先切回基线'
