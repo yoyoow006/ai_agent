@@ -42,7 +42,7 @@ git status --short --branch
 **Expected**
 
 - 本地提交只包含四件套与独立计划，不推送。
-- required 工作流门禁最终 `FAIL=0`、OpenSpec 不为 `SKIP`。
+- required 工作流门禁最终精确输出 `PASS=169 FAIL=0 SKIP=0`。
 - 提交后工作区除本计划允许的后续 evidence/finding 文件外保持干净。
 
 ## Task 1：安装前目标与嵌套仓边界快照
@@ -57,6 +57,9 @@ git status --short --branch
 ```bash
 SOURCE='/media/shitou/石头/wksource/git_me_prj/ai_agent/.worktrees/install-codex-workflow-yuxiaor'
 TARGET='/media/shitou/石头/wksource/yuxiaor_prj_2025'
+
+set -euo pipefail
+
 mkdir -p "$SOURCE/openspec/changes/install-codex-workflow-yuxiaor/evidence"
 
 python3 -B - "$TARGET" <<'PY'
