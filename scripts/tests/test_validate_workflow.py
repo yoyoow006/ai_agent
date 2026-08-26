@@ -642,6 +642,16 @@ class ValidateWorkflowContractTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, msg=result.stdout)
         self.assertIn("[PASS] Python 缓存路径已忽略", result.stdout)
 
+    def test_validator_supports_non_git_workflow_root(self) -> None:
+        shutil.rmtree(self.fixture / ".git")
+
+        result = self._run_validator()
+
+        self.assertEqual(result.returncode, 0, msg=result.stdout)
+        self.assertIn("[PASS] Python 缓存路径已忽略", result.stdout)
+        self.assertIn("[PASS] SDD 草稿区已忽略", result.stdout)
+        self.assertIn("[PASS] Claude SDD 草稿区已忽略", result.stdout)
+
     def test_rejects_reintroduced_parallel_ai_kb_body(self) -> None:
         legacy_body_roots = (
             ".codex/ai-kb/kb",
