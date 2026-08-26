@@ -30,6 +30,10 @@
 **坑**：手写补丁新增或替换文件时，hunk 行数与上下文中的空行不一致会悄悄引入额外空白行，内容看似正确但格式校验失败。
 **解**：应用补丁后立即检查目标段落边界，运行尾随空白扫描和 `git diff --check`；不要仅凭补丁成功输出判断格式正确。
 
+## 2026-08-26 · 来源变更 improve-open-requirement-discovery（压力场景权威事实）
+**坑**：压力场景假设仓库已有订单搜索实现，但项目 registry 为空且 tracked 搜索没有业务目标；把 ignored SDD 夹具当作仓库事实会制造假绿色前提。
+**解**：压力场景必须与 registry/tracked 权威事实一致。真实无目标时应先引用边界并询问外部既有代码、新建/登记还是仅示例；用户下一轮给出已检出目标后，再自行核对实现、路由、测试和文档。用户明示输入可作为证据来源，但不得伪造成路径。
+
 
 ## 2026-08-20 · 来源变更 adopt-shared-ai-workflow-infrastructure（OpenSpec strict）
 **坑**：required 校验只证明 CLI 与非严格 validate 已执行；CLI 长期缺失还会掩盖既有主规格 Purpose 过短等 strict 警告，直到严格终验才集中失败。
