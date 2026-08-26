@@ -132,3 +132,23 @@
 ## 2026-08-26 · 来源变更 initialize-git-repository（历史基线归档）
 **坑**：归档长期停留的初始化变更时，实施时的初始提交哈希与“无 remote”状态可能已被后续授权的历史净化和远程配置变更取代；直接照搬旧证据会与现行主规格冲突。
 **解**：用当前 parentless root、clean 状态和 ignore/OpenSpec 基线重新验收；delta 明确“初始化本身不添加 remote/不推送”与后续独立授权远程配置的边界，并记录旧证据到新历史的演进关系。归档前必须先提交审查产生的 OpenSpec 修正并复跑 required 门禁。
+
+## 2026-08-26 · 来源变更 install-codex-workflow-yuxiaor（外部目标预检身份漂移）
+**坑**：跨目录安装的计划确认后，目标根 `.gitignore` 被外部新增 `http-client.http`，固定 SHA-256 预检失败；若无 fail-fast，可能继续生成误导性 PASS 摘要。
+**解**：预检命令在所有检查和证据写入前启用 `set -euo pipefail`；身份漂移时保留现场、记录新旧哈希和时间戳，向用户确认新基线后只更新受影响身份与预测值，再完整重跑预检。
+
+## 2026-08-26 · 来源变更 install-codex-workflow-yuxiaor（嵌套仓快照隐私）
+**坑**：嵌套仓状态快照虽然只打算落盘哈希，但输出格式写成了 `digest  repo.name`，业务仓目录名仍会进入待提交 evidence，违反“不保存文件名”的边界。
+**解**：把仓目录名、HEAD 和 status 一起作为每仓 SHA-256 输入，只输出排序后的摘要行；安装前后使用完全相同格式逐字节比对，既能发现仓与状态映射变化，也不泄露目录名。
+
+## 2026-08-26 · 来源变更 install-codex-workflow-yuxiaor（外部嵌套仓并发漂移）
+**坑**：安装器只写目标根，但两个嵌套业务仓在安装后验证前发生外部状态漂移，导致安装前快照失效；初次记录只识别出一个仓，单次 `cmp` 后未启用 fail-fast 还可能打印误导性 PASS。
+**解**：根工作流产物与嵌套仓边界分开验收；保留旧快照作历史证据，用 `GIT_OPTIONAL_LOCKS=0` 连续两次采样相同的隐私安全摘要，稳定后经用户确认全部漂移仓再作为验证基线。对比 before/verified 的对称差确认变化仓数，不落盘仓名或状态正文；所有诊断命令先 `set -euo pipefail`。
+
+## 2026-08-26 · 来源变更 install-codex-workflow-yuxiaor（非 Git 根校验）
+**坑**：便携工作流可安装到已存在的非 Git 目录，但校验器把 `git check-ignore` 直接当作忽略规则检查；目标根无 `.git` 时即使 `.gitignore` 正确也返回 128。
+**解**：先写非 Git 根失败测试；校验时若已在 Git worktree 就直接探测，否则在 `/tmp` 创建临时 Git metadata、以当前目录为 work-tree 执行 `git check-ignore`，退出时清理临时 metadata。不要为通过校验在目标根初始化 Git。
+
+## 2026-08-26 · 来源变更 install-codex-workflow-yuxiaor（单助手测试继承）
+**坑**：新增测试在双助手源仓库直接通过，但同一测试会被 installed fixture 的单助手 profile 变体继承；硬编码 Codex+Claude 双断言使合法 Codex-only 目标失败。
+**解**：测试断言先用 `_assistant_required_in_fixture` 判断当前 profile，只要求选中助手的存在项，并明确断言未选助手的存在项不出现；同步修改源测试与安装资产测试。

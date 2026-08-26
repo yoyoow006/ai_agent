@@ -45,4 +45,5 @@ Open 在进入任一模式前先建立需求共识：代码、测试、OpenSpec�
 - 项目事实以 `.ai/kb/projects/registry.json` 和项目卡为声明式入口；`project_facts.py` 只查询登记且已检出的路径，不联网、不 clone、不写业务仓。
 - 标准与严格审查使用 `review_manifest.py freeze/verify/delta` 冻结 comparison base、Git 层级、未忽略 untracked 与内容身份；结论前范围变化必须按 `STALE` 停止。
 - `scripts/validate-workflow.sh --require-openspec` 要求 OpenSpec CLI 与仓库必需测试真实执行；严格终验还应独立运行 `openspec validate --all --strict --no-interactive`。
+- 便携工作流可安装在非 Git 根目录；忽略规则校验在无根 `.git` 时使用目标 worktree 加临时外部 Git metadata，不在目标初始化 Git。
 - 项目内 CLI 可放在已忽略的 `.ai-local/tools/openspec` 并临时加入 `PATH`；不得为验证执行 `openspec init` 或 `openspec update`。

@@ -1,0 +1,104 @@
+[PASS] 助手 profile 合法: codex
+[PASS] 目录存在: openspec/changes
+[PASS] 目录存在: openspec/plan
+[PASS] 目录存在: openspec/specs
+[PASS] 目录存在: openspec/archive
+[PASS] 目录存在: .ai/kb
+[PASS] 目录存在: .ai/kb/projects
+[PASS] 目录存在: .ai/rules
+[PASS] 目录存在: .ai/memory
+[PASS] 目录存在: .ai/prompts/agents
+[PASS] 目录存在: .ai/tools
+[PASS] 目录存在: .ai/tools/tests
+[PASS] 目录存在: .codex/skills
+[PASS] 目录存在: .codex/sdd
+[PASS] 文件存在: openspec/AGENTS.md
+[PASS] 文件存在: openspec/project.md
+[PASS] 文件存在: .ai/README.md
+[PASS] 文件存在: .ai/rules/index.md
+[PASS] 文件存在: .ai/rules/review.md
+[PASS] 文件存在: .ai/kb/projects/registry.json
+[PASS] 文件存在: .ai/tools/project_facts.py
+[PASS] 文件存在: .ai/tools/review_manifest.py
+[PASS] 文件存在: .ai/tools/README.md
+[PASS] 文件存在: scripts/workflow-pressure-scenarios.md
+[PASS] 文件存在: .codex/ai-kb/README.md
+[PASS] 文件存在: .codex/README.md
+[PASS] 旧 ai-kb 不含平行正文
+[PASS] 活跃入口不引用旧 ai-kb 正文
+[PASS] Codex 旧知识入口只指向共享 .ai
+[PASS] 项目 registry JSON 可解析
+[FAIL] Python 缓存路径已忽略
+[PASS] 技能存在: .codex/open
+[PASS] frontmatter: .codex/open
+[PASS] 技能存在: .codex/design
+[PASS] frontmatter: .codex/design
+[PASS] 技能存在: .codex/build
+[PASS] frontmatter: .codex/build
+[PASS] 技能存在: .codex/verify
+[PASS] frontmatter: .codex/verify
+[PASS] 技能存在: .codex/archive
+[PASS] frontmatter: .codex/archive
+[PASS] 技能存在: .codex/tdd
+[PASS] frontmatter: .codex/tdd
+[PASS] 技能存在: .codex/subagent-driven
+[PASS] frontmatter: .codex/subagent-driven
+[PASS] 技能存在: .codex/code-review
+[PASS] frontmatter: .codex/code-review
+[PASS] 技能存在: .codex/systematic-debugging
+[PASS] frontmatter: .codex/systematic-debugging
+[PASS] 技能存在: .codex/verification
+[PASS] frontmatter: .codex/verification
+[PASS] 技能存在: .codex/git-worktrees
+[PASS] frontmatter: .codex/git-worktrees
+[PASS] 技能存在: .codex/parallel-agents
+[PASS] frontmatter: .codex/parallel-agents
+[PASS] 技能存在: .codex/writing-skills
+[PASS] frontmatter: .codex/writing-skills
+[PASS] mutation: 拒绝非法状态
+[PASS] mutation: 标准拒绝严格专用草稿态
+[PASS] AGENTS.md 三级模式定义
+[PASS] AGENTS.md 标准单确认
+[PASS] AGENTS.md 严格 8 态
+[PASS] AGENTS.md 共享底线
+[PASS] 核心规则无统一重流程回归
+[PASS] .codex Open 快速豁免
+[PASS] .codex Open 标准直接待确认
+[PASS] .codex Open 需求理解
+[PASS] .codex Design 仅严格
+[PASS] .codex Design worktree 顺序
+[PASS] .codex Build 标准 feature 落点
+[PASS] .codex Build 风险分支
+[PASS] .codex Verify 标准单审严格双审
+[PASS] .codex Verify 严格 required 门禁
+[PASS] .codex Archive 模式分支
+[PASS] .codex Archive required 门禁
+[PASS] .codex TDD 非运行时边界
+[PASS] .codex review 条件触发
+[PASS] .codex review 输出契约
+[PASS] .codex subagent 条件触发
+[PASS] .codex worktree 风险触发
+[PASS] 共享 Review 规则
+[PASS] 共享角色契约: explorer
+[PASS] 共享角色契约: reviewer
+[PASS] 共享角色契约: test-worker
+[PASS] 角色适配: .codex/agents/explorer.toml
+[PASS] 角色适配: .codex/agents/reviewer.toml
+[PASS] 角色适配: .codex/agents/test_worker.toml
+[PASS] mutation: 入口拒绝文档统一四件套
+[PASS] mutation Q: 快速拒绝强制 manifest
+[PASS] mutation S: 标准拒绝第二次完整审查
+[PASS] mutation X: 拒绝所有任务机械调用角色
+[PASS] mutation: .codex Open 拒绝文档统一四件套
+[PASS] mutation: .codex Design 拒绝标准独立计划
+[PASS] mutation: .codex Build 拒绝标准双阶段审查
+[PASS] mutation: .codex Verify 拒绝标准双阶段审查
+[PASS] Q/R/S/X 压力契约
+[FAIL] SDD 草稿区已忽略
+[PASS] 无每任务机械提交规则
+[PASS] Codex 工具映射
+[PASS] 事实工具必需测试（registry/边界/分页/ignore）
+[PASS] Review manifest 必需测试（freeze/STALE/delta）
+[PASS] OpenSpec validate --all --no-interactive
+[PASS] 工作流顶层契约测试
+PASS=101 FAIL=2 SKIP=0
