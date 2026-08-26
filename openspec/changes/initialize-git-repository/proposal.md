@@ -1,7 +1,7 @@
 # 初始化 AI 工作流仓库 Git 基线
 
 模式: 标准
-状态: 待验证
+状态: 待归档
 
 ## Why
 
@@ -46,3 +46,5 @@
 - 当前 `bash scripts/install-ai-workflow.sh --help` 退出码 0，stdout 为 usage，stderr 为空。
 - 当前 `openspec validate initialize-git-repository --strict --no-interactive` 输出 valid。
 - 当前 `bash scripts/validate-workflow.sh` 输出 `PASS=169 FAIL=0 SKIP=0`，OpenSpec 检查实际执行且未 SKIP。
+- 标准 Verify manifest `ae18b9ce…` 发现 `IGR-001`：三份本变更 OpenSpec 修正尚未提交，导致干净基线场景临时失败；已用提交 `9ec162f` 精确处置。
+- 差异复审 manifest `da154dd3…` 确认 delta 仅包含该三份文件、工作区 clean、`IGR-001` resolved；reviewer 与主会话均在提交后复跑 required workflow，结果均为 `PASS=169 FAIL=0 SKIP=0`。
