@@ -46,11 +46,23 @@ verification: Regenerate the before snapshot with the privacy-safe format and co
 - Open Critical/Important findings: none.
 - Independently confirmed: old entry preserved; key installed identities correct; `.gitignore` managed block correct; Codex-only; `CLAUDE.md` and `REVIEW.md` unchanged; installer output exact; no direct unauthorized-write evidence.
 
+## TASK3-001
+
+```text
+id: TASK3-001
+severity: Important
+repo/path:line: openspec/changes/install-codex-workflow-yuxiaor/evidence/nested-repos-before.sha256:1-10; openspec/plan/install-codex-workflow-yuxiaor.md:174-245
+evidence: After installation and before final validation, an external concurrent process added and then removed untracked documents in one nested business repository, so the pre-install snapshot no longer represented the current state. Root workflow identities remained correct and installer output never touched nested repositories.
+observable impact: Comparing final validation against the superseded pre-install snapshot would report an external business-repo drift as an installer failure.
+status: resolved
+minimal fix: Preserve the original pre-install snapshot unchanged; with user confirmation, take two identical read-only privacy-safe summary samples of the current 10-repository state and use that stable verified baseline across Task 3.
+verification: Two consecutive GIT_OPTIONAL_LOCKS=0 samples must match exactly, the baseline must contain 10 digest-only lines, and the post-validation snapshot must compare byte-identical against this verified baseline.
+```
+
 ## Unverified
 
-- Target directory state must be rechecked after the TASK1-001 privacy fix; no target write is authorized until the corrected Task 1 review passes.
-- Task 2–3 execution outputs do not exist yet.
+- Task 3 target-validation, stable verified baseline, and postflight outputs do not exist yet.
 
 ## Residual risk
 
-- The external target is outside the Git review manifest; fixed hashes and the nested-repository count must be revalidated immediately before rename/install.
+- The external target is outside the Git review manifest; nested business repositories can drift concurrently. Final verification must compare against the user-confirmed stable baseline and report any further drift without attributing it to the installer without evidence.

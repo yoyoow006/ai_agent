@@ -60,6 +60,8 @@ TARGET='/media/shitou/石头/wksource/yuxiaor_prj_2025'
 
 set -euo pipefail
 
+export GIT_OPTIONAL_LOCKS=0
+
 mkdir -p "$SOURCE/openspec/changes/install-codex-workflow-yuxiaor/evidence"
 
 python3 -B - "$TARGET" <<'PY'
@@ -121,7 +123,7 @@ PY
 **Expected**
 
 - 所有 `test`、路径检查和嵌套仓快照命令退出码为 0。
-- 快照只输出按摘要排序的 SHA-256 行；仓目录名、HEAD、状态正文只作为单向摘要输入，不落盘，避免泄露用户数据。
+- 快照只输出按摘要排序的 SHA-256 行；仓目录名、HEAD、状态正文只作为单向摘要输入，不落盘，避免泄露用户数据；Git 查询禁用 optional locks，避免刷新嵌套仓 index。
 - 任一身份不匹配即停止，不重命名、不安装、不删除。
 
 ## Task 2：保留旧入口、复验计划并事务安装
@@ -175,6 +177,7 @@ grep -Fx 'RESULT assistant=codex target=/media/shitou/石头/wksource/yuxiaor_pr
 **Create**
 
 - `openspec/changes/install-codex-workflow-yuxiaor/evidence/target-validation.txt`
+- `openspec/changes/install-codex-workflow-yuxiaor/evidence/nested-repos-verified-baseline.sha256`
 - `openspec/changes/install-codex-workflow-yuxiaor/evidence/nested-repos-after.sha256`
 - `openspec/changes/install-codex-workflow-yuxiaor/evidence/postflight.txt`
 
@@ -186,6 +189,45 @@ TARGET='/media/shitou/石头/wksource/yuxiaor_prj_2025'
 EVIDENCE="$SOURCE/openspec/changes/install-codex-workflow-yuxiaor/evidence"
 
 set -euo pipefail
+
+export GIT_OPTIONAL_LOCKS=0
+
+python3 -B - "$TARGET" > "$EVIDENCE/nested-repos-verified-baseline.sha256" <<'PY'
+from pathlib import Path
+import hashlib
+import os
+import subprocess
+import sys
+import time
+
+target = Path(sys.argv[1])
+
+def snapshot():
+    repos = sorted(path.parent for path in target.glob('*/.git') if path.exists())
+    if len(repos) != 10:
+        raise SystemExit(f'expected 10 nested repositories, found {len(repos)}')
+    digests = []
+    for repo in repos:
+        head = subprocess.check_output(['git', '-C', str(repo), 'rev-parse', 'HEAD'])
+        status = subprocess.check_output(
+            ['git', '-C', str(repo), 'status', '--porcelain=v1', '-z']
+        )
+        digest = hashlib.sha256(
+            b'REPO\0' + os.fsencode(repo.name) + b'HEAD\0' + head
+            + b'STATUS\0' + status
+        ).hexdigest()
+        digests.append(digest)
+    return tuple(sorted(digests))
+
+first = snapshot()
+time.sleep(2)
+second = snapshot()
+if first != second:
+    raise SystemExit('nested repository summaries changed between stability samples')
+for digest in first:
+    print(digest)
+PY
+
 cd "$TARGET"
 bash scripts/validate-workflow.sh --require-openspec | tee "$EVIDENCE/target-validation.txt"
 openspec validate --all --strict --no-interactive | tee -a "$EVIDENCE/target-validation.txt"
@@ -224,13 +266,13 @@ for repo in repos:
 for digest in sorted(digests):
     print(digest)
 PY
-cmp "$EVIDENCE/nested-repos-before.sha256" "$EVIDENCE/nested-repos-after.sha256"
+cmp "$EVIDENCE/nested-repos-verified-baseline.sha256" "$EVIDENCE/nested-repos-after.sha256"
 {
   printf '%s\n' 'REQUIRED_WORKFLOW_NO_FAIL=PASS'
   printf '%s\n' 'OPENSPEC_STRICT=PASS'
   printf '%s\n' 'IDEMPOTENT_DRY_RUN_UNCHANGED_53=PASS'
   printf '%s\n' 'ROOT_HASHES_PROFILE_AND_ABSENCE=PASS'
-  printf '%s\n' 'NESTED_REPOSITORIES_BYTE_IDENTICAL_SUMMARY=PASS'
+  printf '%s\n' 'NESTED_REPOSITORIES_STABLE_ACROSS_VALIDATION=PASS'
 } > "$EVIDENCE/postflight.txt"
 ```
 
@@ -239,7 +281,8 @@ cmp "$EVIDENCE/nested-repos-before.sha256" "$EVIDENCE/nested-repos-after.sha256"
 - `scripts/validate-workflow.sh --require-openspec` 最终无 `FAIL`、无 OpenSpec `SKIP`。
 - `openspec validate --all --strict --no-interactive` 输出全部有效。
 - 重复 dry-run 证明 53 个安装项全部 `unchanged`。
-- 十个嵌套业务仓的“目录名+HEAD+状态”单向摘要逐字节一致；`CLAUDE.md` 与 `REVIEW.md` 未变。
+- 用户确认安装后外部并发漂移后，以两次一致采样生成新的嵌套仓验证基线；十个嵌套业务仓的“目录名+HEAD+状态”单向摘要跨越目标验证保持逐字节一致。原始安装前快照仅保留为历史证据，不因外部漂移被改写。
+- `CLAUDE.md` 与 `REVIEW.md` 未变。
 
 ## Task 4：严格审查、状态推进与归档
 
