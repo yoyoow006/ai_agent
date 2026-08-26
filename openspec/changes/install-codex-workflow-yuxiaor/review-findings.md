@@ -52,11 +52,11 @@ verification: Regenerate the before snapshot with the privacy-safe format and co
 id: TASK3-001
 severity: Important
 repo/path:line: openspec/changes/install-codex-workflow-yuxiaor/evidence/nested-repos-before.sha256:1-10; openspec/plan/install-codex-workflow-yuxiaor.md:174-245
-evidence: After installation and before final validation, an external concurrent process added and then removed untracked documents in one nested business repository, so the pre-install snapshot no longer represented the current state. Root workflow identities remained correct and installer output never touched nested repositories.
+evidence: After installation and before final validation, external concurrent state drift affected two nested business repositories, so the pre-install snapshot no longer represented the current state. Root workflow identities remained correct and installer output never touched nested repositories.
 observable impact: Comparing final validation against the superseded pre-install snapshot would report an external business-repo drift as an installer failure.
 status: resolved
 minimal fix: Preserve the original pre-install snapshot unchanged; with user confirmation, take two identical read-only privacy-safe summary samples of the current 10-repository state and use that stable verified baseline across Task 3.
-verification: Two consecutive GIT_OPTIONAL_LOCKS=0 samples must match exactly, the baseline must contain 10 digest-only lines, and the post-validation snapshot must compare byte-identical against this verified baseline.
+verification: Two consecutive GIT_OPTIONAL_LOCKS=0 samples must match exactly, the baseline must contain 10 digest-only lines, and the post-validation snapshot must compare byte-identical against this verified baseline. The accepted drift is two repositories (`BEFORE_ONLY=2`, `VERIFIED_ONLY=2`), without persisting repository names or status bodies.
 ```
 
 ## TASK3-002
@@ -104,6 +104,32 @@ verification: Independent reviewer checks produced ROOT_HASHES_PROFILE_AND_PROTE
 - Verdict: `TASK3_DELTA_REVIEW=PASS`
 - Open Critical/Important findings: none.
 - Independently confirmed: final target identities and repaired assets; root `.git` and `.claude` absence; 10 nested repositories unchanged from the user-confirmed stable baseline.
+
+## VERIFY-SPEC-A-001
+
+```text
+id: VERIFY-SPEC-A-001
+severity: Important
+repo/path:line: openspec/changes/install-codex-workflow-yuxiaor/proposal.md:32; openspec/changes/install-codex-workflow-yuxiaor/review-findings.md:49-60
+evidence: Verify review found that the privacy-safe before/verified snapshots differ for two nested repositories, while the records initially described only one.
+observable impact: The user-confirmed external drift scope would be understated.
+status: resolved
+minimal fix: Request and obtain explicit user confirmation for both drifted repositories; correct narrative records to two while preserving original digest evidence unchanged.
+verification: Read-only stable sampling reports CURRENT_STABLE_TWO_SAMPLES=PASS, MATCHES_EXISTING_VERIFIED_BASELINE=PASS, BEFORE_ONLY=2, VERIFIED_ONLY=2.
+```
+
+## QUALITY-B-001
+
+```text
+id: QUALITY-B-001
+severity: Minor
+repo/path:line: openspec/changes/install-codex-workflow-yuxiaor/evidence/target-validation-second-failed.txt:186,194,202,210,213
+evidence: Five blank lines in the committed failure transcript contain two trailing spaces.
+observable impact: `git diff --check` fails on avoidable evidence whitespace.
+status: resolved
+minimal fix: Remove trailing whitespace only; preserve failure diagnostics and final counts.
+verification: `git diff --check main..HEAD` exits 0.
+```
 
 ## Unverified
 
