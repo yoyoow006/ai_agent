@@ -1,7 +1,7 @@
 # 优化 Open 需求理解与追问
 
 模式: 严格
-状态: 待验证
+状态: 待归档
 
 ## Why
 
@@ -59,3 +59,4 @@
   - 两个 `/tmp` 临时副本 mutation 分别同步删除清晰请求直行句、仅删除 R 场景，公共 core 均按预期非 0 且输出对应 FAIL。
   - `python3 -B -m unittest scripts.tests.test_validate_workflow` → 79 tests OK；`python3 -B -m unittest ...test_reusable_assets_are_byte_synchronized_with_active_sources` → 1 test OK。
   - `bash scripts/validate-workflow.sh --require-openspec` → `PASS=171 FAIL=0 SKIP=0`；merge-base 到工作区的 `git diff --check` 通过；新增用户输入证据压力场景 PASS。
+  - 主会话终验在 `ea6fc79` 亲自复跑：79 项 workflow 单测 OK、required wrapper `PASS=171 FAIL=0 SKIP=0`、资产同步单测 OK、merge-base 到 HEAD 的 `git diff --check` 通过，最新质量修复 manifest 有效。
