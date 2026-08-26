@@ -30,4 +30,4 @@
 - [x] 完成任务级独立审查，记录 finding、处置、未验证范围和残余风险。
 - [x] 完成规格符合性与代码/流程质量两个独立关注面的 Verify 审查。
 - [x] 运行 `bash scripts/validate-workflow.sh --require-openspec`，预期 `FAIL=0` 且 OpenSpec 不 SKIP。
-- [ ] 归档 delta 到 `openspec/specs/risk-tiered-ai-workflow/spec.md`，沉淀必要 memory/kb 事实，状态置为`已归档`。
+- [x] 归档 delta 到 `openspec/specs/risk-tiered-ai-workflow/spec.md`，沉淀必要 memory/kb 事实，状态置为`已归档`。
