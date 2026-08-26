@@ -131,6 +131,14 @@ minimal fix: Remove trailing whitespace only; preserve failure diagnostics and f
 verification: `git diff --check main..HEAD` exits 0.
 ```
 
+## Verify independent reviews
+
+- Full manifest: `78d58aaf916903b8b13a07280f75f90a3212e566371dbc7f117d4520aecad0d0`
+- Delta manifest: `256c7eaae045fc167ccd8bc814538707261316d72113c29b23c3cbb6f62658cd`
+- Spec-focus verdict: `VERIFY_SPEC_DELTA_REVIEW=PASS`; `VERIFY-SPEC-A-001` resolved.
+- Quality-focus verdict: `VERIFY_QUALITY_DELTA_REVIEW=PASS`; `QUALITY-B-001` resolved.
+- Open Critical/Important findings: none.
+
 ## Unverified
 
 - Strict Verify dual independent reviewers remain pending.
