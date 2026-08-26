@@ -54,3 +54,8 @@
   - `python3 -B -m unittest scripts.tests.test_validate_workflow` → 79 tests OK。
   - 四份 Open 技能、两份 validator、两份压力场景文件均字节一致；`git diff --check` 通过；无 `CONTEXT.md`/ADR 平行状态。
   - 任务级审查 manifest `97a636be…` 先发现绿色复测 Important 阻断；修正真实仓库前提并完成 3/3 结构化复测后，同 ID 差异复审将 `GREEN-RETEST-GATE-001` 置为 resolved，且判定无需第四轮技能文字修复。
+- Verify 质量修复复验：
+  - 独立质量审查发现结构门禁与范围 diff 两个 Important、两个 Minor；已按最小修复补齐清晰请求与 R 场景 token、允许“路径或用户输入”证据、修正 R 为真实仓库前提并清理 EOF 空行。
+  - 两个 `/tmp` 临时副本 mutation 分别同步删除清晰请求直行句、仅删除 R 场景，公共 core 均按预期非 0 且输出对应 FAIL。
+  - `python3 -B -m unittest scripts.tests.test_validate_workflow` → 79 tests OK；`python3 -B -m unittest ...test_reusable_assets_are_byte_synchronized_with_active_sources` → 1 test OK。
+  - `bash scripts/validate-workflow.sh --require-openspec` → `PASS=171 FAIL=0 SKIP=0`；merge-base 到工作区的 `git diff --check` 通过；新增用户输入证据压力场景 PASS。

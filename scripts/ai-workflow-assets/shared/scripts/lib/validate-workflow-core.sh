@@ -438,7 +438,8 @@ for agent in "${required_agents[@]}"; do
   check "$agent Open 标准直接待确认" contains_all "$agent/skills/open/SKILL.md" '`状态: 待确认计划`' '状态直接置为`待确认计划`' '唯一一次实施前确认' '不得另建 `openspec/plan`'
   check "$agent Open 需求理解" contains_all "$agent/skills/open/SKILL.md" \
     '权威事实优先' '只问决策' '当前已解锁问题分轮' '推荐答案' '等待用户回答' 'canonical term' '四件套' \
-    '四个字段缺一不可' '证据: <来源路径>' '具体默认或条件式推荐' '条件式' '重新分类' '严格条件不得因'
+    '四个字段缺一不可' '证据: <来源：路径或用户输入>' '具体默认或条件式推荐' '条件式' '重新分类' '严格条件不得因' \
+    '请求清晰且权威事实足够' '不追加仪式化访谈'
   check "$agent Design 仅严格" contains_all "$agent/skills/design/SKILL.md" 'Design 只属于严格模式' '不得创建 `openspec/plan`' '第二次实施前确认'
   check "$agent Design worktree 顺序" contains_all "$agent/skills/design/SKILL.md" '只暂存本变更四件套' '先切回记录的基线分支' '不得在 feature 已检出时执行 `git worktree add`'
   check "$agent Build 标准 feature 落点" contains_all "$agent/skills/build/SKILL.md" '创建并切到 `feature/<变更名>`' '不得在 main/master 写实现' '先切回基线'
@@ -494,8 +495,9 @@ for agent in "${required_agents[@]}"; do
   check "mutation: $agent Build 拒绝标准双阶段审查" mutation_rejected "$agent/skills/build/SKILL.md" "标准模式必须执行双阶段审查。"
   check "mutation: $agent Verify 拒绝标准双阶段审查" mutation_rejected "$agent/skills/verify/SKILL.md" "标准模式必须执行双阶段审查。"
 done
-check "Q/S/X 压力契约" contains_all scripts/workflow-pressure-scenarios.md \
+check "Q/R/S/X 压力契约" contains_all scripts/workflow-pressure-scenarios.md \
   'Q：既有接口的纯文档维护' '不创建 OpenSpec' 'freeze manifest' '角色代理' \
+  'R：模糊需求先建立共识' '项目 registry' 'tracked 搜索' '目标代码位置' '每题带证据' '不生成四件套' '请求本身已清晰' \
   'S：普通单模块运行时代码小改' '一次全 diff 综合 Verify' '修复后只审 delta' \
   'X：权限与数据库迁移' '任务级审查' '双阶段独立审查' '有效 manifest'
 
