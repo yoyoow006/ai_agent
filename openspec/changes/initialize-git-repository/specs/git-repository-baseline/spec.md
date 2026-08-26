@@ -8,13 +8,14 @@
 
 - **WHEN** 在仓库根目录运行 `git status --short --branch`
 - **THEN** Git 识别当前分支为 `main`
-- **AND** 初始提交完成后未忽略文件不残留未提交状态
+- **AND** 未忽略文件不残留未提交状态
 
-#### Scenario: 查询本地历史
+#### Scenario: 查询初始基线
 
-- **WHEN** 运行 `git log -1 --oneline`
-- **THEN** Git 输出初始提交
-- **AND** 仓库没有配置 remote 或执行推送
+- **WHEN** 用 `git rev-list --max-parents=0 HEAD` 查询根提交
+- **THEN** Git 输出至少一个本地初始基线提交
+- **AND** 初始化变更本身不添加 remote、不抓取、不推送
+- **AND** 后续远程配置由独立授权变更管理
 
 ### Requirement: 本地工作区内容不得进入版本控制
 
@@ -35,4 +36,10 @@
 - **WHEN** OpenSpec CLI 未安装时运行 `bash scripts/validate-workflow.sh`
 - **THEN** OpenSpec 精确检查显式记录 SKIP
 - **THEN** 仓库结构、忽略规则、必需测试和其他工作流检查通过
+- **AND** 末尾汇总为 `FAIL=0`
+
+#### Scenario: OpenSpec CLI 可用
+
+- **WHEN** OpenSpec CLI 已安装时运行工作流 required 校验
+- **THEN** OpenSpec 精确检查实际执行且不得 SKIP
 - **AND** 末尾汇总为 `FAIL=0`

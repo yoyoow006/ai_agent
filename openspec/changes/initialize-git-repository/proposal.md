@@ -39,10 +39,10 @@
 
 ## Verification Evidence
 
-- `git rev-parse --is-inside-work-tree` 输出 `true`；`git branch --show-current` 输出 `main`。
-- 初始提交：`62a92d7 chore: initialize AI workflow repository`，收录 166 个未忽略文件。
-- `git remote -v` 为空，未添加远端。
-- `git fsck --full` 退出码 0；报告一个暂存阶段旧任务文件形成的悬空 blob，无对象损坏。
-- `bash scripts/install-ai-workflow.sh --help` 退出码 0，stderr 为空。
-- `openspec validate --all --no-interactive` 最终输出 4 passed、0 failed。
-- `bash scripts/validate-workflow.sh` 最终输出 `PASS=168 FAIL=0 SKIP=0`。首次运行发现的既有 `fix-installer-python-38` delta 缺少字面 `SHALL`，已按 OpenSpec CLI 契约做最小 wording 修正后复验通过。
+- 实施时 `git rev-parse --is-inside-work-tree` 输出 `true`，`git branch --show-current` 输出 `main`；实施记录中的初始提交为 `62a92d7`。
+- 后续已归档的 `sanitize-git-baseline-secrets` 为清除历史敏感内容重建 root，当前可复核根提交为 `71f84dcc5fc6bea7b32d97ef04528c0031772a16`；该根提交包含本变更四件套、根 `.gitignore` 和 OpenSpec 基线路径。
+- 初始化时 `git remote -v` 为空，未添加远端或执行网络操作；后续已归档的 `add-origin-remote` 按独立授权配置 `origin`，本变更不禁止该后续状态。
+- 当前 `git fsck --full` 退出码 0、无输出。
+- 当前 `bash scripts/install-ai-workflow.sh --help` 退出码 0，stdout 为 usage，stderr 为空。
+- 当前 `openspec validate initialize-git-repository --strict --no-interactive` 输出 valid。
+- 当前 `bash scripts/validate-workflow.sh` 输出 `PASS=169 FAIL=0 SKIP=0`，OpenSpec 检查实际执行且未 SKIP。
