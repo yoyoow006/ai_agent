@@ -38,3 +38,10 @@
 - **THEN** 在目标根目录运行 `bash scripts/validate-workflow.sh --require-openspec` 且无 `FAIL`
 - **AND** 在目标根目录运行 `openspec validate --all --strict --no-interactive` 并通过
 - **AND** 备份 `AGENTS.pre-codex-workflow.md` 的 SHA-256 仍为 `74d7b6cd7d755cb07b04f205e5b6beef9ca7c7412379c2bbd9db166f1bac47cc`
+
+#### Scenario: 目标根不是 Git 仓库
+
+- **WHEN** 目标根包含工作流 `.gitignore` 但本身没有 `.git`
+- **AND** 用户要求不初始化 Git 仓库
+- **THEN** 目标 required 校验用目标 `.gitignore` 判定 Python 缓存与 SDD 路径是否忽略
+- **AND** 校验过程不在目标根创建 `.git` 或修改嵌套业务仓库

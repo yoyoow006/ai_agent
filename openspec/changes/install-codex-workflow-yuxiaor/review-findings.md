@@ -59,9 +59,22 @@ minimal fix: Preserve the original pre-install snapshot unchanged; with user con
 verification: Two consecutive GIT_OPTIONAL_LOCKS=0 samples must match exactly, the baseline must contain 10 digest-only lines, and the post-validation snapshot must compare byte-identical against this verified baseline.
 ```
 
+## TASK3-002
+
+```text
+id: TASK3-002
+severity: Important
+repo/path:line: scripts/lib/validate-workflow-core.sh:202-210,504-509; scripts/ai-workflow-assets/shared/scripts/lib/validate-workflow-core.sh:202-210,504-509
+evidence: The target root is not a Git repository, so direct `git check-ignore` probes returned 128. Required validation reported exactly `PASS=101 FAIL=2 SKIP=0` for Python-cache and SDD ignore checks even though all required `.gitignore` patterns were present.
+observable impact: The installed Codex workflow could not meet its required validation gate in the authorized non-Git workspace without initializing Git or touching nested repositories.
+status: resolved
+minimal fix: Add a failing non-Git-root validator test, then make ignore checks use the real Git worktree when present or temporary external Git metadata with the target as work-tree otherwise; clean the temporary metadata on exit and never create `.git` in the target.
+verification: The new test failed before implementation with the three expected ignore failures and passed after implementation. The fixed asset must be synchronized to the target, target required validation must report no FAIL/SKIP, and the target must still have no root `.git`.
+```
+
 ## Unverified
 
-- Task 3 target-validation, stable verified baseline, and postflight outputs do not exist yet.
+- Task 3 target-validation still contains the first failed run; the fixed validator asset must be synchronized and the full target validation rerun.
 
 ## Residual risk
 

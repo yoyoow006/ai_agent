@@ -284,6 +284,12 @@ cmp "$EVIDENCE/nested-repos-verified-baseline.sha256" "$EVIDENCE/nested-repos-af
 - 用户确认安装后外部并发漂移后，以两次一致采样生成新的嵌套仓验证基线；十个嵌套业务仓的“目录名+HEAD+状态”单向摘要跨越目标验证保持逐字节一致。原始安装前快照仅保留为历史证据，不因外部漂移被改写。
 - `CLAUDE.md` 与 `REVIEW.md` 未变。
 
+**Non-Git target repair path**
+
+- The target root is intentionally not a Git repository. The first required validation exposed installer asset defect `TASK3-002`: direct `git check-ignore` calls returned 128 even though `.gitignore` rules were present.
+- The source validator uses a TDD-backed fallback: when the workflow root is outside Git, it creates a temporary Git metadata directory elsewhere and evaluates the target worktree `.gitignore` with `git check-ignore`; the temporary directory is removed on exit.
+- The portable installer intentionally refuses to overwrite the already installed differing validator. Therefore the only target repair is to atomically replace exactly `scripts/lib/validate-workflow-core.sh` with the fixed manifest asset, preserve executable mode, and verify its SHA-256. No other target file may be hand-edited.
+
 ## Task 4：严格审查、状态推进与归档
 
 **Create/Modify**

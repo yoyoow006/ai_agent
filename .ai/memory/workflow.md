@@ -144,3 +144,7 @@
 ## 2026-08-26 · 来源变更 install-codex-workflow-yuxiaor（外部嵌套仓并发漂移）
 **坑**：安装器只写目标根，但一个嵌套业务仓在安装后验证前被外部进程先添加又移除未跟踪文档，导致安装前快照失效；单次 `cmp` 后未启用 fail-fast 还可能打印误导性 PASS。
 **解**：根工作流产物与嵌套仓边界分开验收；保留旧快照作历史证据，经用户确认后用 `GIT_OPTIONAL_LOCKS=0` 连续两次采样相同的隐私安全摘要，稳定后才作为验证基线，并把最终快照与新基线比对。所有诊断命令先 `set -euo pipefail`。
+
+## 2026-08-26 · 来源变更 install-codex-workflow-yuxiaor（非 Git 根校验）
+**坑**：便携工作流可安装到已存在的非 Git 目录，但校验器把 `git check-ignore` 直接当作忽略规则检查；目标根无 `.git` 时即使 `.gitignore` 正确也返回 128。
+**解**：先写非 Git 根失败测试；校验时若已在 Git worktree 就直接探测，否则在 `/tmp` 创建临时 Git metadata、以当前目录为 work-tree 执行 `git check-ignore`，退出时清理临时 metadata。不要为通过校验在目标根初始化 Git。

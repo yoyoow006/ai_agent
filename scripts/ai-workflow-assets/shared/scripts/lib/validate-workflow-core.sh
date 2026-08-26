@@ -11,6 +11,14 @@ require_openspec=0
 required_codex=1
 required_claude=1
 profile_expected=absent
+external_git_root=""
+
+cleanup_external_git() {
+  if test -n "$external_git_root"; then
+    rm -rf -- "$external_git_root"
+  fi
+}
+trap cleanup_external_git EXIT
 
 report_pass() {
   printf '[PASS] %s\n' "$1"
@@ -205,8 +213,22 @@ python_cache_paths_ignored() {
     scripts/tests/__pycache__/probe.cpython-314.pyc \
     .ai/tools/tests/probe.pyc \
     .ai/tools/tests/probe.pyo; do
-    git check-ignore -q "$probe" || return 1
+    workflow_path_ignored "$probe" || return 1
   done
+}
+
+workflow_path_ignored() {
+  local probe=$1
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git check-ignore -q -- "$probe"
+    return
+  fi
+  if test -z "$external_git_root"; then
+    external_git_root="$(mktemp -d)" || return 1
+    git init -q "$external_git_root" || return 1
+  fi
+  git --git-dir="$external_git_root/.git" --work-tree="$PWD" \
+    check-ignore -q -- "$probe"
 }
 
 contains_all() {
@@ -502,10 +524,10 @@ check "Q/R/S/X 压力契约" contains_all scripts/workflow-pressure-scenarios.md
   'X：权限与数据库迁移' '任务级审查' '双阶段独立审查' '有效 manifest'
 
 if assistant_required codex; then
-  check "SDD 草稿区已忽略" git check-ignore -q .codex/sdd/validation-probe
+  check "SDD 草稿区已忽略" workflow_path_ignored .codex/sdd/validation-probe
 fi
 if assistant_required claude; then
-  check "Claude SDD 草稿区已忽略" git check-ignore -q .claude/sdd/validation-probe
+  check "Claude SDD 草稿区已忽略" workflow_path_ignored .claude/sdd/validation-probe
 fi
 mechanical_files=("${required_docs[@]}")
 for agent in "${required_agents[@]}"; do
