@@ -649,8 +649,14 @@ class ValidateWorkflowContractTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, msg=result.stdout)
         self.assertIn("[PASS] Python 缓存路径已忽略", result.stdout)
-        self.assertIn("[PASS] SDD 草稿区已忽略", result.stdout)
-        self.assertIn("[PASS] Claude SDD 草稿区已忽略", result.stdout)
+        for assistant, label in (
+            ("codex", "SDD 草稿区已忽略"),
+            ("claude", "Claude SDD 草稿区已忽略"),
+        ):
+            if self._assistant_required_in_fixture(assistant):
+                self.assertIn(f"[PASS] {label}", result.stdout)
+            else:
+                self.assertNotIn(f"[PASS] {label}", result.stdout)
 
     def test_rejects_reintroduced_parallel_ai_kb_body(self) -> None:
         legacy_body_roots = (
