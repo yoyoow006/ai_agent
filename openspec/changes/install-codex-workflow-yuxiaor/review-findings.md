@@ -85,9 +85,29 @@ minimal fix: Derive expected SDD labels from `_assistant_required_in_fixture`, a
 verification: The profile-aware test passed in both source and Codex-only target contexts; the final target required gate reports `PASS=103 FAIL=0 SKIP=0`.
 ```
 
+## TASK3-004
+
+```text
+id: TASK3-004
+severity: Important
+repo/path:line: external target root outside Git manifest:1
+evidence: The initial Task 3 review was interrupted before a fresh direct target recheck, so it could rely only on implementation evidence.
+observable impact: Without direct read-only verification, final external target state would depend on the implementer rather than independent observation.
+status: resolved
+minimal fix: Complete only the assigned read-only checks: protected root hashes, repaired asset identity, `.git` and `.claude` absence, 10-repository count, and digest-only nested-repository comparison against the verified baseline.
+verification: Independent reviewer checks produced ROOT_HASHES_PROFILE_AND_PROTECTED_FILES=PASS, REPAIRED_VALIDATOR_ASSETS_EXACT=PASS, TARGET_ROOT_GIT_ABSENT=PASS, TARGET_CLAUDE_ABSENT=PASS, NESTED_REPOSITORY_COUNT=10, and NESTED_REPOSITORIES_MATCH_VERIFIED_BASELINE=PASS; manifest remained VALID before and after.
+```
+
+## Task 3 independent review
+
+- Manifest: `be03c53814c42974dcf8b98a02ef106056c1f71d694ac5387b93517bfc75cc8c`
+- Verdict: `TASK3_DELTA_REVIEW=PASS`
+- Open Critical/Important findings: none.
+- Independently confirmed: final target identities and repaired assets; root `.git` and `.claude` absence; 10 nested repositories unchanged from the user-confirmed stable baseline.
+
 ## Unverified
 
-- Task 3 independent review and the strict Verify dual reviewers remain pending.
+- Strict Verify dual independent reviewers remain pending.
 
 ## Residual risk
 
