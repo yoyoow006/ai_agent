@@ -91,6 +91,7 @@ if grep -Fq '# >>> portable-ai-workflow installer >>>' "$TARGET/.gitignore"; the
 python3 -B - "$TARGET" > "$SOURCE/openspec/changes/install-codex-workflow-yuxiaor/evidence/nested-repos-before.sha256" <<'PY'
 from pathlib import Path
 import hashlib
+import os
 import subprocess
 import sys
 
@@ -98,11 +99,16 @@ target = Path(sys.argv[1])
 repos = sorted(path.parent for path in target.glob('*/.git') if path.exists())
 if len(repos) != 10:
     raise SystemExit(f'expected 10 nested repositories, found {len(repos)}')
+digests = []
 for repo in repos:
     head = subprocess.check_output(['git', '-C', str(repo), 'rev-parse', 'HEAD'])
     status = subprocess.check_output(['git', '-C', str(repo), 'status', '--porcelain=v1', '-z'])
-    digest = hashlib.sha256(b'HEAD\0' + head + b'STATUS\0' + status).hexdigest()
-    print(f'{digest}  {repo.name}')
+    digest = hashlib.sha256(
+        b'REPO\0' + os.fsencode(repo.name) + b'HEAD\0' + head + b'STATUS\0' + status
+    ).hexdigest()
+    digests.append(digest)
+for digest in sorted(digests):
+    print(digest)
 PY
 
 {
@@ -115,7 +121,7 @@ PY
 **Expected**
 
 - 所有 `test`、路径检查和嵌套仓快照命令退出码为 0。
-- 快照只记录每个嵌套仓 HEAD+状态摘要的 SHA-256，不保存文件名或正文，避免泄露用户数据。
+- 快照只输出按摘要排序的 SHA-256 行；仓目录名、HEAD、状态正文只作为单向摘要输入，不落盘，避免泄露用户数据。
 - 任一身份不匹配即停止，不重命名、不安装、不删除。
 
 ## Task 2：保留旧入口、复验计划并事务安装
@@ -199,6 +205,7 @@ test ! -e "$TARGET/.claude"
 python3 -B - "$TARGET" > "$EVIDENCE/nested-repos-after.sha256" <<'PY'
 from pathlib import Path
 import hashlib
+import os
 import subprocess
 import sys
 
@@ -206,11 +213,16 @@ target = Path(sys.argv[1])
 repos = sorted(path.parent for path in target.glob('*/.git') if path.exists())
 if len(repos) != 10:
     raise SystemExit(f'expected 10 nested repositories, found {len(repos)}')
+digests = []
 for repo in repos:
     head = subprocess.check_output(['git', '-C', str(repo), 'rev-parse', 'HEAD'])
     status = subprocess.check_output(['git', '-C', str(repo), 'status', '--porcelain=v1', '-z'])
-    digest = hashlib.sha256(b'HEAD\0' + head + b'STATUS\0' + status).hexdigest()
-    print(f'{digest}  {repo.name}')
+    digest = hashlib.sha256(
+        b'REPO\0' + os.fsencode(repo.name) + b'HEAD\0' + head + b'STATUS\0' + status
+    ).hexdigest()
+    digests.append(digest)
+for digest in sorted(digests):
+    print(digest)
 PY
 cmp "$EVIDENCE/nested-repos-before.sha256" "$EVIDENCE/nested-repos-after.sha256"
 {
@@ -227,7 +239,7 @@ cmp "$EVIDENCE/nested-repos-before.sha256" "$EVIDENCE/nested-repos-after.sha256"
 - `scripts/validate-workflow.sh --require-openspec` 最终无 `FAIL`、无 OpenSpec `SKIP`。
 - `openspec validate --all --strict --no-interactive` 输出全部有效。
 - 重复 dry-run 证明 53 个安装项全部 `unchanged`。
-- 十个嵌套业务仓的 HEAD+状态摘要逐字节一致；`CLAUDE.md` 与 `REVIEW.md` 未变。
+- 十个嵌套业务仓的“目录名+HEAD+状态”单向摘要逐字节一致；`CLAUDE.md` 与 `REVIEW.md` 未变。
 
 ## Task 4：严格审查、状态推进与归档
 

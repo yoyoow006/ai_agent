@@ -26,10 +26,23 @@ minimal fix: Enable fail-fast immediately after Task 1 variables and before evid
 verification: Commit e42816b adds `set -euo pipefail`; `openspec validate install-codex-workflow-yuxiaor --strict --no-interactive` and `git diff --check` pass, and a fail-fast probe exited 1 with zero output bytes.
 ```
 
+## TASK1-001
+
+```text
+id: TASK1-001
+severity: Important
+repo/path:line: openspec/changes/install-codex-workflow-yuxiaor/evidence/nested-repos-before.sha256:1-10; openspec/plan/install-codex-workflow-yuxiaor.md:104-118
+evidence: The original snapshot printed each digest followed by the nested repository directory name, contrary to the privacy contract.
+observable impact: Business repository/module names would enter committable evidence.
+status: resolved
+minimal fix: Include repository name, HEAD, and status only as inputs to a per-repository SHA-256 digest; output digest lines only and sort digests before writing.
+verification: Regenerate the before snapshot with the privacy-safe format and confirm it has exactly 10 fixed-length digest lines with no repository names; Task 3 uses the identical format for byte comparison.
+```
+
 ## Unverified
 
-- Target directory state has not yet been rechecked after Task 0; Task 1 is the designated preflight gate.
-- Task 1–3 execution outputs do not exist yet.
+- Target directory state must be rechecked after the TASK1-001 privacy fix; no target write is authorized until the corrected Task 1 review passes.
+- Task 2–3 execution outputs do not exist yet.
 
 ## Residual risk
 
