@@ -148,3 +148,7 @@
 ## 2026-08-26 · 来源变更 install-codex-workflow-yuxiaor（非 Git 根校验）
 **坑**：便携工作流可安装到已存在的非 Git 目录，但校验器把 `git check-ignore` 直接当作忽略规则检查；目标根无 `.git` 时即使 `.gitignore` 正确也返回 128。
 **解**：先写非 Git 根失败测试；校验时若已在 Git worktree 就直接探测，否则在 `/tmp` 创建临时 Git metadata、以当前目录为 work-tree 执行 `git check-ignore`，退出时清理临时 metadata。不要为通过校验在目标根初始化 Git。
+
+## 2026-08-26 · 来源变更 install-codex-workflow-yuxiaor（单助手测试继承）
+**坑**：新增测试在双助手源仓库直接通过，但同一测试会被 installed fixture 的单助手 profile 变体继承；硬编码 Codex+Claude 双断言使合法 Codex-only 目标失败。
+**解**：测试断言先用 `_assistant_required_in_fixture` 判断当前 profile，只要求选中助手的存在项，并明确断言未选助手的存在项不出现；同步修改源测试与安装资产测试。

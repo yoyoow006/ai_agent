@@ -72,10 +72,24 @@ minimal fix: Add a failing non-Git-root validator test, then make ignore checks 
 verification: The new test failed before implementation with the three expected ignore failures and passed after implementation. The fixed core and its contract-test asset must be synchronized to the target, target required validation must report no FAIL/SKIP, and the target must still have no root `.git`.
 ```
 
+## TASK3-003
+
+```text
+id: TASK3-003
+severity: Important
+repo/path:line: scripts/tests/test_validate_workflow.py:643-663; scripts/ai-workflow-assets/shared/scripts/tests/test_validate_workflow.py:643-663
+evidence: The new non-Git test unconditionally expected both Codex and Claude SDD labels. The source fixture has both assistants, but the authorized target is Codex-only; the second target run therefore failed only the inherited profile variant with `PASS=102 FAIL=1 SKIP=0`.
+observable impact: A valid single-assistant non-Git installation could be rejected by the workflow's own contract suite.
+status: resolved
+minimal fix: Derive expected SDD labels from `_assistant_required_in_fixture`, asserting the selected assistant label is present and the unselected label is absent.
+verification: The profile-aware test passed in both source and Codex-only target contexts; the final target required gate reports `PASS=103 FAIL=0 SKIP=0`.
+```
+
 ## Unverified
 
-- Task 3 target-validation still contains the first failed run; the fixed validator asset must be synchronized and the full target validation rerun.
+- Task 3 independent review and the strict Verify dual reviewers remain pending.
 
 ## Residual risk
 
 - The external target is outside the Git review manifest; nested business repositories can drift concurrently. Final verification must compare against the user-confirmed stable baseline and report any further drift without attributing it to the installer without evidence.
+- Portable tests that run under installed fixtures must derive assistant-specific expectations from the profile instead of assuming the source repository has both adapters.

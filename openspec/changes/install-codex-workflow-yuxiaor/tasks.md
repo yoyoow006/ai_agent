@@ -24,9 +24,9 @@
 
 ## 4. Verify
 
-- [ ] 运行目标 `scripts/validate-workflow.sh --require-openspec`。
-- [ ] 运行目标 `openspec validate --all --strict --no-interactive`。
-- [ ] 验证旧入口备份哈希不变，并检查安装边界。
+- [x] 运行目标 `scripts/validate-workflow.sh --require-openspec`。
+- [x] 运行目标 `openspec validate --all --strict --no-interactive`。
+- [x] 验证旧入口备份哈希不变，并检查安装边界。
 - [ ] 按严格要求执行任务级审查和双阶段独立审查。
 
 ## 5. Archive
