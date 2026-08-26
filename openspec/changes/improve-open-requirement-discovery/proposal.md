@@ -1,7 +1,7 @@
 # 优化 Open 需求理解与追问
 
 模式: 严格
-状态: 构建中
+状态: 待验证
 
 ## Why
 
@@ -46,3 +46,11 @@
   - `cmp` 确认当前 `.codex`、`.claude` 与安装资产中的 `open/SKILL.md` 四份字节一致。
   - `bash scripts/validate-workflow.sh` 的 core 部分确认现有 Open 快速豁免、标准单确认和双助手镜像检查均存在；当前完整命令还暴露本地忽略目录 `.codex/sdd/` 缺失导致的既有环境失败，实施前需在隔离工作区补齐本地占位后复验。
   - `openspec validate --all --strict --no-interactive` 当前为 7 passed、1 failed；失败项为既有 `git-remote-configuration` 主规格，与本变更目标文件无重叠，将在本变更验证中单独记录并避免混入修复。
+- Build 验证与任务级审查：
+  - `bash scripts/validate-workflow.sh` → `PASS=171 FAIL=0 SKIP=0`。
+  - `bash scripts/validate-workflow.sh --require-openspec` → `PASS=171 FAIL=0 SKIP=0`，OpenSpec 检查未 SKIP。
+  - `openspec validate improve-open-requirement-discovery --strict --no-interactive` → valid。
+  - `python3 -B -m unittest scripts.tests.test_install_ai_workflow.PortableAssetContentTests.test_reusable_assets_are_byte_synchronized_with_active_sources` → 1 test OK。
+  - `python3 -B -m unittest scripts.tests.test_validate_workflow` → 79 tests OK。
+  - 四份 Open 技能、两份 validator、两份压力场景文件均字节一致；`git diff --check` 通过；无 `CONTEXT.md`/ADR 平行状态。
+  - 任务级审查 manifest `97a636be…` 先发现绿色复测 Important 阻断；修正真实仓库前提并完成 3/3 结构化复测后，同 ID 差异复审将 `GREEN-RETEST-GATE-001` 置为 resolved，且判定无需第四轮技能文字修复。
