@@ -132,3 +132,7 @@
 ## 2026-08-26 · 来源变更 initialize-git-repository（历史基线归档）
 **坑**：归档长期停留的初始化变更时，实施时的初始提交哈希与“无 remote”状态可能已被后续授权的历史净化和远程配置变更取代；直接照搬旧证据会与现行主规格冲突。
 **解**：用当前 parentless root、clean 状态和 ignore/OpenSpec 基线重新验收；delta 明确“初始化本身不添加 remote/不推送”与后续独立授权远程配置的边界，并记录旧证据到新历史的演进关系。归档前必须先提交审查产生的 OpenSpec 修正并复跑 required 门禁。
+
+## 2026-08-26 · 来源变更 install-codex-workflow-yuxiaor（外部目标预检身份漂移）
+**坑**：跨目录安装的计划确认后，目标根 `.gitignore` 被外部新增 `http-client.http`，固定 SHA-256 预检失败；若无 fail-fast，可能继续生成误导性 PASS 摘要。
+**解**：预检命令在所有检查和证据写入前启用 `set -euo pipefail`；身份漂移时保留现场、记录新旧哈希和时间戳，向用户确认新基线后只更新受影响身份与预测值，再完整重跑预检。

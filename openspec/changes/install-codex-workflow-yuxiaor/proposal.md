@@ -27,5 +27,5 @@
 ## Acceptance Evidence
 
 - 目标旧入口 SHA-256：`74d7b6cd7d755cb07b04f205e5b6beef9ca7c7412379c2bbd9db166f1bac47cc`。
-- 目标 `.gitignore` SHA-256：`bec10e5dc357805b65436e39e33433be69f6366bd88d336ffb1c94b69b6b581f`。
+- 初始目标 `.gitignore` SHA-256 为 `bec10e5dc357805b65436e39e33433be69f6366bd88d336ffb1c94b69b6b581f`；Task 1 fail-fast 发现确认后变更为 `8c87e32e6d72973f1f46ab5b69d6f7e97fb99aa25e7847612942f6a39437e7ca`，用户已确认接受该 490 字节现状作为受保护基线。
 - 在临时目录按目标 `.gitignore` 状态执行安装器 dry-run 成功：`created=52 updated=1 unchanged=0 dry_run=1`。

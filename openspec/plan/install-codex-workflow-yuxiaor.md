@@ -16,8 +16,8 @@
 |---|---|---|
 | 目标旧 `AGENTS.md` | `74d7b6cd7d755cb07b04f205e5b6beef9ca7c7412379c2bbd9db166f1bac47cc` | 安装前与备份后必须一致 |
 | 安装清单中的新 `AGENTS.md` | `961dbcbb03b2311656d155818a80cbdca57ad6b15e8ed70eee0061d1207bfe71` | 安装后必须一致 |
-| 目标安装前 `.gitignore` | `bec10e5dc357805b65436e39e33433be69f6366bd88d336ffb1c94b69b6b581f` | 473 字节 |
-| 目标安装后 `.gitignore` | `0cd57481fa44d1d0a42baedcca91bea7078982f3ad9345315aa7990c96df9889` | 604 字节，只追加一个受管块 |
+| 目标安装前 `.gitignore` | `8c87e32e6d72973f1f46ab5b69d6f7e97fb99aa25e7847612942f6a39437e7ca` | 490 字节；用户确认接受确认后新增的 `http-client.http` 行 |
+| 目标安装后 `.gitignore` | `9d31b82339600b3d8a9c78b9f281ec9814b22aead9aece885133507031483433` | 622 字节，只追加一个受管块 |
 | 目标 `CLAUDE.md` | `0aaefece9c24a67288c16760ddad79d30f395537dc50a1c8c23fcbabde5366fc` | 保持不变 |
 | 目标 `REVIEW.md` | `624d52371c932b3699c01e84956f6f91bbd446f84608c9b954876f1b7d332f35` | 保持不变 |
 | 生成的 `.ai/assistant-profile.json` | `27e9b41320f1df7479e2dcb81605c3c260108214c0055c2b99b5eae69908d289` | 内容为 Codex profile v1 |
@@ -77,7 +77,7 @@ if not target.is_dir() or target.resolve(strict=True) != target:
 PY
 
 test "$(sha256sum "$TARGET/AGENTS.md" | awk '{print $1}')" = '74d7b6cd7d755cb07b04f205e5b6beef9ca7c7412379c2bbd9db166f1bac47cc'
-test "$(sha256sum "$TARGET/.gitignore" | awk '{print $1}')" = 'bec10e5dc357805b65436e39e33433be69f6366bd88d336ffb1c94b69b6b581f'
+test "$(sha256sum "$TARGET/.gitignore" | awk '{print $1}')" = '8c87e32e6d72973f1f46ab5b69d6f7e97fb99aa25e7847612942f6a39437e7ca'
 test "$(sha256sum "$TARGET/CLAUDE.md" | awk '{print $1}')" = '0aaefece9c24a67288c16760ddad79d30f395537dc50a1c8c23fcbabde5366fc'
 test "$(sha256sum "$TARGET/REVIEW.md" | awk '{print $1}')" = '624d52371c932b3699c01e84956f6f91bbd446f84608c9b954876f1b7d332f35'
 test ! -e "$TARGET/AGENTS.pre-codex-workflow.md"
@@ -162,7 +162,7 @@ grep -Fx 'RESULT assistant=codex target=/media/shitou/石头/wksource/yuxiaor_pr
 - dry-run 与实际安装均成功，实际结果 `created=52 updated=1 unchanged=0 dry_run=0`。
 - 备份 `AGENTS.pre-codex-workflow.md` SHA-256 保持 `74d7b6cd7d755cb07b04f205e5b6beef9ca7c7412379c2bbd9db166f1bac47cc`。
 - 新 `AGENTS.md` SHA-256 为 `961dbcbb03b2311656d155818a80cbdca57ad6b15e8ed70eee0061d1207bfe71`。
-- `.gitignore` SHA-256 为 `0cd57481fa44d1d0a42baedcca91bea7078982f3ad9345315aa7990c96df9889`，且原内容仍为前缀。
+- `.gitignore` SHA-256 为 `9d31b82339600b3d8a9c78b9f281ec9814b22aead9aece885133507031483433`，且原 490 字节内容仍为前缀。
 
 ## Task 3：目标安装后验证与边界复核
 
@@ -190,7 +190,7 @@ grep -Fx 'RESULT assistant=codex target=/media/shitou/石头/wksource/yuxiaor_pr
 
 test "$(sha256sum "$TARGET/AGENTS.pre-codex-workflow.md" | awk '{print $1}')" = '74d7b6cd7d755cb07b04f205e5b6beef9ca7c7412379c2bbd9db166f1bac47cc'
 test "$(sha256sum "$TARGET/AGENTS.md" | awk '{print $1}')" = '961dbcbb03b2311656d155818a80cbdca57ad6b15e8ed70eee0061d1207bfe71'
-test "$(sha256sum "$TARGET/.gitignore" | awk '{print $1}')" = '0cd57481fa44d1d0a42baedcca91bea7078982f3ad9345315aa7990c96df9889'
+test "$(sha256sum "$TARGET/.gitignore" | awk '{print $1}')" = '9d31b82339600b3d8a9c78b9f281ec9814b22aead9aece885133507031483433'
 test "$(sha256sum "$TARGET/.ai/assistant-profile.json" | awk '{print $1}')" = '27e9b41320f1df7479e2dcb81605c3c260108214c0055c2b99b5eae69908d289'
 test "$(sha256sum "$TARGET/CLAUDE.md" | awk '{print $1}')" = '0aaefece9c24a67288c16760ddad79d30f395537dc50a1c8c23fcbabde5366fc'
 test "$(sha256sum "$TARGET/REVIEW.md" | awk '{print $1}')" = '624d52371c932b3699c01e84956f6f91bbd446f84608c9b954876f1b7d332f35'
