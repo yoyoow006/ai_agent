@@ -14,5 +14,6 @@
 | OpenSpec 数据层 | `openspec/` | 变更目录 | 模式字段、proposal、delta、tasks、plan、archive |
 | 工作流校验器 | `scripts/validate-workflow.sh` | 结构校验、回归守卫 | mutation、镜像、非法状态、旧重流程、假绿、required、OpenSpec strict、PASS/FAIL/SKIP |
 | 仓库忽略规则 | `.gitignore` | Git 忽略、本地路径 | `.worktrees`、`.codex/sdd`、`.claude/sdd`、外部项目 |
+| Git 仓库基线 | `.git/`, `.gitignore`, `openspec/specs/git-repository-baseline/` | 初始提交、main 基线 | root commit、git status、OpenSpec 基线、本地草稿忽略、独立远程授权 |
 | Git 基线安全 | `.git/`, `.gitignore`, `openspec/specs/git-baseline-secret-hygiene/` | secret scan、凭据清理、历史重建 | 字面凭据、reachable history、reflog、prune、外部轮换 |
 | Git 远程配置 | `.git/config`, `openspec/specs/git-remote-configuration/` | origin、远程仓库 | remote URL、fetch、push、upstream、网络授权 |

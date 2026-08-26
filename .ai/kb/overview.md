@@ -34,6 +34,12 @@ Open 在进入任一模式前先建立需求共识：代码、测试、OpenSpec�
 - 提交按可独立回滚职责组织。
 - 创建或重置 Git 基线前必须扫描待入库正文；提交后才发现凭据时，需在授权下同时净化当前树和不可达历史，本地清理不替代外部轮换。
 
+## Git 仓库基线
+
+- 仓库以 `main` 为初始分支，并保留至少一个本地 parentless root commit；后续远程配置和网络操作由独立授权变更管理。
+- 根锚定 `.gitignore` 保护 `.ai-local`、双侧 SDD、worktree、Python 缓存和 Claude 本地配置，不把本机状态纳入版本控制。
+- `openspec/` 保留项目说明、artifact 约定、空基线目录和共享工作流主规格；初始化时只补缺失基线，不覆盖既有活跃变更。
+
 ## 事实查询与审查证据
 
 - 项目事实以 `.ai/kb/projects/registry.json` 和项目卡为声明式入口；`project_facts.py` 只查询登记且已检出的路径，不联网、不 clone、不写业务仓。
