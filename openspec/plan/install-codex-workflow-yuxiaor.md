@@ -288,7 +288,7 @@ cmp "$EVIDENCE/nested-repos-verified-baseline.sha256" "$EVIDENCE/nested-repos-af
 
 - The target root is intentionally not a Git repository. The first required validation exposed installer asset defect `TASK3-002`: direct `git check-ignore` calls returned 128 even though `.gitignore` rules were present.
 - The source validator uses a TDD-backed fallback: when the workflow root is outside Git, it creates a temporary Git metadata directory elsewhere and evaluates the target worktree `.gitignore` with `git check-ignore`; the temporary directory is removed on exit.
-- The portable installer intentionally refuses to overwrite the already installed differing validator. Therefore the only target repair is to atomically replace exactly `scripts/lib/validate-workflow-core.sh` with the fixed manifest asset, preserve executable mode, and verify its SHA-256. No other target file may be hand-edited.
+- The portable installer intentionally refuses to overwrite already installed differing assets. Therefore the only target repair is to atomically replace exactly the two changed manifest assets for this defect—`scripts/lib/validate-workflow-core.sh` and its contract test `scripts/tests/test_validate_workflow.py`—with the fixed manifest versions, preserve modes, and verify their SHA-256 values. No other target file may be hand-edited.
 
 ## Task 4：严格审查、状态推进与归档
 

@@ -69,7 +69,7 @@ evidence: The target root is not a Git repository, so direct `git check-ignore` 
 observable impact: The installed Codex workflow could not meet its required validation gate in the authorized non-Git workspace without initializing Git or touching nested repositories.
 status: resolved
 minimal fix: Add a failing non-Git-root validator test, then make ignore checks use the real Git worktree when present or temporary external Git metadata with the target as work-tree otherwise; clean the temporary metadata on exit and never create `.git` in the target.
-verification: The new test failed before implementation with the three expected ignore failures and passed after implementation. The fixed asset must be synchronized to the target, target required validation must report no FAIL/SKIP, and the target must still have no root `.git`.
+verification: The new test failed before implementation with the three expected ignore failures and passed after implementation. The fixed core and its contract-test asset must be synchronized to the target, target required validation must report no FAIL/SKIP, and the target must still have no root `.git`.
 ```
 
 ## Unverified
