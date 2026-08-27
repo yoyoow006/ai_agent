@@ -25,6 +25,6 @@
 
 ## Impact
 
-- 修改：`CLAUDE.md`、`AGENTS.md`、`openspec/AGENTS.md`、`.ai/kb/overview.md`、`.claude/.codex` 两侧 `archive` 技能、`scripts/lib/validate-workflow-core.sh`（含 assets 副本）、上述文件的 `scripts/ai-workflow-assets/` 对应副本；新增 `.github/workflows/validate.yml`。
+- 修改：`CLAUDE.md`、`AGENTS.md`、`openspec/AGENTS.md`、`.ai/kb/overview.md`、`.ai/rules/index.md`（取消路径路由关键词）、`.claude/.codex` 两侧 `archive` 技能、`scripts/lib/validate-workflow-core.sh`（含 assets 副本）、上述文件的 `scripts/ai-workflow-assets/` 对应副本；新增 `.github/workflows/validate.yml`。另含基线修复 3b84cc1：SDD 占位符 ×2 与 `.ai/memory/workflow.md` 台账。
 - 不改：安装器 `manifest.json`、`.gitignore`、`review_manifest.py`、`project_facts.py`、其余技能正文、`open` 技能（取消变更已移出 `changes/`，断点恢复天然不会命中）。
 - 风险：状态枚举文字扩散到约 12 份文件，遗漏一处即镜像/文档校验失败（由校验器自身守护）；CI 首次推送前无法在本仓库内验证 Actions 实际执行，只能本地等价验证 + 推送后观察（推送属外部授权步骤）。

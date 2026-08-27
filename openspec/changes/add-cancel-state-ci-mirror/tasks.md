@@ -6,6 +6,7 @@
   - 验证：`bash scripts/validate-workflow.sh` 全 PASS
 - [x] 2. 校验器扩展
   - `scripts/lib/validate-workflow-core.sh` 及 assets 副本：`标准:已取消|严格:已取消` 入合法组合；文档检查含`已取消`；镜像循环扩至 13 技能（新增 `mirror_normalized`：路径前缀改写＋适配注记豁免＋空行压缩）
+  - 追加（任务级审查 finding 最小修复，487930e）：changes/ 扫描新增 `cancel_must_be_archived` 取消门——`状态: 已取消` 残留 `openspec/changes/` 即 FAIL 并指向 archive/
   - 验证：validator 全 PASS；临时注入技能漂移确认非零后还原
 - [x] 3. CI workflow
   - 新增 `.github/workflows/validate.yml`（push main + pull_request + workflow_dispatch；checkout fetch-depth 0；setup-node；npm i -g @fission-ai/openspec@1.3.1；跑 `--require-openspec`）
