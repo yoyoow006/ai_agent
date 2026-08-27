@@ -253,8 +253,8 @@ proposal_ok() {
   mode="$(sed -n 's/^模式:[[:space:]]*//p' "$file" | head -1)"
   status="$(sed -n 's/^状态:[[:space:]]*//p' "$file" | head -1)"
   case "$mode:$status" in
-    标准:待确认计划|标准:构建中|标准:待验证|标准:待归档|标准:已归档) return 0 ;;
-    严格:草稿|严格:待确认规范|严格:设计中|严格:待确认计划|严格:构建中|严格:待验证|严格:待归档|严格:已归档) return 0 ;;
+    标准:待确认计划|标准:构建中|标准:待验证|标准:待归档|标准:已归档|标准:已取消) return 0 ;;
+    严格:草稿|严格:待确认规范|严格:设计中|严格:待确认计划|严格:构建中|严格:待验证|严格:待归档|严格:已归档|严格:已取消) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -374,10 +374,15 @@ mirror_equal() {
   local left right result
   left="$(mktemp)"
   right="$(mktemp)"
+  # 声明的助手适配豁免：路径前缀改写、`Codex/Claude 使用` 措辞，以及
+  # `> **Codex 执行环境` 适配注记行（cat -s 同时吞掉注记行留下的空行差）。
+  # 新增适配差异必须在此显式登记，否则镜像检查失败。
   sed -e 's/Codex 使用 `\.codex/Agent 使用 `.__agent/g' \
-      -e 's/\.codex/.__agent/g' ".codex/skills/$skill/SKILL.md" >"$left"
+      -e 's/\.codex/.__agent/g' \
+      -e '/^> \*\*Codex 执行环境/d' ".codex/skills/$skill/SKILL.md" | cat -s >"$left"
   sed -e 's/Claude 使用 `\.claude/Agent 使用 `.__agent/g' \
-      -e 's/\.claude/.__agent/g' ".claude/skills/$skill/SKILL.md" >"$right"
+      -e 's/\.claude/.__agent/g' \
+      -e '/^> \*\*Codex 执行环境/d' ".claude/skills/$skill/SKILL.md" | cat -s >"$right"
   cmp -s "$left" "$right"
   result=$?
   rm -f "$left" "$right"
@@ -450,7 +455,7 @@ done
 for doc in "${required_docs[@]}"; do
   check "$doc 三级模式定义" mode_table_ok "$doc"
   check "$doc 标准单确认" contains_all "$doc" '一次确认' '待确认计划' '不创建'
-  check "$doc 严格 8 态" contains_all "$doc" '草稿' '待确认规范' '设计中' '构建中' '待验证' '待归档' '已归档'
+  check "$doc 严格 9 态" contains_all "$doc" '草稿' '待确认规范' '设计中' '构建中' '待验证' '待归档' '已归档' '已取消'
   check "$doc 共享底线" contains_all "$doc" '用户' '外部' '破坏性' '验证'
 done
 check "核心规则无统一重流程回归" policy_ok "${policy_files[@]}"
@@ -501,7 +506,7 @@ for adapter_spec in "${role_adapters[@]}"; do
 done
 
 if assistant_required codex && assistant_required claude; then
-  for skill in open design build verify archive tdd code-review subagent-driven git-worktrees; do
+  for skill in open design build verify archive tdd code-review subagent-driven git-worktrees verification parallel-agents systematic-debugging writing-skills; do
     check "双套语义镜像: $skill" mirror_equal "$skill"
   done
 fi
