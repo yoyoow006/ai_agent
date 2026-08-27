@@ -22,6 +22,7 @@ LEGACY_INNER_SENTINEL = "WORKFLOW_VALIDATOR_CONTRACT_INNER"
 VALIDATOR_COMMANDS = (
     "awk",
     "bash",
+    "cat",
     "cmp",
     "cp",
     "chmod",
