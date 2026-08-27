@@ -152,3 +152,7 @@
 ## 2026-08-26 · 来源变更 install-codex-workflow-yuxiaor（单助手测试继承）
 **坑**：新增测试在双助手源仓库直接通过，但同一测试会被 installed fixture 的单助手 profile 变体继承；硬编码 Codex+Claude 双断言使合法 Codex-only 目标失败。
 **解**：测试断言先用 `_assistant_required_in_fixture` 判断当前 profile，只要求选中助手的存在项，并明确断言未选助手的存在项不出现；同步修改源测试与安装资产测试。
+
+## 2026-08-27 · 来源变更 add-cancel-state-ci-mirror（基线修复）
+**坑**：`validate-workflow-core.sh` 用 `test -d .codex/sdd` 断言目录存在，但 `/.codex/sdd/` 被 gitignore 忽略且 `.gitkeep` 从未提交；主工作区靠磁盘遗留空目录通过，新鲜 worktree/clone/CI 检出中该检查失败，并级联击垮依赖实体树拷贝的 38 个契约 fixture 测试。
+**解**：用 `git add -f` 跟踪 `.codex/sdd/.gitkeep` 与 `.claude/sdd/.gitkeep`（与安装资产 manifest 既有条目一致）；占位符被跟踪后 SDD 草稿正文仍被忽略。新增「目录存在」类断言时，必须保证其占位符能被新鲜检出处物化。
