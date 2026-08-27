@@ -2,7 +2,7 @@
 
 | 模块名 | 代码路径 | 别称 | 关键词 |
 |---|---|---|---|
-| 风险分级工作流 | `AGENTS.md`, `CLAUDE.md`, `openspec/specs/risk-tiered-ai-workflow/` | 宪法、总纲、流程路由、需求理解 | 快速模式、标准模式、严格模式、单确认、状态路径、共享底线、权威事实优先、编号提问、canonical term |
+| 风险分级工作流 | `AGENTS.md`, `CLAUDE.md`, `openspec/specs/risk-tiered-ai-workflow/` | 宪法、总纲、流程路由、需求理解 | 快速模式、标准模式、严格模式、单确认、状态路径、取消路径、共享底线、权威事实优先、编号提问、canonical term |
 | Codex 阶段与支撑技能 | `.codex/skills/` | Codex 编排器、执行器 | Open、Design、Build、Verify、Archive、TDD、审查、worktree |
 | Claude 阶段与支撑技能 | `.claude/skills/` | Claude 编排器、执行器 | Open、Design、Build、Verify、Archive、TDD、审查、worktree |
 | 助手适配 | `.codex/README.md`, `AGENTS.md`, `CLAUDE.md` | 工具映射、入口 | spawn_agent、update_plan、apply_patch、宿主能力 |
