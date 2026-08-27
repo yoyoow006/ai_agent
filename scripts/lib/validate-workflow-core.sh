@@ -441,9 +441,17 @@ for agent in "${required_agents[@]}"; do
   done
 done
 
+cancel_must_be_archived() {
+  local file="$1"
+  local status
+  status="$(sed -n 's/^状态:[[:space:]]*//p' "$file" | head -1)"
+  test "$status" != "已取消"
+}
+
 for change in openspec/changes/*/; do
   test -f "${change}proposal.md" || continue
   check "proposal 模式/状态合法: ${change%/}" proposal_ok "${change}proposal.md"
+  check "取消变更须在 archive: ${change%/}" cancel_must_be_archived "${change}proposal.md"
 done
 check "mutation: 拒绝非法状态" proposal_mutation_rejected 严格 完全非法
 check "mutation: 标准拒绝严格专用草稿态" proposal_mutation_rejected 标准 草稿
