@@ -34,6 +34,7 @@
 ## 状态真源与技能
 
 - 标准/严格变更状态看 `openspec/changes/<变更名>/proposal.md`，进度看 `tasks.md`；开始前读取它们和 `.ai/rules/index.md`，从断点继续。
+- 任一未归档状态可经用户明确决定转`已取消`终态：proposal 记`取消原因:`并移入 `openspec/archive/`，不合并 delta、不恢复；助手可建议、不得自行取消。
 - `openspec/` 是 `.claude` 与 `.codex` 的共享数据层；快速模式没有状态。
 - 新需求/分类用 open；仅严格独立计划用 design；实现用 build；审查终验用 verify；收尾用 archive。
 - 支撑技能只在 description 的触发条件命中时加载。

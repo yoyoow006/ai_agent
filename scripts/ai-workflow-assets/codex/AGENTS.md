@@ -34,6 +34,7 @@
 ## 状态真源
 
 - 活跃变更：`openspec/changes/<变更名>/`；状态看 `proposal.md`，进度看 `tasks.md`。
+- 任一未归档状态可经用户明确决定转`已取消`终态：proposal 记`取消原因:`并移入 `openspec/archive/`，不合并 delta、不恢复；助手可建议、不得自行取消。
 - 标准/严格模式开始工作前读取上述文件与 `.ai/rules/index.md`，从断点继续，不重做完成项。
 - `openspec/` 是 `.claude` 与 `.codex` 共享的唯一数据层；两套工作流不得同时推进同一变更。快速模式没有 OpenSpec 状态。
 

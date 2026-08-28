@@ -7,6 +7,15 @@ description: 用于标准或严格模式审查终验已通过、需要合并规�
 
 快速模式不归档。前置是 proposal `状态: 待归档`、tasks 全勾、对应模式审查零未决、终验有新鲜证据；最新审查 manifest 再次 `review_manifest.py verify` 为 `VALID`，且 `.ai/rules/review.md` 台账中的 Critical/Important 均已关闭。任一 `STALE` 立即停止，不沿用旧结论。
 
+## 取消路径（用户明确决定）
+
+任一`已归档`前状态的变更可经用户明确决定取消；助手只能建议，不得自行置为`已取消`。
+
+1. proposal 置`状态: 已取消`，追加一行`取消原因: <一句话>`。
+2. 把 `openspec/changes/<变更名>/` 整体移入 `openspec/archive/`；delta 不合并进主规格，不执行本章其余流程（主规格合并、知识沉淀、归档后验证、分支整合）。
+3. feature 分支、worktree 与未提交修改的去留由用户明确指示；删除未合并工作仍需独立授权。
+4. 已取消变更只作历史记录：不恢复、不合并 delta；同类新需求按新变更目录重新进入。
+
 ## 1. 合并 delta 到主规格
 
 逐能力处理 `openspec/changes/<变更名>/specs/<能力>/spec.md`：
