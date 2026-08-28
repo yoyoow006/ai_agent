@@ -1986,5 +1986,118 @@ class UpgradeLedgerTests(unittest.TestCase):
             self.module._load_profile(self.target, expected_assistant="codex")
 
 
+class UpgradePlanTests(unittest.TestCase):
+    def setUp(self):
+        self.module = load_installer_module()
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.target = Path(self.temporary.name) / "target"
+        self.target.mkdir()
+
+    def _asset(self, relative):
+        return (ASSET_ROOT / "shared" / relative).read_bytes()
+
+    def _write(self, relative, data):
+        path = self.target / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+
+    def _ledger_profile(self, files):
+        return json.dumps({"assistant": "codex", "files": files, "schema_version": 2})
+
+    def _plan(self):
+        return self.module.build_upgrade_plan(REPOSITORY_ROOT, self.target, "codex")
+
+    def _item(self, plan, path):
+        matching = [entry for entry in plan.items if entry.path == path]
+        self.assertEqual(len(matching), 1, f"expected exactly one item for {path}")
+        return matching[0]
+
+    def _prepare_matrix_target(self):
+        old_readme = b"old readme content\n"
+        modified_rules = b"locally tuned rules\n"
+        removed_intact = b"legacy file intact\n"
+        removed_touched = b"legacy file edited\n"
+        self._write(".ai/README.md", old_readme)
+        self._write(".ai/rules/index.md", self._asset(".ai/rules/index.md"))
+        self._write(".ai/kb/overview.md", modified_rules)
+        self._write("zz-removed-intact.txt", removed_intact)
+        self._write("zz-removed-touched.txt", removed_touched)
+        self._write(
+            ".ai/assistant-profile.json",
+            self._ledger_profile({
+                ".ai/README.md": hashlib.sha256(old_readme).hexdigest(),
+                ".ai/kb/overview.md": hashlib.sha256(b"old overview\n").hexdigest(),
+                "zz-removed-intact.txt": hashlib.sha256(removed_intact).hexdigest(),
+                "zz-removed-touched.txt": hashlib.sha256(b"old removed\n").hexdigest(),
+            }).encode("utf-8"),
+        )
+
+    def test_decision_matrix_actions(self):
+        self._prepare_matrix_target()
+        plan = self._plan()
+        self.assertEqual(self._item(plan, ".ai/README.md").action, "upgrade")
+        self.assertEqual(
+            self._item(plan, ".ai/README.md").source_bytes, self._asset(".ai/README.md"),
+        )
+        self.assertEqual(self._item(plan, ".ai/rules/index.md").action, "unchanged")
+        self.assertEqual(self._item(plan, ".ai/kb/overview.md").action, "skip")
+        self.assertEqual(self._item(plan, "openspec/AGENTS.md").action, "create")
+        self.assertEqual(self._item(plan, "zz-removed-intact.txt").action, "remove")
+        self.assertEqual(self._item(plan, "zz-removed-touched.txt").action, "kept")
+
+    def test_profile_item_uses_lineage_ledger(self):
+        self._prepare_matrix_target()
+        plan = self._plan()
+        profile = self._item(plan, ".ai/assistant-profile.json")
+        self.assertIn(profile.action, {"create", "update", "unchanged"})
+        decoded = json.loads(profile.source_bytes.decode("utf-8"))
+        self.assertEqual(decoded["schema_version"], 2)
+        files = decoded["files"]
+        self.assertEqual(
+            files[".ai/README.md"],
+            hashlib.sha256(self._asset(".ai/README.md")).hexdigest(),
+        )
+        self.assertEqual(
+            files[".ai/kb/overview.md"], hashlib.sha256(b"old overview\n").hexdigest(),
+        )
+        self.assertNotIn("zz-removed-intact.txt", files)
+        self.assertEqual(
+            files["zz-removed-touched.txt"],
+            hashlib.sha256(b"old removed\n").hexdigest(),
+        )
+
+    def test_legacy_profile_downgrades_to_conservative(self):
+        old_readme = b"old readme content\n"
+        self._write(".ai/README.md", old_readme)
+        self._write(
+            ".ai/assistant-profile.json",
+            json.dumps({"assistant": "codex", "schema_version": 1}).encode("utf-8"),
+        )
+        plan = self._plan()
+        self.assertEqual(self._item(plan, ".ai/README.md").action, "skip")
+        profile = json.loads(self._item(plan, ".ai/assistant-profile.json").source_bytes)
+        self.assertEqual(profile["schema_version"], 2)
+        self.assertNotIn(".ai/README.md", profile["files"])
+
+    def test_existing_entry_file_is_skipped(self):
+        self._write("AGENTS.md", b"team private entry\n")
+        self._write(
+            ".ai/assistant-profile.json",
+            self._ledger_profile({
+                "AGENTS.md": hashlib.sha256(b"installed entry\n").hexdigest(),
+            }).encode("utf-8"),
+        )
+        plan = self._plan()
+        item = self._item(plan, "AGENTS.md")
+        self.assertEqual(item.action, "skip")
+        self.assertEqual(item.source_bytes, b"team private entry\n")
+
+    def test_structural_conflicts_still_fail_closed(self):
+        (self.target / "openspec").symlink_to(self.temporary.name)
+        with self.assertRaises(self.module.ConflictError):
+            self._plan()
+
+
 if __name__ == "__main__":
     unittest.main()

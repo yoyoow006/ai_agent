@@ -75,6 +75,7 @@ class InstallPlan:
     items: tuple[PlanItem, ...]
     target_binding: tuple[int, int, int]
     directory_bindings: tuple[tuple[str, tuple[int, int, int]], ...]
+    upgrade: bool = False
 
 
 @dataclass(frozen=True)
@@ -365,7 +366,8 @@ def _validated_target(target_input: Path) -> Path:
     return resolved
 
 
-def _target_action(target: Path, relative_path: str, content: bytes) -> str:
+def _inspect_target_file(target: Path, relative_path: str):
+    """Return current target bytes (None when missing) after structural checks."""
     current = target
     components = relative_path.split("/")
     for index, component in enumerate(components):
@@ -373,7 +375,7 @@ def _target_action(target: Path, relative_path: str, content: bytes) -> str:
         try:
             metadata = current.lstat()
         except FileNotFoundError:
-            return "create"
+            return None
         except OSError as error:
             raise ConflictError("target path cannot be inspected") from error
         if stat.S_ISLNK(metadata.st_mode):
@@ -384,9 +386,17 @@ def _target_action(target: Path, relative_path: str, content: bytes) -> str:
             continue
         if not stat.S_ISREG(metadata.st_mode):
             raise ConflictError("target path is not a regular file")
-        if _read_regular_file(current, "target file") == content:
-            return "unchanged"
-        raise ConflictError("target file has different content")
+        return _read_regular_file(current, "target file")
+    raise AssertionError("unreachable empty target path")
+
+
+def _target_action(target: Path, relative_path: str, content: bytes) -> str:
+    existing = _inspect_target_file(target, relative_path)
+    if existing is None:
+        return "create"
+    if existing == content:
+        return "unchanged"
+    raise ConflictError("target file has different content")
     raise AssertionError("unreachable empty target path")
 
 
@@ -638,6 +648,94 @@ def build_plan(source_root: Path, target_input: Path, assistant: str) -> Install
         captured_items,
         target_binding,
         directory_bindings,
+    )
+
+
+def _upgrade_decision(current, new_bytes: bytes, old_digest):
+    """Ledger-driven per-file action; lineage digests come from installed assets."""
+    if current is None:
+        return "create"
+    current_digest = _sha256_hex(current)
+    if current_digest == _sha256_hex(new_bytes):
+        return "unchanged"
+    if old_digest is not None and current_digest == old_digest:
+        return "upgrade"
+    return "skip"
+
+
+def build_upgrade_plan(source_root: Path, target_input: Path, assistant: str) -> InstallPlan:
+    """Build a ledger-driven upgrade plan that never touches modified target files."""
+    if assistant not in {"codex", "claude"}:
+        raise InputError("assistant is unsupported")
+    try:
+        resolved_source = source_root.resolve(strict=True)
+    except OSError as error:
+        raise InputError("source root does not exist") from error
+    target = _validated_target(target_input)
+    if target == resolved_source or _is_relative_to(target, resolved_source):
+        raise InputError("target is inside the installer source")
+    asset_root = resolved_source / "scripts" / "ai-workflow-assets"
+    manifest = load_manifest(asset_root)
+    selected_entries = (*manifest.shared, *getattr(manifest, assistant))
+    selected_paths = [entry.path for entry in selected_entries]
+    if len(selected_paths) != len(set(selected_paths)):
+        raise InputError("selected manifest paths are not globally unique")
+
+    profile = _load_profile(target, expected_assistant=assistant)
+    ledger = {} if profile.get("schema_version") == 1 else dict(profile["files"])
+    selected_set = set(selected_paths)
+    new_ledger: dict = {}
+    planned_items: list[PlanItem] = []
+    for entry in sorted(selected_entries, key=lambda item: os.fsencode(item.path)):
+        current = _inspect_target_file(target, entry.path)
+        action = _upgrade_decision(
+            current, entry.source_bytes, ledger.get(entry.path),
+        )
+        content = entry.source_bytes if action != "skip" else current
+        planned_items.append(PlanItem(entry.path, content, entry.mode, action))
+        if action == "skip":
+            if entry.path in ledger:
+                new_ledger[entry.path] = ledger[entry.path]
+        else:
+            new_ledger[entry.path] = _sha256_hex(entry.source_bytes)
+    for path in sorted(ledger, key=os.fsencode):
+        if path in selected_set:
+            continue
+        current = _inspect_target_file(target, path)
+        if current is None:
+            continue
+        if _sha256_hex(current) == ledger[path]:
+            planned_items.append(PlanItem(path, current, 0o644, "remove"))
+        else:
+            planned_items.append(PlanItem(path, current, 0o644, "kept"))
+            new_ledger[path] = ledger[path]
+
+    profile_content = _profile_bytes_v2(assistant, new_ledger)
+    current_profile = _inspect_target_file(
+        target, ".ai/assistant-profile.json",
+    )
+    if current_profile is None:
+        profile_action = "create"
+    elif current_profile == profile_content:
+        profile_action = "unchanged"
+    else:
+        profile_action = "update"
+    planned_items.append(
+        PlanItem(".ai/assistant-profile.json", profile_content, 0o644, profile_action),
+    )
+    planned_items.append(_plan_gitignore(target, assistant))
+    items = tuple(sorted(planned_items, key=lambda item: os.fsencode(item.path)))
+    target_binding, directory_bindings, captured_items = _capture_plan_target_state(
+        target, items,
+    )
+    return InstallPlan(
+        resolved_source,
+        target,
+        assistant,
+        captured_items,
+        target_binding,
+        directory_bindings,
+        upgrade=True,
     )
 
 
