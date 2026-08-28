@@ -164,3 +164,7 @@
 ## 2026-08-28 · 来源变更 add-cancel-state-ci-mirror（整合修复）
 **坑**：`openspec/changes/.gitkeep` 从未被跟踪（archive/plan/specs 三个都有，唯独 changes 漏了）；主工作区与实现 worktree 靠磁盘残留目录通过「目录存在」断言，`--no-ff` 合并后 git 清除无跟踪文件目录，主分支校验 FAIL=2（目录断言＋契约 fixture 级联），新鲜 clone/CI 同样会挂。
 **解**：补提交 `openspec/changes/.gitkeep` 并复跑 required 门禁。教训：「目录存在」类断言的每个目录都必须有已跟踪占位符；审计 diff 时勿用 head 截断输出（本次与资产规格滞后同为截断漏报）。
+
+## 2026-08-28 · 来源变更 add-installer-upgrade-path（白名单双份坑）
+**坑**：校验器外部命令白名单存在**两份**——`test_validate_workflow.py` 的 `VALIDATOR_COMMANDS`（fixture 沙箱）与 `test_install_ai_workflow.py` 的 `PORTABLE_VALIDATOR_COMMANDS`（安装目标受限 PATH）。CQ-1 修 cat 时只同步了前者，后者遗漏导致 `InstalledWorkflowValidationTests` 6 个子测试死在目标内契约测试的 setUp（`missing test prerequisite: cat`），且该套件不在 validate-workflow.sh 门禁内、CI 不跑，静默挂了两个版本。
+**解**：core 新增外部命令时必须同步**两份**白名单并各跑一次对应套件；更稳妥的做法是让两份白名单单一来源化（列为后续候选）。安装器套件（`python3 -m unittest scripts.tests.test_install_ai_workflow`）应纳入手动终验清单。

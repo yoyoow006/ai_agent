@@ -63,7 +63,7 @@ EXPECTED_ASSET_PATHS = {
 
 
 PORTABLE_VALIDATOR_COMMANDS = (
-    "awk", "bash", "cmp", "cp", "chmod", "dirname", "find", "git", "grep",
+    "awk", "bash", "cat", "cmp", "cp", "chmod", "dirname", "find", "git", "grep",
     "head", "mktemp", "rm", "rmdir", "sed", "sort", "stat", "tail", "touch",
     "tr", "wc",
 )
@@ -1912,6 +1912,78 @@ class InstallGitignoreTests(unittest.TestCase):
 
                 self.assertEqual(snapshot_tree(target), before)
                 self.assertFalse((target / "AGENTS.md").exists())
+
+
+class UpgradeLedgerTests(unittest.TestCase):
+    def setUp(self):
+        self.module = load_installer_module()
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.target = Path(self.temporary.name)
+
+    def test_sha256_hex_matches_known_digest(self):
+        self.assertEqual(
+            self.module._sha256_hex(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+        )
+        self.assertEqual(self.module._sha256_hex(b""), hashlib.sha256(b"").hexdigest())
+
+    def test_profile_bytes_v2_is_deterministic_and_round_trips(self):
+        files = {".ai/README.md": "a" * 64, "AGENTS.md": "b" * 64}
+        first = self.module._profile_bytes_v2("codex", files)
+        second = self.module._profile_bytes_v2("codex", dict(reversed(list(files.items()))))
+        self.assertEqual(first, second)
+        self.assertTrue(first.endswith(b"\n"))
+        decoded = json.loads(first.decode("utf-8"))
+        self.assertEqual(decoded, {"assistant": "codex", "schema_version": 2, "files": files})
+
+    def test_load_profile_v2_returns_files(self):
+        payload = {
+            "assistant": "claude",
+            "schema_version": 2,
+            "files": {"CLAUDE.md": "c" * 64},
+        }
+        (self.target / ".ai").mkdir()
+        (self.target / ".ai" / "assistant-profile.json").write_text(
+            json.dumps(payload), encoding="utf-8",
+        )
+        self.assertEqual(self.module._load_profile(self.target), payload)
+
+    def test_load_profile_missing_or_v1_is_legacy(self):
+        self.assertEqual(self.module._load_profile(self.target), {"schema_version": 1})
+        (self.target / ".ai").mkdir()
+        (self.target / ".ai" / "assistant-profile.json").write_text(
+            json.dumps({"assistant": "codex", "schema_version": 1}), encoding="utf-8",
+        )
+        self.assertEqual(self.module._load_profile(self.target), {"schema_version": 1})
+
+    def test_load_profile_v2_malformed_fails_closed(self):
+        cases = [
+            {"assistant": "codex", "schema_version": 2},
+            {"assistant": "codex", "schema_version": 2, "files": []},
+            {"assistant": "codex", "schema_version": 2, "files": {"x": "zz"}},
+            {"assistant": "codex", "schema_version": 2, "files": {"../escape": "a" * 64}},
+            {"schema_version": 2, "files": {}},
+            {"assistant": "codex", "schema_version": 3, "files": {}},
+        ]
+        (self.target / ".ai").mkdir()
+        profile = self.target / ".ai" / "assistant-profile.json"
+        for payload in cases:
+            profile.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaises(self.module.InputError, msg=repr(payload)):
+                self.module._load_profile(self.target)
+
+    def test_load_profile_assistant_mismatch_fails_closed(self):
+        (self.target / ".ai").mkdir()
+        (self.target / ".ai" / "assistant-profile.json").write_text(
+            json.dumps({
+                "assistant": "claude", "schema_version": 2,
+                "files": {"CLAUDE.md": "c" * 64},
+            }),
+            encoding="utf-8",
+        )
+        with self.assertRaises(self.module.InputError):
+            self.module._load_profile(self.target, expected_assistant="codex")
 
 
 if __name__ == "__main__":
