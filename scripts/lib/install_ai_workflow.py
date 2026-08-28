@@ -430,6 +430,12 @@ def _ledger_bytes(assistant: str, files: dict) -> bytes:
 def _valid_ledger_path(path: object) -> bool:
     if not isinstance(path, str) or not path or "\\" in path or "\0" in path:
         return False
+    if any(unicodedata.category(character) == "Cc" for character in path):
+        return False
+    if unicodedata.normalize("NFC", path) != path:
+        return False
+    if path.startswith("/"):
+        return False
     parts = path.split("/")
     return all(part not in {"", ".", ".."} for part in parts)
 
@@ -454,15 +460,13 @@ def _read_profile_assistant(target: Path) -> str | None:
     return assistant
 
 
-def _load_ledger(target: Path, expected_assistant: str = None) -> dict:
+def _load_ledger(target: Path, expected_assistant: "str | None" = None) -> dict:
     """Installer ledger files map; a missing ledger means legacy install."""
     ledger_path = target / ".ai" / "installer-ledger.json"
     if not ledger_path.exists():
         return {}
-    try:
-        raw = _read_regular_file(ledger_path, "installer ledger")
-    except FileNotFoundError:
-        return {}
+    # 存在性检查与读取之间的消失竞态由 _read_regular_file 以 InputError fail-closed 处理。
+    raw = _read_regular_file(ledger_path, "installer ledger")
     try:
         decoded = json.loads(raw.decode("utf-8"))
     except (UnicodeDecodeError, ValueError) as error:

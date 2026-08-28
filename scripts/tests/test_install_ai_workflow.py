@@ -475,7 +475,7 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
                 target.mkdir()
                 secret = b"private existing workflow instructions\n"
                 (target / root_entry).write_bytes(secret)
-                before = logical_snapshot_tree(target)
+                before = identity_snapshot_tree(target)
 
                 result = run_installer("--target", str(target), "--assistant", assistant)
 
@@ -483,7 +483,7 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
                 self.assertEqual(result.stdout, "")
                 self.assertEqual(result.stderr, "CONFLICT: target file has different content\n")
                 self.assertNotIn(secret.decode("utf-8").strip(), result.stderr)
-                self.assertEqual(logical_snapshot_tree(target), before)
+                self.assertEqual(identity_snapshot_tree(target), before)
 
 
 class InstallAiWorkflowCliTests(unittest.TestCase):
@@ -2220,6 +2220,39 @@ class UpgradeCliTests(unittest.TestCase):
             (self.target / "zz-edited.txt").read_bytes(), b"edited-new\n",
         )
 
+    def test_upgrade_replaces_unmodified_entry_file(self):
+        self._install()
+        (self.source / "scripts" / "ai-workflow-assets" / "codex" /
+         "AGENTS.md").write_bytes(b"codex v2\n")
+        upgraded = self._upgrade()
+        self.assertEqual(upgraded.returncode, 0, upgraded.stderr or upgraded.stdout)
+        self.assertIn("[UPGRADED] AGENTS.md", upgraded.stdout)
+        self.assertEqual(
+            (self.target / "AGENTS.md").read_bytes(), b"codex v2\n",
+        )
+
+    def test_upgrade_mixes_skip_and_upgrade_with_notes(self):
+        self._install()
+        (self.target / ".ai" / "README.md").write_bytes(b"local tweak\n")
+        self._set_asset(b"shared v2\n")
+        (self.source / "scripts" / "ai-workflow-assets" / "codex" /
+         "AGENTS.md").write_bytes(b"codex v2\n")
+        upgraded = self._upgrade()
+        self.assertEqual(upgraded.returncode, 0, upgraded.stderr or upgraded.stdout)
+        self.assertIn(
+            "[SKIPPED] .ai/README.md（目标已修改，保留；请人工比对新版）",
+            upgraded.stdout,
+        )
+        self.assertIn("[UPGRADED] AGENTS.md", upgraded.stdout)
+        self.assertRegex(upgraded.stdout, r"RESULT .*upgraded=1 .*skipped=1 ")
+
+    def test_upgrade_rejects_assistant_mismatch_at_plan_level(self):
+        self._install()
+        module = load_installer_module()
+        with self.assertRaises(module.InputError) as raised:
+            module.build_upgrade_plan(self.source, self.target, "claude")
+        self.assertIn("different assistant", str(raised.exception))
+
     def test_upgrade_dry_run_writes_nothing(self):
         self._install()
         self._set_asset(b"shared v2\n")
@@ -2239,7 +2272,7 @@ class UpgradeTransactionTests(unittest.TestCase):
         self.root = Path(self.temporary.name)
         self.source_root = create_source(self.root)
 
-    def _prepared_target(self, name):
+    def _prepared_target(self, name, version=2):
         target = self.root / name
         target.mkdir()
         installed = run_source_installer(
@@ -2247,7 +2280,7 @@ class UpgradeTransactionTests(unittest.TestCase):
         )
         self.assertEqual(installed.returncode, 0, installed.stderr or installed.stdout)
         (self.source_root / "scripts" / "ai-workflow-assets" / "shared" /
-         ".ai" / "README.md").write_bytes(b"shared v2\n")
+         ".ai" / "README.md").write_bytes(f"shared v{version}\n".encode("utf-8"))
         ledger_path = target / ".ai" / "installer-ledger.json"
         ledger = json.loads(ledger_path.read_text("utf-8"))
         ledger["files"]["zz-orphan.txt"] = hashlib.sha256(b"orphan\n").hexdigest()
@@ -2256,10 +2289,15 @@ class UpgradeTransactionTests(unittest.TestCase):
         return target
 
     def test_publish_failure_rolls_back_files_and_ledger(self):
-        matrix = (("publish", 1), ("publish", 2), ("fsync", 2))
-        for operation, fail_at in matrix:
+        matrix = (
+            ("publish", 1), ("publish", 2), ("publish", 3),
+            ("fsync", 2), ("fsync", 5),
+        )
+        for index, (operation, fail_at) in enumerate(matrix):
             with self.subTest(operation=operation, fail_at=fail_at):
-                target = self._prepared_target(f"target-{operation}-{fail_at}")
+                target = self._prepared_target(
+                    f"target-{operation}-{fail_at}", version=2 + index,
+                )
                 plan = self.module.build_upgrade_plan(
                     self.source_root, target, "codex",
                 )
@@ -2283,7 +2321,7 @@ class UpgradeTransactionTests(unittest.TestCase):
                 self.assertEqual(logical_snapshot_tree(target), before)
 
     def test_upgrade_commits_leave_no_backup_artifacts(self):
-        target = self._prepared_target("target-commit")
+        target = self._prepared_target("target-commit", version=9)
         result = run_source_installer(
             self.source_root, "--target", str(target), "--assistant", "codex",
             "--upgrade",
@@ -2295,7 +2333,7 @@ class UpgradeTransactionTests(unittest.TestCase):
         ]
         self.assertEqual(leftovers, [])
         self.assertEqual(
-            (target / ".ai" / "README.md").read_bytes(), b"shared v2\n",
+            (target / ".ai" / "README.md").read_bytes(), b"shared v9\n",
         )
         self.assertFalse((target / "zz-orphan.txt").exists())
         ledger = json.loads(
@@ -2303,9 +2341,9 @@ class UpgradeTransactionTests(unittest.TestCase):
         )
         self.assertEqual(
             ledger["files"][".ai/README.md"],
-            hashlib.sha256(b"shared v2\n").hexdigest(),
+            hashlib.sha256(b"shared v9\n").hexdigest(),
         )
-
+    
 
 if __name__ == "__main__":
     unittest.main()
