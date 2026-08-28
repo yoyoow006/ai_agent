@@ -15,7 +15,7 @@
   1. 未被目标修改（台账命中）→ 替换为新版；已等于新版 → `UNCHANGED`；
   2. 被目标修改（台账不匹配或 legacy 无台账且≠新版）→ `SKIPPED`＋逐文件报告，其余继续；
   3. 已从新版 manifest 移除且台账确认未修改 → 删除；被修改 → 保留＋报告。
-- **legacy v1 profile**（无台账，如 yuxiaor）：仅"内容已等于新版"自动通过，其余全部 `SKIPPED` 报告；首次以 v2 安装/升级后即获得台账。入口文件（AGENTS.md/CLAUDE.md）既有语义不变——目标已有时仍不触碰，仅报告。
+- **legacy v1 profile**（无台账，如 yuxiaor）：仅"内容已等于新版"自动通过，其余全部 `SKIPPED` 报告；首次以本版安装器安装/升级后即获得台账。入口文件（AGENTS.md/CLAUDE.md）在安装时沿用既有不覆盖语义（目标已有时仍不触碰，仅报告）；升级时按台账规则判定。
 - 升级沿用既有事务（renameat2 原子发布＋回滚）、边界校验、退出码契约；报告输出每文件 `UPGRADED/UNCHANGED/CREATED/SKIPPED/REMOVED/KEPT` 与汇总。
 - `.ai/tools/README.md` 与安装帮助同步更新；测试按严格模式 TDD 先红后绿补齐（台账判定、三类行动、legacy 降级、事务回滚、dry-run、删除清理）。
 

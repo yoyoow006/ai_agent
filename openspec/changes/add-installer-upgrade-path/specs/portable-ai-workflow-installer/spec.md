@@ -4,7 +4,7 @@
 
 ### Requirement: 安装器必须支持台账驱动的升级
 
-安装器 SHALL 提供 `--upgrade` 模式，与 `--target`、`--assistant` 组合并支持 `--dry-run` 预览。安装与升级 SHALL 在安装器私有的 `.ai/installer-ledger.json` 中维护安装台账：记录每个 manifest 文件安装时的内容 SHA-256；`.ai/assistant-profile.json` 保持校验器契约格式不变。升级时对每个文件 SHALL 按以下规则行动：目标内容哈希等于台账哈希（未被目标修改）时替换为新版内容；等于新版内容时记 `UNCHANGED`；台账不匹配或无台账且内容不等于新版时记 `SKIPPED` 并继续处理其余文件。已从新版 manifest 移除的文件 SHALL 仅在台账确认未被目标修改时删除，否则保留并报告。升级 SHALL 沿用安装的事务发布与回滚机制，台账更新 SHALL 与文件变更处于同一事务。目标已存在的助手入口文件 SHALL 与其他 manifest 文件适用同一台账规则：未被目标修改（台账命中）时可升级，已被目标修改时 `SKIPPED` 并报告（2026-08-28 用户裁定）。
+安装器 SHALL 提供 `--upgrade` 模式，与 `--target`、`--assistant` 组合并支持 `--dry-run` 预览。安装与升级 SHALL 在安装器私有的 `.ai/installer-ledger.json` 中维护安装台账：记录每个 manifest 文件安装时的内容 SHA-256；`.ai/assistant-profile.json` 保持校验器契约格式不变。升级时对每个文件 SHALL 按以下规则行动：目标内容哈希等于台账哈希（未被目标修改）时替换为新版内容；等于新版内容时记 `UNCHANGED`；台账不匹配或无台账且内容不等于新版时记 `SKIPPED` 并继续处理其余文件；目标缺失的 manifest 文件 SHALL 记 `CREATED` 并写入新版内容与台账条目。已从新版 manifest 移除的文件 SHALL 仅在台账确认未被目标修改时删除，否则保留并报告。升级 SHALL 沿用安装的事务发布与回滚机制，台账更新 SHALL 与文件变更处于同一事务。目标已存在的助手入口文件 SHALL 与其他 manifest 文件适用同一台账规则：未被目标修改（台账命中）时可升级，已被目标修改时 `SKIPPED` 并报告（2026-08-28 用户裁定）。
 
 #### Scenario: 未修改文件自动升级
 

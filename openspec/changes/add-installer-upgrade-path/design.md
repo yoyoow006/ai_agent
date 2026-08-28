@@ -20,7 +20,7 @@
 ### D3. 报告与退出码
 
 - 逐文件行：`UPGRADED <path>` / `UNCHANGED <path>` / `CREATED <path>` / `SKIPPED <path>（目标已修改，保留；请人工比对新版）` / `REMOVED <path>` / `KEPT <path>（已移除但目标已修改，保留）`；末尾汇总计数。
-- 退出码沿用：0 成功（含存在 SKIPPED/KEPT——它们是报告不是失败）；1 事务失败；2 用法/输入；3 结构性冲突（symlink/类型/受管块损坏）。SKIPPED≠3，与"整体拒绝"语义区分。
+- 退出码沿用：0 成功（含存在 SKIPPED/KEPT——它们是报告不是失败）；1 事务失败；2 用法错误（参数解析）；目标/边界/输入 UNSAFE 与结构性冲突（symlink/类型/受管块损坏、台账非法）沿既有 exit 3。SKIPPED≠3，与"整体拒绝"语义区分。
 
 ### D4. 事务一致性
 
