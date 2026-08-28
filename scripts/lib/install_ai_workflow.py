@@ -368,7 +368,7 @@ def _validated_target(target_input: Path) -> Path:
     return resolved
 
 
-def _inspect_target_file(target: Path, relative_path: str) -> "bytes | None":
+def _inspect_target_file(target: Path, relative_path: str) -> bytes | None:
     """Return current target bytes (None when missing) after structural checks."""
     current = target
     components = relative_path.split("/")
@@ -453,6 +453,8 @@ def _read_profile_assistant(target: Path) -> str | None:
         decoded = json.loads(
             raw.decode("utf-8"), object_pairs_hook=_unique_json_object,
         )
+    except InputError:
+        raise
     except (UnicodeDecodeError, ValueError) as error:
         raise InputError("assistant profile is not valid JSON") from error
     if not isinstance(decoded, dict):
@@ -481,6 +483,8 @@ def _load_ledger(target: Path, expected_assistant: str | None = None) -> dict:
         decoded = json.loads(
             raw.decode("utf-8"), object_pairs_hook=_unique_json_object,
         )
+    except InputError:
+        raise
     except (UnicodeDecodeError, ValueError) as error:
         raise InputError("installer ledger is not valid JSON") from error
     if not isinstance(decoded, dict):
@@ -696,7 +700,7 @@ def build_plan(source_root: Path, target_input: Path, assistant: str) -> Install
     )
 
 
-def _upgrade_decision(current: "bytes | None", new_bytes: bytes, old_digest: "str | None") -> str:
+def _upgrade_decision(current: bytes | None, new_bytes: bytes, old_digest: str | None) -> str:
     """Ledger-driven per-file action; lineage digests come from installed assets."""
     if current is None:
         return "create"
@@ -1639,7 +1643,9 @@ def _ensure_removed_recovery_backup(
     os.fsync(entry.parent_fd)
 
 
-def _ensure_recovery_backup(entry, original_content: bytes, original_mode: int) -> None:
+def _ensure_recovery_backup(
+    entry: JournalEntry, original_content: bytes, original_mode: int,
+) -> None:
     if isinstance(entry, _UpdatedFile):
         _ensure_update_recovery_backup(entry, original_content, original_mode)
     else:
