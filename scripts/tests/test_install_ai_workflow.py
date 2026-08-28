@@ -395,7 +395,7 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
 
                 with self.subTest(assistant=assistant, command="contract"):
                     self.assertEqual(contract.returncode, 0, contract.stdout)
-                    self.assertIn("Ran 79 tests", contract.stdout)
+                    self.assertIn("Ran 82 tests", contract.stdout)
                     self.assertEqual(len(re.findall(r"\.\.\. skipped ", contract.stdout)), 2, contract.stdout)
                     self.assertRegex(
                         contract.stdout,
