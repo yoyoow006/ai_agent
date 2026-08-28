@@ -2,17 +2,16 @@
 
 ## 关键决策
 
-### D1. 台账载体与格式（Design 阶段修正）
+### D1. 台账载体与格式（Build 期二次修正：独立文件）
 
-- `.ai/assistant-profile.json`：`{"assistant": "codex|claude", "schema_version": 2, "files": {"<manifest相对路径>": "<sha256hex>"}}`；`files` 只含 manifest 文件（受管 `.gitignore` 有自有标记协议，不入账）。
-- **台账记"资产谱系哈希"而非磁盘哈希**（2026-08-28 Design 自审修正：若 SKIPPED 记磁盘当前内容，下一轮升级会把目标修改误判为"未被修改"而静默覆盖）：
+- **`.ai/assistant-profile.json` 保持校验器契约格式 `{"assistant", "schema_version": 1}` 不变**——Build 期实测发现该文件的第二所有者（校验器契约测试 test_validate_workflow.py:306 断言键集与版本严格等于 v1），profile 升 v2 会击穿安装目标内的契约套件。
+- 台账改存**安装器私有文件 `.ai/installer-ledger.json`**：`{"assistant": "codex|claude", "files": {"<manifest相对路径>": "<sha256hex>"}, "schema_version": 1}`（新文件自有版本从 1 起）；校验器不读取该文件；安装/升级事务内与文件同批生成。
+- **台账记"资产谱系哈希"而非磁盘哈希**（Design 自审修正：若 SKIPPED 记磁盘当前内容，下一轮升级会把目标修改误判为"未被修改"而静默覆盖）：
   - `UPGRADED/CREATED/UNCHANGED` → 记**新版资产**内容哈希；
-  - `SKIPPED` → **沿用旧台账条目**（证明目标改过的谱系证据保留，下轮继续稳定跳过；人工回退到资产版本后自动恢复升级资格）；
-  - `KEPT` → 同 SKIPPED，沿用旧条目；
-  - `REMOVED` → 删除该条目；
-  - legacy v1 无条目且 ≠新版 → 不建立条目（稳定 SKIPPED，直至人工对齐为某版资产内容）。
-- 写入时机：安装（v2 起）与每次升级的事务内同步重写。
-- 读取校验：schema_version 缺失/为 1 → legacy 模式；为 2 但 files 结构非法 → InputError（fail-closed）。
+  - `SKIPPED` → **沿用旧台账条目**（人工回退到资产版本后自动恢复升级资格）；
+  - `KEPT` → 同 SKIPPED，沿用旧条目；`REMOVED` → 删除该条目；
+  - legacy（无台账文件）→ 不建立条目（稳定 SKIPPED，直至人工对齐）。
+- 读取校验：文件缺失 → 空台账（legacy）；存在但结构/摘要非法或 assistant 与请求不符 → InputError（fail-closed）。
 
 ### D2. 升级计划构建（build_upgrade_plan）
 
