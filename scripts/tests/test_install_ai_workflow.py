@@ -311,12 +311,17 @@ class AssistantSelectionTests(unittest.TestCase):
                 result = run_installer("--target", str(target), "--assistant", assistant)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 actual = {path.relative_to(target).as_posix() for path in target.rglob("*") if path.is_file()}
-                expected = set(EXPECTED_ASSET_PATHS["shared"]) | set(EXPECTED_ASSET_PATHS[assistant]) | {".ai/assistant-profile.json", ".gitignore"}
+                expected = set(EXPECTED_ASSET_PATHS["shared"]) | set(EXPECTED_ASSET_PATHS[assistant]) | {".ai/assistant-profile.json", ".ai/installer-ledger.json", ".gitignore"}
                 self.assertEqual(actual, expected)
                 self.assertFalse((target / f".{other}").exists())
                 self.assertFalse((target / ("CLAUDE.md" if other == "claude" else "AGENTS.md")).exists())
                 profile = json.loads((target / ".ai/assistant-profile.json").read_text(encoding="utf-8"))
                 self.assertEqual(profile, {"schema_version": 1, "assistant": assistant})
+                ledger = json.loads((target / ".ai/installer-ledger.json").read_text(encoding="utf-8"))
+                self.assertEqual(
+                    set(ledger["files"]),
+                    set(EXPECTED_ASSET_PATHS["shared"]) | set(EXPECTED_ASSET_PATHS[assistant]),
+                )
 
 
 class InstalledWorkflowValidationTests(unittest.TestCase):
@@ -435,7 +440,7 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
 
                 expected_status = set(EXPECTED_ASSET_PATHS["shared"])
                 expected_status.update(EXPECTED_ASSET_PATHS[assistant])
-                expected_status.update({".ai/assistant-profile.json", ".gitignore"})
+                expected_status.update({".ai/assistant-profile.json", ".ai/installer-ledger.json", ".gitignore"})
                 expected_status.discard(f".{assistant}/sdd/.gitkeep")
                 status = subprocess.run(
                     ["git", "status", "--short", "--untracked-files=all"],
@@ -470,7 +475,7 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
                 target.mkdir()
                 secret = b"private existing workflow instructions\n"
                 (target / root_entry).write_bytes(secret)
-                before = identity_snapshot_tree(target)
+                before = logical_snapshot_tree(target)
 
                 result = run_installer("--target", str(target), "--assistant", assistant)
 
@@ -478,7 +483,7 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
                 self.assertEqual(result.stdout, "")
                 self.assertEqual(result.stderr, "CONFLICT: target file has different content\n")
                 self.assertNotIn(secret.decode("utf-8").strip(), result.stderr)
-                self.assertEqual(identity_snapshot_tree(target), before)
+                self.assertEqual(logical_snapshot_tree(target), before)
 
 
 class InstallAiWorkflowCliTests(unittest.TestCase):
@@ -783,7 +788,7 @@ class InstallManifestTests(unittest.TestCase):
         self.assertTrue(dataclasses.is_dataclass(plan))
         self.assertEqual(
             [item.path for item in plan.items],
-            [".ai/README.md", ".ai/assistant-profile.json", ".gitignore", "CLAUDE.md"],
+            [".ai/README.md", ".ai/assistant-profile.json", ".ai/installer-ledger.json", ".gitignore", "CLAUDE.md"],
         )
         self.assertTrue(all(type(item.source_bytes) is bytes for item in plan.items))
         self.assertTrue(all(item.mode in {0o644, 0o755} for item in plan.items))
@@ -869,7 +874,7 @@ class InstallDryRunTests(unittest.TestCase):
             middle = snapshot_tree(target)
             second = run_installer(*arguments)
 
-            expected_created = len(EXPECTED_ASSET_PATHS["shared"]) + len(EXPECTED_ASSET_PATHS["codex"]) + 2
+            expected_created = len(EXPECTED_ASSET_PATHS["shared"]) + len(EXPECTED_ASSET_PATHS["codex"]) + 3
             self.assertEqual(first.returncode, 0, first.stderr)
             self.assertEqual(second.returncode, 0, second.stderr)
             self.assertEqual(first.stdout, second.stdout)
@@ -901,7 +906,7 @@ class InstallDryRunTests(unittest.TestCase):
                 "--target", str(target), "--assistant", "codex", "--dry-run"
             )
 
-            expected_created = len(EXPECTED_ASSET_PATHS["shared"]) + len(EXPECTED_ASSET_PATHS["codex"]) + 1
+            expected_created = len(EXPECTED_ASSET_PATHS["shared"]) + len(EXPECTED_ASSET_PATHS["codex"]) + 2
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("[UPDATE] .gitignore\n", result.stdout)
             self.assertTrue(
@@ -962,6 +967,24 @@ class InstallWriteTests(unittest.TestCase):
             ) + "\n").encode("utf-8")
             for assistant in ("codex", "claude")
         }
+        expected_ledger = {
+            assistant: (json.dumps(
+                {
+                    "assistant": assistant,
+                    "files": {
+                        ".ai/README.md": hashlib.sha256(b"shared\n").hexdigest(),
+                        ("AGENTS.md" if assistant == "codex" else "CLAUDE.md"):
+                            hashlib.sha256(
+                                b"codex\n" if assistant == "codex" else b"claude\n",
+                            ).hexdigest(),
+                    },
+                    "schema_version": 1,
+                },
+                indent=2,
+                sort_keys=True,
+            ) + "\n").encode("utf-8")
+            for assistant in ("codex", "claude")
+        }
 
         for assistant in ("codex", "claude"):
             with self.subTest(assistant=assistant):
@@ -982,6 +1005,10 @@ class InstallWriteTests(unittest.TestCase):
                 self.assertEqual(
                     (target / ".ai" / "assistant-profile.json").read_bytes(),
                     expected_profile[assistant],
+                )
+                self.assertEqual(
+                    (target / ".ai" / "installer-ledger.json").read_bytes(),
+                    expected_ledger[assistant],
                 )
                 selected = "AGENTS.md" if assistant == "codex" else "CLAUDE.md"
                 unselected = "CLAUDE.md" if assistant == "codex" else "AGENTS.md"
@@ -1196,7 +1223,7 @@ class InstallSymlinkTests(unittest.TestCase):
             if operation != "publish":
                 return
             publishes += 1
-            if publishes == 3:
+            if publishes == 4:
                 gitignore.rename(target / ".gitignore-original")
                 gitignore.symlink_to(external)
 
@@ -1204,7 +1231,7 @@ class InstallSymlinkTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 execute_plan(self, self.module, plan)
 
-        self.assertEqual(publishes, 3)
+        self.assertEqual(publishes, 4)
         self.assertTrue(gitignore.is_symlink())
         self.assertEqual(os.readlink(gitignore), str(external))
         self.assertEqual(external.read_bytes(), b"external-marker\n")
@@ -1497,7 +1524,7 @@ class InstallRollbackTests(unittest.TestCase):
             nonlocal publishes
             if operation == "publish":
                 publishes += 1
-                if publishes == 3:
+                if publishes == 4:
                     gitignore.rename(target / ".gitignore-original")
                     gitignore.symlink_to(external)
 
@@ -1928,62 +1955,65 @@ class UpgradeLedgerTests(unittest.TestCase):
         )
         self.assertEqual(self.module._sha256_hex(b""), hashlib.sha256(b"").hexdigest())
 
-    def test_profile_bytes_v2_is_deterministic_and_round_trips(self):
+    def test_ledger_bytes_are_deterministic_and_round_trip(self):
         files = {".ai/README.md": "a" * 64, "AGENTS.md": "b" * 64}
-        first = self.module._profile_bytes_v2("codex", files)
-        second = self.module._profile_bytes_v2("codex", dict(reversed(list(files.items()))))
+        first = self.module._ledger_bytes("codex", files)
+        second = self.module._ledger_bytes("codex", dict(reversed(list(files.items()))))
         self.assertEqual(first, second)
         self.assertTrue(first.endswith(b"\n"))
         decoded = json.loads(first.decode("utf-8"))
-        self.assertEqual(decoded, {"assistant": "codex", "schema_version": 2, "files": files})
+        self.assertEqual(decoded, {"assistant": "codex", "files": files, "schema_version": 1})
 
-    def test_load_profile_v2_returns_files(self):
-        payload = {
-            "assistant": "claude",
-            "schema_version": 2,
-            "files": {"CLAUDE.md": "c" * 64},
-        }
+    def test_load_ledger_missing_file_is_legacy(self):
+        self.assertEqual(self.module._load_ledger(self.target), {})
+
+    def test_load_ledger_returns_files(self):
         (self.target / ".ai").mkdir()
-        (self.target / ".ai" / "assistant-profile.json").write_text(
-            json.dumps(payload), encoding="utf-8",
+        (self.target / ".ai" / "installer-ledger.json").write_text(json.dumps({
+            "assistant": "claude", "files": {"CLAUDE.md": "c" * 64},
+            "schema_version": 1,
+        }), encoding="utf-8")
+        self.assertEqual(
+            self.module._load_ledger(self.target), {"CLAUDE.md": "c" * 64},
         )
-        self.assertEqual(self.module._load_profile(self.target), payload)
 
-    def test_load_profile_missing_or_v1_is_legacy(self):
-        self.assertEqual(self.module._load_profile(self.target), {"schema_version": 1})
-        (self.target / ".ai").mkdir()
-        (self.target / ".ai" / "assistant-profile.json").write_text(
-            json.dumps({"assistant": "codex", "schema_version": 1}), encoding="utf-8",
-        )
-        self.assertEqual(self.module._load_profile(self.target), {"schema_version": 1})
-
-    def test_load_profile_v2_malformed_fails_closed(self):
+    def test_load_ledger_malformed_fails_closed(self):
         cases = [
-            {"assistant": "codex", "schema_version": 2},
-            {"assistant": "codex", "schema_version": 2, "files": []},
-            {"assistant": "codex", "schema_version": 2, "files": {"x": "zz"}},
-            {"assistant": "codex", "schema_version": 2, "files": {"../escape": "a" * 64}},
-            {"schema_version": 2, "files": {}},
-            {"assistant": "codex", "schema_version": 3, "files": {}},
+            {"assistant": "codex", "schema_version": 1},
+            {"assistant": "codex", "schema_version": 1, "files": []},
+            {"assistant": "codex", "schema_version": 1, "files": {"x": "zz"}},
+            {"assistant": "codex", "schema_version": 1, "files": {"../escape": "a" * 64}},
+            {"assistant": "codex", "schema_version": 2, "files": {}},
+            {"schema_version": 1, "files": {}},
         ]
         (self.target / ".ai").mkdir()
-        profile = self.target / ".ai" / "assistant-profile.json"
+        ledger = self.target / ".ai" / "installer-ledger.json"
         for payload in cases:
-            profile.write_text(json.dumps(payload), encoding="utf-8")
+            ledger.write_text(json.dumps(payload), encoding="utf-8")
             with self.assertRaises(self.module.InputError, msg=repr(payload)):
-                self.module._load_profile(self.target)
+                self.module._load_ledger(self.target)
 
-    def test_load_profile_assistant_mismatch_fails_closed(self):
+    def test_load_ledger_assistant_mismatch_fails_closed(self):
         (self.target / ".ai").mkdir()
-        (self.target / ".ai" / "assistant-profile.json").write_text(
-            json.dumps({
-                "assistant": "claude", "schema_version": 2,
-                "files": {"CLAUDE.md": "c" * 64},
-            }),
-            encoding="utf-8",
-        )
+        (self.target / ".ai" / "installer-ledger.json").write_text(json.dumps({
+            "assistant": "claude", "files": {"CLAUDE.md": "c" * 64},
+            "schema_version": 1,
+        }), encoding="utf-8")
         with self.assertRaises(self.module.InputError):
-            self.module._load_profile(self.target, expected_assistant="codex")
+            self.module._load_ledger(self.target, expected_assistant="codex")
+
+    def test_profile_assistant_read_and_mismatch(self):
+        self.assertIsNone(self.module._read_profile_assistant(self.target))
+        (self.target / ".ai").mkdir()
+        (self.target / ".ai" / "assistant-profile.json").write_text(json.dumps({
+            "assistant": "codex", "schema_version": 1,
+        }), encoding="utf-8")
+        self.assertEqual(self.module._read_profile_assistant(self.target), "codex")
+        (self.target / ".ai" / "assistant-profile.json").write_text(json.dumps({
+            "assistant": "codex", "schema_version": 2,
+        }), encoding="utf-8")
+        with self.assertRaises(self.module.InputError):
+            self.module._read_profile_assistant(self.target)
 
 
 class UpgradePlanTests(unittest.TestCase):
@@ -2003,7 +2033,7 @@ class UpgradePlanTests(unittest.TestCase):
         path.write_bytes(data)
 
     def _ledger_profile(self, files):
-        return json.dumps({"assistant": "codex", "files": files, "schema_version": 2})
+        return json.dumps({"assistant": "codex", "files": files, "schema_version": 1})
 
     def _plan(self):
         return self.module.build_upgrade_plan(REPOSITORY_ROOT, self.target, "codex")
@@ -2024,7 +2054,7 @@ class UpgradePlanTests(unittest.TestCase):
         self._write("zz-removed-intact.txt", removed_intact)
         self._write("zz-removed-touched.txt", removed_touched)
         self._write(
-            ".ai/assistant-profile.json",
+            ".ai/installer-ledger.json",
             self._ledger_profile({
                 ".ai/README.md": hashlib.sha256(old_readme).hexdigest(),
                 ".ai/kb/overview.md": hashlib.sha256(b"old overview\n").hexdigest(),
@@ -2049,10 +2079,10 @@ class UpgradePlanTests(unittest.TestCase):
     def test_profile_item_uses_lineage_ledger(self):
         self._prepare_matrix_target()
         plan = self._plan()
-        profile = self._item(plan, ".ai/assistant-profile.json")
+        profile = self._item(plan, ".ai/installer-ledger.json")
         self.assertIn(profile.action, {"create", "update", "unchanged"})
         decoded = json.loads(profile.source_bytes.decode("utf-8"))
-        self.assertEqual(decoded["schema_version"], 2)
+        self.assertEqual(decoded["schema_version"], 1)
         files = decoded["files"]
         self.assertEqual(
             files[".ai/README.md"],
@@ -2076,14 +2106,13 @@ class UpgradePlanTests(unittest.TestCase):
         )
         plan = self._plan()
         self.assertEqual(self._item(plan, ".ai/README.md").action, "skip")
-        profile = json.loads(self._item(plan, ".ai/assistant-profile.json").source_bytes)
-        self.assertEqual(profile["schema_version"], 2)
-        self.assertNotIn(".ai/README.md", profile["files"])
+        ledger = json.loads(self._item(plan, ".ai/installer-ledger.json").source_bytes)
+        self.assertNotIn(".ai/README.md", ledger["files"])
 
     def test_existing_entry_file_is_skipped(self):
         self._write("AGENTS.md", b"team private entry\n")
         self._write(
-            ".ai/assistant-profile.json",
+            ".ai/installer-ledger.json",
             self._ledger_profile({
                 "AGENTS.md": hashlib.sha256(b"installed entry\n").hexdigest(),
             }).encode("utf-8"),
@@ -2097,6 +2126,185 @@ class UpgradePlanTests(unittest.TestCase):
         (self.target / "openspec").symlink_to(self.temporary.name)
         with self.assertRaises(self.module.ConflictError):
             self._plan()
+
+
+class UpgradeCliTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.source = create_source(self.root)
+        self.target = self.root / "target"
+        self.target.mkdir()
+
+    def _install(self):
+        return run_source_installer(
+            self.source, "--target", str(self.target), "--assistant", "codex",
+        )
+
+    def _upgrade(self, *extra):
+        return run_source_installer(
+            self.source, "--target", str(self.target), "--assistant", "codex",
+            "--upgrade", *extra,
+        )
+
+    def _set_asset(self, content: bytes):
+        (self.source / "scripts" / "ai-workflow-assets" / "shared" /
+         ".ai" / "README.md").write_bytes(content)
+
+    def test_parse_arguments_accepts_single_upgrade_flag(self):
+        module = load_installer_module()
+        parsed = module._parse_arguments(
+            ["--upgrade", "--target", str(self.target), "--assistant", "codex"],
+        )
+        self.assertTrue(parsed.upgrade)
+        parsed_without = module._parse_arguments(
+            ["--target", str(self.target), "--assistant", "codex"],
+        )
+        self.assertFalse(parsed_without.upgrade)
+        with self.assertRaises(module.UsageError):
+            module._parse_arguments([
+                "--upgrade", "--upgrade", "--target", str(self.target),
+                "--assistant", "codex",
+            ])
+
+    def test_usage_documents_upgrade(self):
+        module = load_installer_module()
+        self.assertIn("--upgrade", module.USAGE)
+
+    def test_upgrade_replaces_untouched_and_reports(self):
+        installed = self._install()
+        self.assertEqual(installed.returncode, 0, installed.stderr or installed.stdout)
+        self._set_asset(b"shared v2\n")
+        upgraded = self._upgrade()
+        self.assertEqual(upgraded.returncode, 0, upgraded.stderr or upgraded.stdout)
+        self.assertIn("[UPGRADED] .ai/README.md", upgraded.stdout)
+        self.assertRegex(
+            upgraded.stdout, r"RESULT assistant=codex target=.+ upgraded=1 ",
+        )
+        self.assertEqual(
+            (self.target / ".ai" / "README.md").read_bytes(), b"shared v2\n",
+        )
+        ledger = json.loads(
+            (self.target / ".ai" / "installer-ledger.json").read_text("utf-8"),
+        )
+        self.assertEqual(ledger["schema_version"], 1)
+
+    def test_upgrade_skips_locally_modified_file_with_exit_zero(self):
+        self._install()
+        (self.target / ".ai" / "README.md").write_bytes(b"local tweak\n")
+        self._set_asset(b"shared v2\n")
+        upgraded = self._upgrade()
+        self.assertEqual(upgraded.returncode, 0, upgraded.stderr or upgraded.stdout)
+        self.assertIn("[SKIPPED] .ai/README.md", upgraded.stdout)
+        self.assertEqual(
+            (self.target / ".ai" / "README.md").read_bytes(), b"local tweak\n",
+        )
+
+    def test_upgrade_removes_intact_and_keeps_modified_orphans(self):
+        self._install()
+        ledger_path = self.target / ".ai" / "installer-ledger.json"
+        ledger = json.loads(ledger_path.read_text("utf-8"))
+        ledger["files"]["zz-orphan.txt"] = hashlib.sha256(b"orphan\n").hexdigest()
+        ledger["files"]["zz-edited.txt"] = hashlib.sha256(b"edited-old\n").hexdigest()
+        ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+        (self.target / "zz-orphan.txt").write_bytes(b"orphan\n")
+        (self.target / "zz-edited.txt").write_bytes(b"edited-new\n")
+        self._set_asset(b"shared v2\n")
+        upgraded = self._upgrade()
+        self.assertEqual(upgraded.returncode, 0, upgraded.stderr or upgraded.stdout)
+        self.assertIn("[REMOVED] zz-orphan.txt", upgraded.stdout)
+        self.assertIn("[KEPT] zz-edited.txt", upgraded.stdout)
+        self.assertFalse((self.target / "zz-orphan.txt").exists())
+        self.assertEqual(
+            (self.target / "zz-edited.txt").read_bytes(), b"edited-new\n",
+        )
+
+    def test_upgrade_dry_run_writes_nothing(self):
+        self._install()
+        self._set_asset(b"shared v2\n")
+        before = logical_snapshot_tree(self.target)
+        preview = self._upgrade("--dry-run")
+        self.assertEqual(preview.returncode, 0, preview.stderr or preview.stdout)
+        self.assertIn("[UPGRADED] .ai/README.md", preview.stdout)
+        self.assertIn("dry_run=1", preview.stdout)
+        self.assertEqual(logical_snapshot_tree(self.target), before)
+
+
+class UpgradeTransactionTests(unittest.TestCase):
+    def setUp(self):
+        self.module = load_installer_module()
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.source_root = create_source(self.root)
+
+    def _prepared_target(self, name):
+        target = self.root / name
+        target.mkdir()
+        installed = run_source_installer(
+            self.source_root, "--target", str(target), "--assistant", "codex",
+        )
+        self.assertEqual(installed.returncode, 0, installed.stderr or installed.stdout)
+        (self.source_root / "scripts" / "ai-workflow-assets" / "shared" /
+         ".ai" / "README.md").write_bytes(b"shared v2\n")
+        ledger_path = target / ".ai" / "installer-ledger.json"
+        ledger = json.loads(ledger_path.read_text("utf-8"))
+        ledger["files"]["zz-orphan.txt"] = hashlib.sha256(b"orphan\n").hexdigest()
+        ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+        (target / "zz-orphan.txt").write_bytes(b"orphan\n")
+        return target
+
+    def test_publish_failure_rolls_back_files_and_ledger(self):
+        matrix = (("publish", 1), ("publish", 2), ("fsync", 2))
+        for operation, fail_at in matrix:
+            with self.subTest(operation=operation, fail_at=fail_at):
+                target = self._prepared_target(f"target-{operation}-{fail_at}")
+                plan = self.module.build_upgrade_plan(
+                    self.source_root, target, "codex",
+                )
+                before = logical_snapshot_tree(target)
+                calls = 0
+
+                def inject(actual):
+                    nonlocal calls
+                    if actual != operation:
+                        return
+                    calls += 1
+                    if calls == fail_at:
+                        raise OSError("injected fault")
+
+                with mock.patch.object(
+                    self.module, "_fault_point", side_effect=inject,
+                ):
+                    with self.assertRaises((OSError, RuntimeError)):
+                        self.module.execute_plan(plan)
+
+                self.assertEqual(logical_snapshot_tree(target), before)
+
+    def test_upgrade_commits_leave_no_backup_artifacts(self):
+        target = self._prepared_target("target-commit")
+        result = run_source_installer(
+            self.source_root, "--target", str(target), "--assistant", "codex",
+            "--upgrade",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr or result.stdout)
+        leftovers = [
+            path.name for path in target.rglob("*.tmp")
+            if "portable-ai-workflow" in path.name
+        ]
+        self.assertEqual(leftovers, [])
+        self.assertEqual(
+            (target / ".ai" / "README.md").read_bytes(), b"shared v2\n",
+        )
+        self.assertFalse((target / "zz-orphan.txt").exists())
+        ledger = json.loads(
+            (target / ".ai" / "installer-ledger.json").read_text("utf-8"),
+        )
+        self.assertEqual(
+            ledger["files"][".ai/README.md"],
+            hashlib.sha256(b"shared v2\n").hexdigest(),
+        )
 
 
 if __name__ == "__main__":
