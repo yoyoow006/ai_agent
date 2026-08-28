@@ -2343,7 +2343,7 @@ class UpgradeTransactionTests(unittest.TestCase):
             ledger["files"][".ai/README.md"],
             hashlib.sha256(b"shared v9\n").hexdigest(),
         )
-    
+
 
 if __name__ == "__main__":
     unittest.main()

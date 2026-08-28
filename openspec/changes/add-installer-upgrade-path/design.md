@@ -15,7 +15,7 @@
 
 ### D2. 升级计划构建（build_upgrade_plan）
 
-复用 build_plan 骨架，`_target_action` 换为四值判定：`UPGRADED`（台账命中且≠新版）/`UNCHANGED`（=新版）/`CREATED`（目标缺失）/`SKIPPED`（不匹配）；再对"台账有、新 manifest 无"的路径生成 `REMOVED`/`KEPT`。入口文件与 symlink/类型异常沿用既有 ConflictError 硬失败（结构性冲突不容忍）。SKIPPED 文件**进入计划但不产生写动作**，仅报告——事务捕获范围因此只含真实变更，回滚边界与安装一致。
+复用 build_plan 骨架，`_target_action` 换为四值判定：`UPGRADED`（台账命中且≠新版）/`UNCHANGED`（=新版）/`CREATED`（目标缺失）/`SKIPPED`（不匹配）；再对"台账有、新 manifest 无"的路径生成 `REMOVED`/`KEPT`。symlink/类型异常沿用既有 ConflictError 硬失败（结构性冲突不容忍）；入口文件按台账规则判定（2026-08-28 用户裁定 TL-02：未修改→upgrade，已修改→skip）。SKIPPED 文件**进入计划但不产生写动作**，仅报告——事务捕获范围因此只含真实变更，回滚边界与安装一致。
 
 ### D3. 报告与退出码
 
@@ -29,7 +29,7 @@
 ### D5. 兼容与边界
 
 - Python 3.8 约束不变：新代码仅用 3.8 语法（无 walrus 于类型位置、`Dict`/`Tuple` typing 导入）。
-- 非 upgrade 的默认安装语义零改动（含 v1 目标重装仍按现状）；profile v2 由 upgrade 或新安装产生。
+- 非 upgrade 的默认安装语义零改动（含旧目标重装仍按现状）；台账文件 `.ai/installer-ledger.json` 由 upgrade 或新安装产生（TL-01 修订）。
 - `--upgrade` 与目标缺失/嵌套源仓等边界沿用 `_validated_target`/`build_plan` 现有校验。
 
 ## 替代方案
