@@ -2320,6 +2320,59 @@ class UpgradeTransactionTests(unittest.TestCase):
 
                 self.assertEqual(logical_snapshot_tree(target), before)
 
+    def test_remove_publish_window_failure_restores_original_path(self):
+        target = self._prepared_target("target-window", version=11)
+        orphan = target / "zz-orphan.txt"
+        original = orphan.read_bytes()
+        plan = self.module.build_upgrade_plan(self.source_root, target, "codex")
+        publishes = 0
+
+        def chmod_at_remove_publish(operation):
+            nonlocal publishes
+            if operation != "publish":
+                return
+            publishes += 1
+            if publishes == 3:
+                os.chmod(orphan, 0o600)
+
+        with mock.patch.object(
+            self.module, "_fault_point", side_effect=chmod_at_remove_publish,
+        ):
+            with self.assertRaises((ValueError, RuntimeError)):
+                self.module.execute_plan(plan)
+
+        self.assertTrue(orphan.is_file(), "orphan must be restored to its path")
+        self.assertEqual(orphan.read_bytes(), original)
+        leftovers = [p.name for p in target.rglob("*.tmp")]
+        self.assertEqual(leftovers, [])
+
+    def test_commit_partial_destruction_rolls_back_via_recovery(self):
+        target = self._prepared_target("target-commit-partial", version=12)
+        plan = self.module.build_upgrade_plan(self.source_root, target, "codex")
+        before = logical_snapshot_tree(target)
+        real_verify = self.module._verify_journal_bindings
+        single_calls = 0
+
+        def fail_after_first_destruction(plan_arg, root_fd, entries):
+            nonlocal single_calls
+            if len(entries) != 1:
+                return real_verify(plan_arg, root_fd, entries)
+            single_calls += 1
+            if single_calls == 2:
+                raise ConflictError("injected post-unlink failure")
+            return real_verify(plan_arg, root_fd, entries)
+
+        with mock.patch.object(
+            self.module, "_verify_journal_bindings",
+            side_effect=fail_after_first_destruction,
+        ):
+            with self.assertRaises((ValueError, RuntimeError)):
+                self.module.execute_plan(plan)
+
+        self.assertEqual(logical_snapshot_tree(target), before)
+        leftovers = [p.name for p in target.rglob("*.tmp")]
+        self.assertEqual(leftovers, [])
+
     def test_upgrade_commits_leave_no_backup_artifacts(self):
         target = self._prepared_target("target-commit", version=9)
         result = run_source_installer(

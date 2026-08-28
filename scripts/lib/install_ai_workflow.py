@@ -368,7 +368,7 @@ def _validated_target(target_input: Path) -> Path:
     return resolved
 
 
-def _inspect_target_file(target: Path, relative_path: str):
+def _inspect_target_file(target: Path, relative_path: str) -> "bytes | None":
     """Return current target bytes (None when missing) after structural checks."""
     current = target
     components = relative_path.split("/")
@@ -399,7 +399,6 @@ def _target_action(target: Path, relative_path: str, content: bytes) -> str:
     if existing == content:
         return "unchanged"
     raise ConflictError("target file has different content")
-    raise AssertionError("unreachable empty target path")
 
 
 def _profile_bytes(assistant: str) -> bytes:
@@ -443,44 +442,59 @@ def _valid_ledger_path(path: object) -> bool:
 def _read_profile_assistant(target: Path) -> str | None:
     """Assistant recorded in the validator-owned profile; None when missing."""
     profile_path = target / ".ai" / "assistant-profile.json"
-    if not profile_path.exists():
+    try:
+        metadata = profile_path.lstat()
+    except FileNotFoundError:
         return None
+    if not stat.S_ISREG(metadata.st_mode):
+        raise InputError("assistant profile must be a regular file")
     raw = _read_regular_file(profile_path, "assistant profile")
     try:
-        decoded = json.loads(raw.decode("utf-8"))
+        decoded = json.loads(
+            raw.decode("utf-8"), object_pairs_hook=_unique_json_object,
+        )
     except (UnicodeDecodeError, ValueError) as error:
         raise InputError("assistant profile is not valid JSON") from error
     if not isinstance(decoded, dict):
         raise InputError("assistant profile must be a JSON object")
-    if decoded.get("schema_version") != 1:
+    if set(decoded) != {"assistant", "schema_version"}:
+        raise InputError("assistant profile keys are unsupported")
+    if type(decoded["schema_version"]) is not int or decoded["schema_version"] != 1:
         raise InputError("assistant profile schema version is unsupported")
-    assistant = decoded.get("assistant")
+    assistant = decoded["assistant"]
     if assistant not in {"codex", "claude"}:
         raise InputError("assistant profile assistant is invalid")
     return assistant
 
 
-def _load_ledger(target: Path, expected_assistant: "str | None" = None) -> dict:
+def _load_ledger(target: Path, expected_assistant: str | None = None) -> dict:
     """Installer ledger files map; a missing ledger means legacy install."""
     ledger_path = target / ".ai" / "installer-ledger.json"
-    if not ledger_path.exists():
+    try:
+        metadata = ledger_path.lstat()
+    except FileNotFoundError:
         return {}
-    # 存在性检查与读取之间的消失竞态由 _read_regular_file 以 InputError fail-closed 处理。
+    if not stat.S_ISREG(metadata.st_mode):
+        raise InputError("installer ledger must be a regular file")
     raw = _read_regular_file(ledger_path, "installer ledger")
     try:
-        decoded = json.loads(raw.decode("utf-8"))
+        decoded = json.loads(
+            raw.decode("utf-8"), object_pairs_hook=_unique_json_object,
+        )
     except (UnicodeDecodeError, ValueError) as error:
         raise InputError("installer ledger is not valid JSON") from error
     if not isinstance(decoded, dict):
         raise InputError("installer ledger must be a JSON object")
-    if decoded.get("schema_version") != 1:
+    if set(decoded) != {"assistant", "files", "schema_version"}:
+        raise InputError("installer ledger keys are unsupported")
+    if type(decoded["schema_version"]) is not int or decoded["schema_version"] != 1:
         raise InputError("installer ledger schema version is unsupported")
-    assistant = decoded.get("assistant")
+    assistant = decoded["assistant"]
     if assistant not in {"codex", "claude"}:
         raise InputError("installer ledger assistant is invalid")
     if expected_assistant is not None and assistant != expected_assistant:
         raise InputError("installer ledger belongs to a different assistant")
-    files = decoded.get("files")
+    files = decoded["files"]
     if not isinstance(files, dict):
         raise InputError("installer ledger files must be an object")
     for path, digest in files.items():
@@ -682,7 +696,7 @@ def build_plan(source_root: Path, target_input: Path, assistant: str) -> Install
     )
 
 
-def _upgrade_decision(current, new_bytes: bytes, old_digest):
+def _upgrade_decision(current: "bytes | None", new_bytes: bytes, old_digest: "str | None") -> str:
     """Ledger-driven per-file action; lineage digests come from installed assets."""
     if current is None:
         return "create"
@@ -1383,6 +1397,32 @@ def _restore_removed_file(entry: _RemovedFile) -> None:
     os.fsync(entry.parent_fd)
 
 
+def _restore_unjournaled_removal(
+    parent_fd: int,
+    name: str,
+    backup_name: str,
+    backup_binding: tuple[int, int, int],
+    backup_size: int,
+) -> None:
+    """Return a just-renamed-aside original to its planned path (pre-journal)."""
+    backup = os.stat(backup_name, dir_fd=parent_fd, follow_symlinks=False)
+    if (
+        _binding(backup) != backup_binding
+        or backup.st_size != backup_size
+    ):
+        raise OSError("unjournaled removal backup identity changed")
+    try:
+        os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        pass
+    else:
+        raise OSError("removed target reappeared before unjournaled restore")
+    os.rename(
+        backup_name, name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd,
+    )
+    os.fsync(parent_fd)
+
+
 def _publish_removed_file(
     plan: InstallPlan,
     root_fd: int,
@@ -1399,33 +1439,66 @@ def _publish_removed_file(
     name = item.path.rsplit("/", 1)[-1]
     parent_components = tuple(item.path.split("/"))[:-1]
     backup_name = _random_temporary_name(name)
-    _verify_leaf_before_write(parent_fd, item)
-    _verify_parent_binding(plan, root_fd, parent_components, parent_fd)
-    _fault_point("publish")
-    os.rename(
-        name, backup_name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd,
-    )
-    backup = os.stat(backup_name, dir_fd=parent_fd, follow_symlinks=False)
-    # rename 可能更新 ctime，身份只比对 binding、大小与模式（与 update 同构）。
-    if (
-        _binding(backup) != item.target_version[:3]
-        or backup.st_size != item.target_version[3]
-        or stat.S_IMODE(backup.st_mode) != item.target_mode
-    ):
-        raise ConflictError("target leaf changed before removal")
-    journal.append(
-        _RemovedFile(
-            os.dup(parent_fd),
-            name,
-            backup_name,
-            _binding(backup),
-            backup.st_size,
-            parent_components,
-        ),
-    )
-    _verify_parent_binding(plan, root_fd, parent_components, parent_fd)
-    _fault_point("fsync")
-    os.fsync(parent_fd)
+    journalled_fd = -1
+    try:
+        _verify_leaf_before_write(parent_fd, item)
+        _verify_parent_binding(plan, root_fd, parent_components, parent_fd)
+        # VQ-01：在 rename 之前取得 journal 所需 fd，避免发布窗口内 dup 失败后原件失位。
+        journalled_fd = os.dup(parent_fd)
+        _fault_point("publish")
+        os.rename(
+            name, backup_name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd,
+        )
+        backup = None
+        try:
+            backup = os.stat(backup_name, dir_fd=parent_fd, follow_symlinks=False)
+            # rename 可能更新 ctime，身份只比对 binding、大小与模式（与 update 同构）。
+            if (
+                _binding(backup) != item.target_version[:3]
+                or backup.st_size != item.target_version[3]
+                or stat.S_IMODE(backup.st_mode) != item.target_mode
+            ):
+                raise ConflictError("target leaf changed before removal")
+            journal.append(
+                _RemovedFile(
+                    journalled_fd,
+                    name,
+                    backup_name,
+                    _binding(backup),
+                    backup.st_size,
+                    parent_components,
+                ),
+            )
+            journalled_fd = -1
+        except BaseException:
+            # 入账前失败：把被改名的原件放回原路径，不留失位临时文件。
+            try:
+                if backup is not None:
+                    _restore_unjournaled_removal(
+                        parent_fd, name, backup_name,
+                        _binding(backup), backup.st_size,
+                    )
+                else:
+                    os.rename(
+                        backup_name, name,
+                        src_dir_fd=parent_fd, dst_dir_fd=parent_fd,
+                    )
+                    os.fsync(parent_fd)
+            except OSError as rollback_error:
+                raise TransactionError(
+                    "installation failed and rollback failed"
+                ) from rollback_error
+            raise
+        _verify_parent_binding(plan, root_fd, parent_components, parent_fd)
+        _fault_point("fsync")
+        os.fsync(parent_fd)
+    except BaseException:
+        if journalled_fd >= 0:
+            try:
+                os.close(journalled_fd)
+            except OSError:
+                pass
+        raise
 
 
 def _rollback_journal(journal: list[JournalEntry]) -> None:
@@ -1532,6 +1605,47 @@ def _ensure_update_recovery_backup(
     os.fsync(entry.parent_fd)
 
 
+def _ensure_removed_recovery_backup(
+    entry: _RemovedFile, original_content: bytes, original_mode: int,
+) -> None:
+    try:
+        existing = os.stat(
+            entry.backup_name,
+            dir_fd=entry.parent_fd,
+            follow_symlinks=False,
+        )
+    except FileNotFoundError:
+        existing = None
+    if (
+        existing is not None
+        and _binding(existing) == entry.backup_binding
+        and existing.st_size == entry.original_size
+    ):
+        return
+    recovery_name, recovery_binding = _prepare_temporary_file(
+        entry.parent_fd,
+        f"{entry.name}-recovery",
+        original_content,
+        original_mode,
+    )
+    recovery = os.stat(
+        recovery_name, dir_fd=entry.parent_fd, follow_symlinks=False,
+    )
+    if _binding(recovery) != recovery_binding:
+        raise OSError("recovery backup identity changed")
+    entry.backup_name = recovery_name
+    entry.backup_binding = recovery_binding
+    entry.original_size = recovery.st_size
+    os.fsync(entry.parent_fd)
+
+
+def _ensure_recovery_backup(entry, original_content: bytes, original_mode: int) -> None:
+    if isinstance(entry, _UpdatedFile):
+        _ensure_update_recovery_backup(entry, original_content, original_mode)
+    else:
+        _ensure_removed_recovery_backup(entry, original_content, original_mode)
+
+
 def _commit_journal(
     plan: InstallPlan, root_fd: int, journal: list[JournalEntry],
 ) -> None:
@@ -1540,43 +1654,47 @@ def _commit_journal(
         entry for entry in journal
         if isinstance(entry, (_UpdatedFile, _RemovedFile))
     ]
+    # VQ-02：销毁任何备份前先读出全部备份内容与模式，供部分销毁后的再生恢复。
+    prepared: list[tuple[object, bytes, int]] = []
     for entry in updates:
         original = os.stat(
             entry.backup_name,
             dir_fd=entry.parent_fd,
             follow_symlinks=False,
         )
-        original_content = None
-        original_mode = 0
         if isinstance(entry, _UpdatedFile):
             if _file_version(original) != entry.original_version:
                 raise OSError("transaction backup identity changed")
-            original_content = _read_regular_at(
-                entry.parent_fd, entry.backup_name, "transaction backup",
-            )
-            original = os.stat(
-                entry.backup_name,
-                dir_fd=entry.parent_fd,
-                follow_symlinks=False,
-            )
-            if _file_version(original) != entry.original_version:
-                raise OSError("transaction backup identity changed")
-            original_mode = stat.S_IMODE(original.st_mode)
-        _verify_journal_bindings(plan, root_fd, [entry])
+        elif (
+            _binding(original) != entry.backup_binding
+            or original.st_size != entry.original_size
+        ):
+            raise OSError("transaction backup identity changed")
+        original_content = _read_regular_at(
+            entry.parent_fd, entry.backup_name, "transaction backup",
+        )
+        original_mode = stat.S_IMODE(original.st_mode)
+        prepared.append((entry, original_content, original_mode))
+    destroyed: list[tuple[object, bytes, int]] = []
+    for entry, original_content, original_mode in prepared:
+        unlinked = False
         try:
+            _verify_journal_bindings(plan, root_fd, [entry])
             os.unlink(entry.backup_name, dir_fd=entry.parent_fd)
+            unlinked = True
             _verify_journal_bindings(plan, root_fd, [entry])
         except BaseException as primary:
             try:
-                if isinstance(entry, _UpdatedFile):
-                    _ensure_update_recovery_backup(
-                        entry, original_content, original_mode,
-                    )
+                for target_entry, content, mode in (
+                    destroyed + ([(entry, original_content, original_mode)] if unlinked else [])
+                ):
+                    _ensure_recovery_backup(target_entry, content, mode)
             except BaseException as rollback_error:
                 raise TransactionError(
                     "installation failed and rollback failed"
                 ) from rollback_error
             raise primary
+        destroyed.append((entry, original_content, original_mode))
 
 
 def execute_plan(plan: InstallPlan, dry_run: bool = False) -> InstallResult:
