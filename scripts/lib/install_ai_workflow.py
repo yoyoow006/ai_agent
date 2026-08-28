@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ctypes
 from dataclasses import dataclass
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -14,12 +15,13 @@ from typing import Union
 import unicodedata
 
 
-USAGE = """Usage: install-ai-workflow.sh --target <existing-dir> --assistant codex|claude [--dry-run]
+USAGE = """Usage: install-ai-workflow.sh --target <existing-dir> --assistant codex|claude [--dry-run] [--upgrade]
 
 Options:
   --target <existing-dir>       Existing project directory to inspect
   --assistant codex|claude     Install exactly one assistant adapter
   --dry-run                    Print the plan without writing files
+  --upgrade                    Upgrade a previous installation via the ledger
   -h, --help                   Show this help
 """
 
@@ -74,6 +76,7 @@ class InstallPlan:
     items: tuple[PlanItem, ...]
     target_binding: tuple[int, int, int]
     directory_bindings: tuple[tuple[str, tuple[int, int, int]], ...]
+    upgrade: bool = False
 
 
 @dataclass(frozen=True)
@@ -88,6 +91,7 @@ class ParsedArguments:
     assistant: str | None
     dry_run: bool
     help_requested: bool
+    upgrade: bool = False
 
 
 def _unique_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -364,7 +368,8 @@ def _validated_target(target_input: Path) -> Path:
     return resolved
 
 
-def _target_action(target: Path, relative_path: str, content: bytes) -> str:
+def _inspect_target_file(target: Path, relative_path: str) -> bytes | None:
+    """Return current target bytes (None when missing) after structural checks."""
     current = target
     components = relative_path.split("/")
     for index, component in enumerate(components):
@@ -372,7 +377,7 @@ def _target_action(target: Path, relative_path: str, content: bytes) -> str:
         try:
             metadata = current.lstat()
         except FileNotFoundError:
-            return "create"
+            return None
         except OSError as error:
             raise ConflictError("target path cannot be inspected") from error
         if stat.S_ISLNK(metadata.st_mode):
@@ -383,10 +388,17 @@ def _target_action(target: Path, relative_path: str, content: bytes) -> str:
             continue
         if not stat.S_ISREG(metadata.st_mode):
             raise ConflictError("target path is not a regular file")
-        if _read_regular_file(current, "target file") == content:
-            return "unchanged"
-        raise ConflictError("target file has different content")
+        return _read_regular_file(current, "target file")
     raise AssertionError("unreachable empty target path")
+
+
+def _target_action(target: Path, relative_path: str, content: bytes) -> str:
+    existing = _inspect_target_file(target, relative_path)
+    if existing is None:
+        return "create"
+    if existing == content:
+        return "unchanged"
+    raise ConflictError("target file has different content")
 
 
 def _profile_bytes(assistant: str) -> bytes:
@@ -396,6 +408,109 @@ def _profile_bytes(assistant: str) -> bytes:
         indent=2,
         sort_keys=True,
     ) + "\n").encode("utf-8")
+
+
+def _sha256_hex(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+_HEX_DIGITS = frozenset("0123456789abcdef")
+
+
+def _ledger_bytes(assistant: str, files: dict) -> bytes:
+    return (json.dumps(
+        {"assistant": assistant, "files": files, "schema_version": 1},
+        ensure_ascii=False,
+        indent=2,
+        sort_keys=True,
+    ) + "\n").encode("utf-8")
+
+
+def _valid_ledger_path(path: object) -> bool:
+    if not isinstance(path, str) or not path or "\\" in path or "\0" in path:
+        return False
+    if any(unicodedata.category(character) == "Cc" for character in path):
+        return False
+    if unicodedata.normalize("NFC", path) != path:
+        return False
+    if path.startswith("/"):
+        return False
+    parts = path.split("/")
+    return all(part not in {"", ".", ".."} for part in parts)
+
+
+def _read_profile_assistant(target: Path) -> str | None:
+    """Assistant recorded in the validator-owned profile; None when missing."""
+    profile_path = target / ".ai" / "assistant-profile.json"
+    try:
+        metadata = profile_path.lstat()
+    except FileNotFoundError:
+        return None
+    if not stat.S_ISREG(metadata.st_mode):
+        raise InputError("assistant profile must be a regular file")
+    raw = _read_regular_file(profile_path, "assistant profile")
+    try:
+        decoded = json.loads(
+            raw.decode("utf-8"), object_pairs_hook=_unique_json_object,
+        )
+    except InputError:
+        raise
+    except (UnicodeDecodeError, ValueError) as error:
+        raise InputError("assistant profile is not valid JSON") from error
+    if not isinstance(decoded, dict):
+        raise InputError("assistant profile must be a JSON object")
+    if set(decoded) != {"assistant", "schema_version"}:
+        raise InputError("assistant profile keys are unsupported")
+    if type(decoded["schema_version"]) is not int or decoded["schema_version"] != 1:
+        raise InputError("assistant profile schema version is unsupported")
+    assistant = decoded["assistant"]
+    if assistant not in {"codex", "claude"}:
+        raise InputError("assistant profile assistant is invalid")
+    return assistant
+
+
+def _load_ledger(target: Path, expected_assistant: str | None = None) -> dict:
+    """Installer ledger files map; a missing ledger means legacy install."""
+    ledger_path = target / ".ai" / "installer-ledger.json"
+    try:
+        metadata = ledger_path.lstat()
+    except FileNotFoundError:
+        return {}
+    if not stat.S_ISREG(metadata.st_mode):
+        raise InputError("installer ledger must be a regular file")
+    raw = _read_regular_file(ledger_path, "installer ledger")
+    try:
+        decoded = json.loads(
+            raw.decode("utf-8"), object_pairs_hook=_unique_json_object,
+        )
+    except InputError:
+        raise
+    except (UnicodeDecodeError, ValueError) as error:
+        raise InputError("installer ledger is not valid JSON") from error
+    if not isinstance(decoded, dict):
+        raise InputError("installer ledger must be a JSON object")
+    if set(decoded) != {"assistant", "files", "schema_version"}:
+        raise InputError("installer ledger keys are unsupported")
+    if type(decoded["schema_version"]) is not int or decoded["schema_version"] != 1:
+        raise InputError("installer ledger schema version is unsupported")
+    assistant = decoded["assistant"]
+    if assistant not in {"codex", "claude"}:
+        raise InputError("installer ledger assistant is invalid")
+    if expected_assistant is not None and assistant != expected_assistant:
+        raise InputError("installer ledger belongs to a different assistant")
+    files = decoded["files"]
+    if not isinstance(files, dict):
+        raise InputError("installer ledger files must be an object")
+    for path, digest in files.items():
+        if not _valid_ledger_path(path):
+            raise InputError("installer ledger path is invalid")
+        if (
+            not isinstance(digest, str)
+            or len(digest) != 64
+            or any(character not in _HEX_DIGITS for character in digest)
+        ):
+            raise InputError("installer ledger digest is invalid")
+    return dict(files)
 
 
 def _gitignore_block(assistant: str) -> bytes:
@@ -553,7 +668,15 @@ def build_plan(source_root: Path, target_input: Path, assistant: str) -> Install
     requested: list[tuple[str, bytes, int]] = [
         (entry.path, entry.source_bytes, entry.mode) for entry in selected_entries
     ]
-    requested.append((".ai/assistant-profile.json", _profile_bytes(assistant), 0o644))
+    install_ledger = {
+        entry.path: _sha256_hex(entry.source_bytes) for entry in selected_entries
+    }
+    requested.append(
+        (".ai/assistant-profile.json", _profile_bytes(assistant), 0o644),
+    )
+    requested.append(
+        (".ai/installer-ledger.json", _ledger_bytes(assistant, install_ledger), 0o644),
+    )
     paths = [path for path, _content, _mode in requested]
     paths.append(".gitignore")
     if len(paths) != len(set(paths)):
@@ -577,6 +700,107 @@ def build_plan(source_root: Path, target_input: Path, assistant: str) -> Install
     )
 
 
+def _upgrade_decision(current: bytes | None, new_bytes: bytes, old_digest: str | None) -> str:
+    """Ledger-driven per-file action; lineage digests come from installed assets."""
+    if current is None:
+        return "create"
+    current_digest = _sha256_hex(current)
+    if current_digest == _sha256_hex(new_bytes):
+        return "unchanged"
+    if old_digest is not None and current_digest == old_digest:
+        return "upgrade"
+    return "skip"
+
+
+def build_upgrade_plan(source_root: Path, target_input: Path, assistant: str) -> InstallPlan:
+    """Build a ledger-driven upgrade plan that never touches modified target files."""
+    if assistant not in {"codex", "claude"}:
+        raise InputError("assistant is unsupported")
+    try:
+        resolved_source = source_root.resolve(strict=True)
+    except OSError as error:
+        raise InputError("source root does not exist") from error
+    target = _validated_target(target_input)
+    if target == resolved_source or _is_relative_to(target, resolved_source):
+        raise InputError("target is inside the installer source")
+    asset_root = resolved_source / "scripts" / "ai-workflow-assets"
+    manifest = load_manifest(asset_root)
+    selected_entries = (*manifest.shared, *getattr(manifest, assistant))
+    selected_paths = [entry.path for entry in selected_entries]
+    if len(selected_paths) != len(set(selected_paths)):
+        raise InputError("selected manifest paths are not globally unique")
+
+    profile_assistant = _read_profile_assistant(target)
+    if profile_assistant is not None and profile_assistant != assistant:
+        raise InputError("assistant profile belongs to a different assistant")
+    ledger = _load_ledger(target, expected_assistant=assistant)
+    selected_set = set(selected_paths)
+    new_ledger: dict = {}
+    planned_items: list[PlanItem] = []
+    for entry in sorted(selected_entries, key=lambda item: os.fsencode(item.path)):
+        current = _inspect_target_file(target, entry.path)
+        action = _upgrade_decision(
+            current, entry.source_bytes, ledger.get(entry.path),
+        )
+        content = entry.source_bytes if action != "skip" else current
+        planned_items.append(
+            PlanItem(
+                entry.path, content, entry.mode, action,
+                original_bytes=current if action == "upgrade" else None,
+            ),
+        )
+        if action == "skip":
+            if entry.path in ledger:
+                new_ledger[entry.path] = ledger[entry.path]
+        else:
+            new_ledger[entry.path] = _sha256_hex(entry.source_bytes)
+    for path in sorted(ledger, key=os.fsencode):
+        if path in selected_set:
+            continue
+        current = _inspect_target_file(target, path)
+        if current is None:
+            continue
+        if _sha256_hex(current) == ledger[path]:
+            planned_items.append(
+                PlanItem(path, current, 0o644, "remove", original_bytes=current),
+            )
+        else:
+            planned_items.append(PlanItem(path, current, 0o644, "kept"))
+            new_ledger[path] = ledger[path]
+
+    profile_content = _ledger_bytes(assistant, new_ledger)
+    current_profile = _inspect_target_file(
+        target, ".ai/installer-ledger.json",
+    )
+    if current_profile is None:
+        profile_action = "create"
+    elif current_profile == profile_content:
+        profile_action = "unchanged"
+    else:
+        profile_action = "update"
+    planned_items.append(
+        PlanItem(
+            ".ai/installer-ledger.json", profile_content, 0o644, profile_action,
+            original_bytes=current_profile
+            if profile_action == "update" else None,
+        ),
+    )
+    planned_items.append(_plan_gitignore(target, assistant))
+    items = tuple(sorted(planned_items, key=lambda item: os.fsencode(item.path)))
+    target_binding, directory_bindings, captured_items = _capture_plan_target_state(
+        target, items,
+    )
+    return InstallPlan(
+        resolved_source,
+        target,
+        assistant,
+        captured_items,
+        target_binding,
+        directory_bindings,
+        upgrade=True,
+    )
+
+
 @dataclass
 class _CreatedFile:
     parent_fd: int
@@ -596,6 +820,16 @@ class _CreatedDirectory:
 
 
 @dataclass
+class _RemovedFile:
+    parent_fd: int
+    name: str
+    backup_name: str
+    backup_binding: tuple[int, int, int]
+    original_size: int
+    parent_components: tuple[str, ...]
+
+
+@dataclass
 class _UpdatedFile:
     parent_fd: int
     name: str
@@ -605,7 +839,7 @@ class _UpdatedFile:
     parent_components: tuple[str, ...]
 
 
-JournalEntry = Union[_CreatedFile, _CreatedDirectory, _UpdatedFile]
+JournalEntry = Union[_CreatedFile, _CreatedDirectory, _UpdatedFile, _RemovedFile]
 
 
 def _fault_point(_operation: str) -> None:
@@ -859,7 +1093,11 @@ def _verify_leaf_before_write(parent_fd: int, item: PlanItem) -> None:
     if item.target_version is None or _file_version(metadata) != item.target_version:
         raise ConflictError("target leaf identity changed")
     content = _read_regular_at(parent_fd, name, "target leaf")
-    expected = item.original_bytes if item.action == "update" else item.source_bytes
+    expected = (
+        item.original_bytes
+        if item.action in {"update", "upgrade"}
+        else item.source_bytes
+    )
     if content != expected:
         raise ConflictError("target leaf content changed")
 
@@ -1140,12 +1378,142 @@ def _restore_updated_file(entry: _UpdatedFile) -> None:
     os.fsync(entry.parent_fd)
 
 
+def _restore_removed_file(entry: _RemovedFile) -> None:
+    backup = os.stat(
+        entry.backup_name, dir_fd=entry.parent_fd, follow_symlinks=False,
+    )
+    # rename 可能更新 ctime，备份身份只比对 binding 三元组与大小。
+    if (
+        _binding(backup) != entry.backup_binding
+        or backup.st_size != entry.original_size
+    ):
+        raise OSError("rollback backup identity changed")
+    try:
+        os.stat(entry.name, dir_fd=entry.parent_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        pass
+    else:
+        raise OSError("removed target reappeared before rollback")
+    os.rename(
+        entry.backup_name, entry.name,
+        src_dir_fd=entry.parent_fd, dst_dir_fd=entry.parent_fd,
+    )
+    os.fsync(entry.parent_fd)
+
+
+def _restore_unjournaled_removal(
+    parent_fd: int,
+    name: str,
+    backup_name: str,
+    backup_binding: tuple[int, int, int],
+    backup_size: int,
+) -> None:
+    """Return a just-renamed-aside original to its planned path (pre-journal)."""
+    backup = os.stat(backup_name, dir_fd=parent_fd, follow_symlinks=False)
+    if (
+        _binding(backup) != backup_binding
+        or backup.st_size != backup_size
+    ):
+        raise OSError("unjournaled removal backup identity changed")
+    try:
+        os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+    except FileNotFoundError:
+        pass
+    else:
+        raise OSError("removed target reappeared before unjournaled restore")
+    os.rename(
+        backup_name, name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd,
+    )
+    os.fsync(parent_fd)
+
+
+def _publish_removed_file(
+    plan: InstallPlan,
+    root_fd: int,
+    parent_fd: int,
+    item: PlanItem,
+    journal: list[JournalEntry],
+) -> None:
+    if (
+        item.target_version is None
+        or item.target_mode is None
+        or item.original_bytes is None
+    ):
+        raise TransactionError("installation failed")
+    name = item.path.rsplit("/", 1)[-1]
+    parent_components = tuple(item.path.split("/"))[:-1]
+    backup_name = _random_temporary_name(name)
+    journalled_fd = -1
+    try:
+        _verify_leaf_before_write(parent_fd, item)
+        _verify_parent_binding(plan, root_fd, parent_components, parent_fd)
+        # VQ-01：在 rename 之前取得 journal 所需 fd，避免发布窗口内 dup 失败后原件失位。
+        journalled_fd = os.dup(parent_fd)
+        _fault_point("publish")
+        os.rename(
+            name, backup_name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd,
+        )
+        backup = None
+        try:
+            backup = os.stat(backup_name, dir_fd=parent_fd, follow_symlinks=False)
+            # rename 可能更新 ctime，身份只比对 binding、大小与模式（与 update 同构）。
+            if (
+                _binding(backup) != item.target_version[:3]
+                or backup.st_size != item.target_version[3]
+                or stat.S_IMODE(backup.st_mode) != item.target_mode
+            ):
+                raise ConflictError("target leaf changed before removal")
+            journal.append(
+                _RemovedFile(
+                    journalled_fd,
+                    name,
+                    backup_name,
+                    _binding(backup),
+                    backup.st_size,
+                    parent_components,
+                ),
+            )
+            journalled_fd = -1
+        except BaseException:
+            # 入账前失败：把被改名的原件放回原路径，不留失位临时文件。
+            try:
+                if backup is not None:
+                    _restore_unjournaled_removal(
+                        parent_fd, name, backup_name,
+                        _binding(backup), backup.st_size,
+                    )
+                else:
+                    os.rename(
+                        backup_name, name,
+                        src_dir_fd=parent_fd, dst_dir_fd=parent_fd,
+                    )
+                    os.fsync(parent_fd)
+            except OSError as rollback_error:
+                raise TransactionError(
+                    "installation failed and rollback failed"
+                ) from rollback_error
+            raise
+        _verify_parent_binding(plan, root_fd, parent_components, parent_fd)
+        _fault_point("fsync")
+        os.fsync(parent_fd)
+    except BaseException:
+        if journalled_fd >= 0:
+            try:
+                os.close(journalled_fd)
+            except OSError:
+                pass
+        raise
+
+
 def _rollback_journal(journal: list[JournalEntry]) -> None:
     failures: list[OSError] = []
     for entry in reversed(journal):
         try:
             if isinstance(entry, _UpdatedFile):
                 _restore_updated_file(entry)
+                continue
+            if isinstance(entry, _RemovedFile):
+                _restore_removed_file(entry)
                 continue
             if not entry.armed:
                 continue
@@ -1177,6 +1545,22 @@ def _verify_journal_bindings(
     plan: InstallPlan, root_fd: int, journal: list[JournalEntry],
 ) -> None:
     for entry in journal:
+        if isinstance(entry, _RemovedFile):
+            _verify_parent_binding(
+                plan, root_fd, entry.parent_components, entry.parent_fd,
+            )
+            try:
+                backup = os.stat(
+                    entry.backup_name, dir_fd=entry.parent_fd,
+                    follow_symlinks=False,
+                )
+            except FileNotFoundError:
+                continue
+            except OSError as error:
+                raise ConflictError("journal target identity changed") from error
+            if _binding(backup) != entry.backup_binding:
+                raise ConflictError("journal target identity changed")
+            continue
         if not isinstance(entry, _UpdatedFile) and not entry.armed:
             continue
         _verify_parent_binding(
@@ -1225,55 +1609,106 @@ def _ensure_update_recovery_backup(
     os.fsync(entry.parent_fd)
 
 
+def _ensure_removed_recovery_backup(
+    entry: _RemovedFile, original_content: bytes, original_mode: int,
+) -> None:
+    try:
+        existing = os.stat(
+            entry.backup_name,
+            dir_fd=entry.parent_fd,
+            follow_symlinks=False,
+        )
+    except FileNotFoundError:
+        existing = None
+    if (
+        existing is not None
+        and _binding(existing) == entry.backup_binding
+        and existing.st_size == entry.original_size
+    ):
+        return
+    recovery_name, recovery_binding = _prepare_temporary_file(
+        entry.parent_fd,
+        f"{entry.name}-recovery",
+        original_content,
+        original_mode,
+    )
+    recovery = os.stat(
+        recovery_name, dir_fd=entry.parent_fd, follow_symlinks=False,
+    )
+    if _binding(recovery) != recovery_binding:
+        raise OSError("recovery backup identity changed")
+    entry.backup_name = recovery_name
+    entry.backup_binding = recovery_binding
+    entry.original_size = recovery.st_size
+    os.fsync(entry.parent_fd)
+
+
+def _ensure_recovery_backup(
+    entry: JournalEntry, original_content: bytes, original_mode: int,
+) -> None:
+    if isinstance(entry, _UpdatedFile):
+        _ensure_update_recovery_backup(entry, original_content, original_mode)
+    else:
+        _ensure_removed_recovery_backup(entry, original_content, original_mode)
+
+
 def _commit_journal(
     plan: InstallPlan, root_fd: int, journal: list[JournalEntry],
 ) -> None:
     _verify_journal_bindings(plan, root_fd, journal)
-    updates = [entry for entry in journal if isinstance(entry, _UpdatedFile)]
-    if len(updates) > 1:
-        raise TransactionError("installation failed")
-    if not updates:
-        return
-    entry = updates[0]
-    original = os.stat(
-        entry.backup_name,
-        dir_fd=entry.parent_fd,
-        follow_symlinks=False,
-    )
-    if _file_version(original) != entry.original_version:
-        raise OSError("transaction backup identity changed")
-    original_content = _read_regular_at(
-        entry.parent_fd, entry.backup_name, "transaction backup",
-    )
-    original = os.stat(
-        entry.backup_name,
-        dir_fd=entry.parent_fd,
-        follow_symlinks=False,
-    )
-    if _file_version(original) != entry.original_version:
-        raise OSError("transaction backup identity changed")
-    original_mode = stat.S_IMODE(original.st_mode)
-    _verify_journal_bindings(plan, root_fd, [entry])
-    try:
-        os.unlink(entry.backup_name, dir_fd=entry.parent_fd)
-        _verify_journal_bindings(plan, root_fd, [entry])
-    except BaseException as primary:
+    updates = [
+        entry for entry in journal
+        if isinstance(entry, (_UpdatedFile, _RemovedFile))
+    ]
+    # VQ-02：销毁任何备份前先读出全部备份内容与模式，供部分销毁后的再生恢复。
+    prepared: list[tuple[object, bytes, int]] = []
+    for entry in updates:
+        original = os.stat(
+            entry.backup_name,
+            dir_fd=entry.parent_fd,
+            follow_symlinks=False,
+        )
+        if isinstance(entry, _UpdatedFile):
+            if _file_version(original) != entry.original_version:
+                raise OSError("transaction backup identity changed")
+        elif (
+            _binding(original) != entry.backup_binding
+            or original.st_size != entry.original_size
+        ):
+            raise OSError("transaction backup identity changed")
+        original_content = _read_regular_at(
+            entry.parent_fd, entry.backup_name, "transaction backup",
+        )
+        original_mode = stat.S_IMODE(original.st_mode)
+        prepared.append((entry, original_content, original_mode))
+    destroyed: list[tuple[object, bytes, int]] = []
+    for entry, original_content, original_mode in prepared:
         try:
-            _ensure_update_recovery_backup(
-                entry, original_content, original_mode,
-            )
-        except BaseException as rollback_error:
-            raise TransactionError(
-                "installation failed and rollback failed"
-            ) from rollback_error
-        raise primary
+            _verify_journal_bindings(plan, root_fd, [entry])
+            os.unlink(entry.backup_name, dir_fd=entry.parent_fd)
+            _verify_journal_bindings(plan, root_fd, [entry])
+        except BaseException as primary:
+            try:
+                # 当前条目无条件参与再生（_ensure_recovery_backup 幂等自检：
+                # 备份仍在且身份匹配时为 no-op），覆盖"unlink 成功后抛出"的注入窗口。
+                for target_entry, content, mode in (
+                    destroyed + [(entry, original_content, original_mode)]
+                ):
+                    _ensure_recovery_backup(target_entry, content, mode)
+            except BaseException as rollback_error:
+                raise TransactionError(
+                    "installation failed and rollback failed"
+                ) from rollback_error
+            raise primary
+        destroyed.append((entry, original_content, original_mode))
 
 
 def execute_plan(plan: InstallPlan, dry_run: bool = False) -> InstallResult:
     """Execute a fully revalidated plan as one rollback-capable transaction."""
     if dry_run:
         return InstallResult(plan, True)
-    refreshed = build_plan(plan.source_root, plan.target, plan.assistant)
+    builder = build_upgrade_plan if plan.upgrade else build_plan
+    refreshed = builder(plan.source_root, plan.target, plan.assistant)
     if refreshed != plan:
         raise ConflictError("installation inputs changed after planning")
     _after_revalidation(plan)
@@ -1305,9 +1740,11 @@ def execute_plan(plan: InstallPlan, dry_run: bool = False) -> InstallResult:
                 _verify_leaf_before_write(parent_fd, item)
                 if item.action == "create":
                     _publish_created_file(plan, root_fd, parent_fd, item, journal)
-                elif item.action == "update":
+                elif item.action in {"update", "upgrade"}:
                     _publish_updated_file(plan, root_fd, parent_fd, item, journal)
-                elif item.action != "unchanged":
+                elif item.action == "remove":
+                    _publish_removed_file(plan, root_fd, parent_fd, item, journal)
+                elif item.action not in {"unchanged", "skip", "kept"}:
                     raise TransactionError("installation failed")
             finally:
                 os.close(parent_fd)
@@ -1356,6 +1793,7 @@ def _parse_arguments(argv: list[str]) -> ParsedArguments:
         return ParsedArguments(None, None, False, True)
     values: dict[str, str] = {}
     dry_run = False
+    upgrade = False
     index = 0
     while index < len(argv):
         option = argv[index]
@@ -1363,6 +1801,12 @@ def _parse_arguments(argv: list[str]) -> ParsedArguments:
             if dry_run:
                 raise UsageError("--dry-run may only be specified once")
             dry_run = True
+            index += 1
+            continue
+        if option == "--upgrade":
+            if upgrade:
+                raise UsageError("--upgrade may only be specified once")
+            upgrade = True
             index += 1
             continue
         if option in {"--target", "--assistant"}:
@@ -1378,10 +1822,38 @@ def _parse_arguments(argv: list[str]) -> ParsedArguments:
         raise UsageError("--target and --assistant are required")
     if values["--assistant"] not in {"codex", "claude"}:
         raise UsageError("--assistant must be codex or claude")
-    return ParsedArguments(Path(values["--target"]), values["--assistant"], dry_run, False)
+    return ParsedArguments(
+        Path(values["--target"]), values["--assistant"], dry_run, False, upgrade,
+    )
 
 
 def _print_plan(plan: InstallPlan, dry_run: bool) -> None:
+    if plan.upgrade:
+        labels = {
+            "upgrade": "UPGRADED", "unchanged": "UNCHANGED", "create": "CREATED",
+            "update": "UPDATED", "skip": "SKIPPED", "remove": "REMOVED",
+            "kept": "KEPT",
+        }
+        notes = {
+            "skip": "（目标已修改，保留；请人工比对新版）",
+            "kept": "（已移除但目标已修改，保留）",
+        }
+        counts: dict = {}
+        for item in plan.items:
+            counts[item.action] = counts.get(item.action, 0) + 1
+            note = notes.get(item.action, "")
+            print(f"[{labels[item.action]}] {item.path}{note}")
+        print(
+            f"RESULT assistant={plan.assistant} target={plan.target} "
+            f"upgraded={counts.get('upgrade', 0)} "
+            f"unchanged={counts.get('unchanged', 0)} "
+            f"created={counts.get('create', 0)} "
+            f"updated={counts.get('update', 0)} "
+            f"skipped={counts.get('skip', 0)} "
+            f"removed={counts.get('remove', 0)} "
+            f"kept={counts.get('kept', 0)} dry_run={int(dry_run)}"
+        )
+        return
     labels = {"create": "CREATE", "update": "UPDATE", "unchanged": "UNCHANGED"}
     counts = {"create": 0, "update": 0, "unchanged": 0}
     for item in plan.items:
@@ -1406,8 +1878,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     assert parsed.target is not None and parsed.assistant is not None
     source_root = Path(__file__).resolve().parents[2]
+    builder = build_upgrade_plan if parsed.upgrade else build_plan
     try:
-        plan = build_plan(source_root, parsed.target, parsed.assistant)
+        plan = builder(source_root, parsed.target, parsed.assistant)
     except ConflictError as error:
         print(f"CONFLICT: {error}", file=sys.stderr)
         return 3

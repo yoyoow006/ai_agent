@@ -19,7 +19,30 @@ bash scripts/install-ai-workflow.sh --target ../other-project --assistant codex 
 
 安装器默认不覆盖：任一同路径内容不同、类型不符或涉及符号链接都在写入前整体拒绝；完全相同的文件标记为 `UNCHANGED`，重复执行保持字节和元数据不变。`.gitignore` 是唯一允许合成的既有文件，安装器只追加带固定起止标记的受管块。
 
-如果目标已有 `AGENTS.md` 或 `CLAUDE.md`，先在临时空目录预览或安装对应入口，对比后由维护者人工整合；安装器不猜测 Markdown 合并语义，也不会跳过该冲突。首版不提供 `--force`、upgrade、uninstall 或 `both`。
+如果目标已有 `AGENTS.md` 或 `CLAUDE.md`，先在临时空目录预览或安装对应入口，对比后由维护者人工整合；安装器不猜测 Markdown 合并语义，也不会跳过该冲突。不提供 `--force`、uninstall 或 `both`。
+
+## 升级已安装目标
+
+```bash
+bash scripts/install-ai-workflow.sh --target ../other-project --assistant codex --upgrade
+bash scripts/install-ai-workflow.sh --target ../other-project --assistant codex --upgrade --dry-run
+```
+
+安装与升级都会生成/更新安装器私有的 `.ai/installer-ledger.json` 台账：记录每个 manifest 文件安装时的内容 SHA-256（`.ai/assistant-profile.json` 保持校验器契约格式，不携带台账）。升级按台账逐文件判定：
+
+| 判定 | 行动 |
+|---|---|
+| 目标内容＝台账哈希（未被目标修改）且≠新版 | `UPGRADED`：替换为新版，事务内同步台账 |
+| 目标内容＝新版 | `UNCHANGED` |
+| 目标缺失 | `CREATED` |
+| 台账不匹配且≠新版 | `SKIPPED`：保留目标内容并在报告中提示人工比对 |
+| 台账有、新版 manifest 已移除且未修改 | `REMOVED` |
+| 台账有、已移除但目标已修改 | `KEPT`：保留并报告 |
+
+- 台账记"资产谱系哈希"：SKIPPED/KEPT 沿用旧条目，目标回退到任一版资产内容后自动恢复升级资格。
+- 旧安装（无台账）首次升级时仅"内容已等于新版"自动通过，其余 `SKIPPED` 报告；完成一次安装/升级后即建立台账。
+- 逐文件跳过不产生失败：`SKIPPED`/`KEPT` 属报告，退出码仍为 0；symlink/类型/受管块损坏仍按结构性冲突返回 3。
+- 升级与安装共用同一事务：文件与台账同批原子发布，中断后整体回滚到升级前状态。
 
 退出码：`0` 表示帮助、预览或安装成功；`1` 表示内部或事务失败；`2` 表示参数用法错误；`3` 表示目标、边界或内容冲突。首版事务发布依赖 Linux `renameat2` 原子语义，未声明跨操作系统可移植性。
 
