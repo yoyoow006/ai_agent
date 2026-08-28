@@ -168,3 +168,15 @@
 ## 2026-08-28 · 来源变更 add-installer-upgrade-path（白名单双份坑）
 **坑**：校验器外部命令白名单存在**两份**——`test_validate_workflow.py` 的 `VALIDATOR_COMMANDS`（fixture 沙箱）与 `test_install_ai_workflow.py` 的 `PORTABLE_VALIDATOR_COMMANDS`（安装目标受限 PATH）。CQ-1 修 cat 时只同步了前者，后者遗漏导致 `InstalledWorkflowValidationTests` 6 个子测试死在目标内契约测试的 setUp（`missing test prerequisite: cat`），且该套件不在 validate-workflow.sh 门禁内、CI 不跑，静默挂了两个版本。
 **解**：core 新增外部命令时必须同步**两份**白名单并各跑一次对应套件；更稳妥的做法是让两份白名单单一来源化（列为后续候选）。安装器套件（`python3 -m unittest scripts.tests.test_install_ai_workflow`）应纳入手动终验清单。
+
+## 2026-08-28 · 来源变更 add-installer-upgrade-path（事务窗口同形恢复）
+**坑**：`_publish_removed_file` 在 rename(name→backup) 与 `journal.append(_RemovedFile(...))` 之间没有 try/except 兜底，rename 成功而 journal 失败时目标文件已不翼而飞；同类窗口在 `_publish_created_file`（清理未武装）与 `_publish_updated_file`（`_restore_unjournaled_update`）都已覆盖，remove 路径漏了。
+**解**：每个 publish 路径都要有同形恢复 helper（rename 后 stat/identity/journal 任一失败 → 还原原文件），recovery helper 必须处理「同次 publish 重复触发恢复」的幂等性；新增路径必须补 fault-window 测试（与 create/update 同款 `test_*_journal_fault_windows_leave_no_published_artifacts`）。
+
+## 2026-08-28 · 来源变更 add-installer-upgrade-path（提交前全量预读）
+**坑**：`_commit_journal` 顺序销毁每个备份后才发现下一个 entry 的备份 stat/read 失败——已销毁的备份再也无法回滚，半升级状态：磁盘是 v2、内容哈希是 v1，下一次升级永远 SKIPPED。
+**解**：在销毁**任何**备份之前，先一次性预读所有 update/remove 条目的备份内容＋模式到内存列表；通用 dispatcher（`_ensure_recovery_backup` 按 entry 类型路由到 `_ensure_update_recovery_backup` / `_ensure_removed_recovery_backup`）在 destroy 循环失败时对每个已销毁条目重建恢复备份，并**无条件**包含当前 entry（KeyboardInterrupt 在 unlink 成功之后才抛，flag-based 检测会漏）。
+
+## 2026-08-28 · 来源变更 add-installer-upgrade-path（InputError 重新打包陷阱）
+**坑**：`InputError` 继承自 `ValueError`，`except (UnicodeDecodeError, ValueError)` 会把 parser 内部抛的 `InputError`（如 `_unique_json_object` 的 duplicate-key 诊断）一并吞掉，重新打包成泛化的"is not valid JSON"，退出码不变但运维诊断全丢；`load_manifest` 用 `except InputError: raise` 显式穿透是正确的范式。
+**解**：项目内自定义异常类必须**先**于其继承的内建异常被 `except` 透传：`except InputError: raise` 放在 `except (UnicodeDecodeError, ValueError)` 之前；review 时重点扫描 parser/validator 的 except 链是否吞掉自定义诊断。fail-closed 存在性检查用 `os.lstat` 不用 `os.path.exists`（后者跟符号链接，dangle 也返回 False）。JSON 严格解析用 `object_pairs_hook=_unique_json_object` 检重键 + 白名单 key-set + `type(x) is int` 拒绝 `True == 1` 假版本号。
