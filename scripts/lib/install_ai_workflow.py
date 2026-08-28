@@ -1677,16 +1677,16 @@ def _commit_journal(
         prepared.append((entry, original_content, original_mode))
     destroyed: list[tuple[object, bytes, int]] = []
     for entry, original_content, original_mode in prepared:
-        unlinked = False
         try:
             _verify_journal_bindings(plan, root_fd, [entry])
             os.unlink(entry.backup_name, dir_fd=entry.parent_fd)
-            unlinked = True
             _verify_journal_bindings(plan, root_fd, [entry])
         except BaseException as primary:
             try:
+                # 当前条目无条件参与再生（_ensure_recovery_backup 幂等自检：
+                # 备份仍在且身份匹配时为 no-op），覆盖"unlink 成功后抛出"的注入窗口。
                 for target_entry, content, mode in (
-                    destroyed + ([(entry, original_content, original_mode)] if unlinked else [])
+                    destroyed + [(entry, original_content, original_mode)]
                 ):
                     _ensure_recovery_backup(target_entry, content, mode)
             except BaseException as rollback_error:
