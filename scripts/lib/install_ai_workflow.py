@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ctypes
 from dataclasses import dataclass
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -396,6 +397,69 @@ def _profile_bytes(assistant: str) -> bytes:
         indent=2,
         sort_keys=True,
     ) + "\n").encode("utf-8")
+
+
+def _sha256_hex(content: bytes) -> str:
+    return hashlib.sha256(content).hexdigest()
+
+
+_HEX_DIGITS = frozenset("0123456789abcdef")
+
+
+def _profile_bytes_v2(assistant: str, files: dict) -> bytes:
+    return (json.dumps(
+        {"assistant": assistant, "files": files, "schema_version": 2},
+        ensure_ascii=False,
+        indent=2,
+        sort_keys=True,
+    ) + "\n").encode("utf-8")
+
+
+def _valid_ledger_path(path: object) -> bool:
+    if not isinstance(path, str) or not path or "\\" in path or "\0" in path:
+        return False
+    parts = path.split("/")
+    return all(part not in {"", ".", ".."} for part in parts)
+
+
+def _load_profile(target: Path, expected_assistant: str = None) -> dict:
+    """Read the target assistant profile; missing or v1 means legacy install."""
+    profile_path = target / ".ai" / "assistant-profile.json"
+    if not profile_path.exists():
+        return {"schema_version": 1}
+    try:
+        raw = _read_regular_file(profile_path, "assistant profile")
+    except FileNotFoundError:
+        return {"schema_version": 1}
+    try:
+        decoded = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as error:
+        raise InputError("assistant profile is not valid JSON") from error
+    if not isinstance(decoded, dict):
+        raise InputError("assistant profile must be a JSON object")
+    version = decoded.get("schema_version")
+    if version == 1:
+        return {"schema_version": 1}
+    if version != 2:
+        raise InputError("assistant profile schema version is unsupported")
+    assistant = decoded.get("assistant")
+    if assistant not in {"codex", "claude"}:
+        raise InputError("assistant profile assistant is invalid")
+    if expected_assistant is not None and assistant != expected_assistant:
+        raise InputError("assistant profile belongs to a different assistant")
+    files = decoded.get("files")
+    if not isinstance(files, dict):
+        raise InputError("assistant profile files must be an object")
+    for path, digest in files.items():
+        if not _valid_ledger_path(path):
+            raise InputError("assistant profile ledger path is invalid")
+        if (
+            not isinstance(digest, str)
+            or len(digest) != 64
+            or any(character not in _HEX_DIGITS for character in digest)
+        ):
+            raise InputError("assistant profile ledger digest is invalid")
+    return {"assistant": assistant, "files": files, "schema_version": 2}
 
 
 def _gitignore_block(assistant: str) -> bytes:
