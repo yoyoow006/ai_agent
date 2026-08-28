@@ -221,6 +221,22 @@ Open SHALL 先从代码、OpenSpec、共享知识层和用户输入核对权威�
 - **THEN** 助手只提出取消建议及理由，等待用户决定
 - **AND** 不把`状态:`置为`已取消`，不移动变更目录
 
+### Requirement: 高风险流程路径必须有施压场景
+
+工作流行为契约 SHALL 以施压场景覆盖以下高风险路径，场景使用与其他场景相同的结构（共同要求＋逐字场景文本＋可判通过条件）：严格实现前的分支与 worktree 原子顺序、归档的 delta 合并与用户取消处置、审查中途 manifest 陈旧的处理。场景文件 SHALL 与镜像资产副本保持一致，结构校验 SHALL 守护这些场景的存在与关键通过条件。
+
+#### Scenario: 新增高风险场景
+
+- **WHEN** 维护者查看 `scripts/workflow-pressure-scenarios.md`
+- **THEN** 存在覆盖 worktree 原子顺序、归档合并与取消、manifest STALE 的三个场景
+- **AND** 每个场景的通过条件可判（引用明确的禁止动作与正确动作）
+- **AND** 结构校验的 压力契约 检查包含这三个场景的标识与关键条件词
+
+#### Scenario: 场景与资产副本漂移
+
+- **WHEN** 实体场景文件与 `scripts/ai-workflow-assets/shared/scripts/` 下副本内容不一致
+- **THEN** 字节一致性核对失败并要求同步
+
 ### Requirement: Codex 与 Claude 工作流必须保持一致
 
 风险分流、模式边界、状态推进（含取消路径）、硬门禁和双套共存技能的语义 SHALL 同步体现在 `AGENTS.md`、`CLAUDE.md`、`.codex/skills/`、`.claude/skills/`、适配说明与校验脚本中。结构校验 SHALL 对全部双套共有的阶段与支撑技能执行镜像检查；镜像比对 SHALL 仅豁免声明的助手适配差异（技能目录路径前缀改写与显式标注的助手适配注记行），其余任何语义分叉 SHALL 使校验失败。结构校验 SHALL 能发现两套模式定义缺失、快速模式被错误要求四件套、或标准模式仍被强制独立计划/双审的回归。

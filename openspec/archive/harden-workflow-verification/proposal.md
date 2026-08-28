@@ -1,7 +1,7 @@
 # 验证面加固：压力场景、mutation 与镜像豁免
 
 模式: 标准
-状态: 待验证
+状态: 已归档
 
 ## Why
 
@@ -26,7 +26,7 @@ P1 完成后的三项验证面缺口（审计 P2-5/P2-6 + Verify 残余风险）
 
 - 修改 5 个文件：`scripts/workflow-pressure-scenarios.md`（+assets 副本）、`scripts/lib/validate-workflow-core.sh`（+assets 副本，字节一致）、`.github/workflows/validate.yml`。
 - 不改：治理入口、技能正文、`.gitignore`、`manifest.json`、两个 Python 工具、安装器。
-- 预期校验计数：main 现 172 → 新增 9 mutation＋1 登记数检查 → 182；变更活跃期间另 +2（本变更 proposal 两项）。
+- 预期校验计数：main 现 172 → 新增 9 mutation＋1 登记数＋1 W/A/M 契约检查，含活跃变更 +2 → 实测 185（综合审查 HWV-R1 更正）。
 - 本地整合策略（明示）：全绿并归档后本地 `--no-ff` 合回 main 并复验；**推送与 CI 观察另行单独授权**。
 
 ## 用户已确认决策
