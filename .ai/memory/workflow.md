@@ -160,3 +160,7 @@
 ## 2026-08-27 · 来源变更 add-cancel-state-ci-mirror（沙箱白名单）
 **坑**：validate-workflow-core.sh 的 mirror_equal 改用 `| cat -s` 后，契约测试沙箱的 PATH 白名单（test_validate_workflow.py 的 VALIDATOR_COMMANDS）不含 cat：管道失败、重定向先建空临时文件、cmp 比较两个空文件相等——沙箱内全部镜像检查空转假绿；真实 PATH 下一切正常，假绿仅出现在契约沙箱。
 **解**：core 新增任何外部命令（cat、sort、tr 等）必须同步 VALIDATOR_COMMANDS 白名单并重跑契约套件；保真度可用「白名单独占 PATH + 注入技能漂移」探针验证镜像检查非零。
+
+## 2026-08-28 · 来源变更 add-cancel-state-ci-mirror（整合修复）
+**坑**：`openspec/changes/.gitkeep` 从未被跟踪（archive/plan/specs 三个都有，唯独 changes 漏了）；主工作区与实现 worktree 靠磁盘残留目录通过「目录存在」断言，`--no-ff` 合并后 git 清除无跟踪文件目录，主分支校验 FAIL=2（目录断言＋契约 fixture 级联），新鲜 clone/CI 同样会挂。
+**解**：补提交 `openspec/changes/.gitkeep` 并复跑 required 门禁。教训：「目录存在」类断言的每个目录都必须有已跟踪占位符；审计 diff 时勿用 head 截断输出（本次与资产规格滞后同为截断漏报）。
