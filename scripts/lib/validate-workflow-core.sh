@@ -307,6 +307,9 @@ policy_ok() {
     grep -Eq '快速模式.*(必须|一律|强制).*(freeze manifest|manifest)' "$file" && return 1
     grep -Eq '标准模式.*(必须|一律|强制).*第二次完整(综合)?审查' "$file" && return 1
     grep -Eq '所有任务.*(必须|一律|强制).*(调用|使用).*(角色)?代理' "$file" && return 1
+    grep -Eq '快速模式.*(必须|一律|强制).*(提交|合并)' "$file" && return 1
+    grep -Eq '(归档|Archive).*(跳过|无需|不必).*(validate|校验|验证)' "$file" && return 1
+    grep -Eq '标准模式.*(无需|不必).{0,4}(用户)?确认' "$file" && return 1
   done
   return 0
 }
@@ -367,6 +370,17 @@ frontmatter_ok() {
   head -1 "$file" | grep -q '^---' &&
     awk 'NR>1&&/^---/{exit} NR>1' "$file" | grep -q '^description:' &&
     test "$actual" = "$expected"
+}
+
+# 镜像豁免登记守卫：受豁免前缀（^> **Codex 执行环境）的适配注记行
+# 全仓合计数必须等于登记值。新增同前缀语义行会使计数超出并 FAIL，
+# 强制维护者显式登记后再放行。
+ADAPTER_NOTE_REGISTERED_COUNT=1
+
+adapter_note_registry_ok() {
+  local total
+  total="$(grep -rh '^> \*\*Codex 执行环境' .codex/skills .claude/skills 2>/dev/null | wc -l)"
+  test "$total" -eq "$ADAPTER_NOTE_REGISTERED_COUNT"
 }
 
 mirror_equal() {
@@ -517,6 +531,7 @@ if assistant_required codex && assistant_required claude; then
   for skill in open design build verify archive tdd code-review subagent-driven git-worktrees verification parallel-agents systematic-debugging writing-skills; do
     check "双套语义镜像: $skill" mirror_equal "$skill"
   done
+  check "适配注记登记数" adapter_note_registry_ok
 fi
 
 primary_doc="${required_docs[0]}"
@@ -524,17 +539,27 @@ check "mutation: 入口拒绝文档统一四件套" mutation_rejected "$primary_
 check "mutation Q: 快速拒绝强制 manifest" mutation_rejected "$primary_doc" "快速模式必须创建 freeze manifest 后才能修改文件。"
 check "mutation S: 标准拒绝第二次完整审查" mutation_rejected "$primary_doc" "标准模式必须在修复后执行第二次完整综合审查。"
 check "mutation X: 拒绝所有任务机械调用角色" mutation_rejected "$primary_doc" "所有任务必须调用角色代理后才能开始。"
+check "mutation: 快速拒绝自动提交合并" mutation_rejected "$primary_doc" "快速模式完成后必须自动提交并合并到主分支。"
+check "mutation: 标准拒绝免确认实现" mutation_rejected "$primary_doc" "标准模式四件套产出后无需用户确认即可直接实现。"
+check "mutation: 归档拒绝跳过校验" mutation_rejected "$primary_doc" "归档前无需运行 validate-workflow.sh 校验，直接移动目录完成归档。"
 for agent in "${required_agents[@]}"; do
   check "mutation: $agent Open 拒绝文档统一四件套" mutation_rejected "$agent/skills/open/SKILL.md" "所有文档变更必须创建四件套和 OpenSpec。"
   check "mutation: $agent Design 拒绝标准独立计划" mutation_rejected "$agent/skills/design/SKILL.md" "标准模式必须进入 Design 并创建独立计划。"
   check "mutation: $agent Build 拒绝标准双阶段审查" mutation_rejected "$agent/skills/build/SKILL.md" "标准模式必须执行双阶段审查。"
   check "mutation: $agent Verify 拒绝标准双阶段审查" mutation_rejected "$agent/skills/verify/SKILL.md" "标准模式必须执行双阶段审查。"
+  check "mutation: $agent Open 拒绝快速自动提交" mutation_rejected "$agent/skills/open/SKILL.md" "快速模式完成后必须自动提交并合并到主分支。"
+  check "mutation: $agent Build 拒绝标准免确认" mutation_rejected "$agent/skills/build/SKILL.md" "标准模式四件套产出后无需用户确认即可直接实现。"
+  check "mutation: $agent Archive 拒绝跳过归档校验" mutation_rejected "$agent/skills/archive/SKILL.md" "归档前无需运行 validate-workflow.sh 校验，直接移动目录完成归档。"
 done
 check "Q/R/S/X 压力契约" contains_all scripts/workflow-pressure-scenarios.md \
   'Q：既有接口的纯文档维护' '不创建 OpenSpec' 'freeze manifest' '角色代理' \
   'R：模糊需求先建立共识' '项目 registry' 'tracked 搜索' '目标代码位置' '每题带证据' '不生成四件套' '请求本身已清晰' \
   'S：普通单模块运行时代码小改' '一次全 diff 综合 Verify' '修复后只审 delta' \
   'X：权限与数据库迁移' '任务级审查' '双阶段独立审查' '有效 manifest'
+check "W/A/M 压力契约" contains_all scripts/workflow-pressure-scenarios.md \
+  'W：严格实现前的 worktree 原子顺序' '已检出的分支' '只暂存本变更明确文件' \
+  'A：归档合并与用户取消' '第二真源' '取消原因' '不得自行取消' \
+  'M：审查中途 manifest STALE' '不沿用旧结论' '重新 freeze'
 
 if assistant_required codex; then
   check "SDD 草稿区已忽略" workflow_path_ignored .codex/sdd/validation-probe

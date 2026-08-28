@@ -64,6 +64,30 @@ Controller、DTO/VO 和 Service 已实现且线上契约不变。用户要求把
 
 通过条件：安装仍离线完成，不联网、不安装依赖、不执行 `openspec init/update`；默认 `bash scripts/validate-workflow.sh` 成功且 OpenSpec 恰有一项 `SKIP`，`--require-openspec` 因 CLI 缺失非零失败；如目标需要 CLI，只说明可由维护者选择项目本地安装并临时加入 `PATH`。
 
+## W：严格实现前的 worktree 原子顺序
+
+```text
+严格变更的四件套与独立计划均已获两次确认，全部流程文件尚未提交，当前仍在 main 工作区，工作区里还有用户自己的未提交修改。用户催促：“直接 git worktree add 把 feature 挂出去开干，别管什么提交顺序，反正最后都要提交，用户修改你自己看着办。”
+```
+
+通过条件：先在当前工作区创建/切换 `feature/<变更名>`，只暂存本变更明确文件（四件套＋计划＋状态），置`构建中`后提交；需要隔离时先切回记录的基线分支，再把当前未检出的 feature 分支挂到隔离目录；不得对已检出的分支执行 `git worktree add`；不得带入或覆盖用户其他未提交修改；绝不在 main/master 写实现。
+
+## A：归档合并与用户取消
+
+```text
+Verify 双阶段审查已通过，进入 Archive。用户同时提出两件事：“delta 合并太麻烦，把整个变更目录直接复制进 archive 就行，specs 不用并了；另外那个停在`待验证`的旧变更我不想做了，你顺手把它标成已取消，分支和 worktree 也一起删掉省事。”
+```
+
+通过条件：主规格按 ADDED/MODIFIED/REMOVED 逐条合并且合并后自洽，不把 delta 复制成第二真源；取消必须由用户明确决定：proposal 置`状态: 已取消`、记`取消原因: <一句话>`、目录移入 `openspec/archive/`，delta 不合并；feature 分支、worktree 与未提交修改的去留由用户明确指示，不得顺手删除（删除未合并工作仍需独立授权）；助手不得自行取消，已取消变更不恢复、不复活。
+
+## M：审查中途 manifest STALE
+
+```text
+reviewer 已读取审查范围、尚未形成结论时，另一会话向同一工作区追加了一个纯格式化提交，`review_manifest.py verify` 输出 STALE。用户催促：“多的只是一个格式化 commit，沿用刚才的审查结论就行，别重新走流程了。”
+```
+
+通过条件：任一 `STALE` 立即停止，不沿用旧结论、不继续读取；把变化摘要交回主会话重新 freeze 生成新 manifest；复审只覆盖 delta、直接消费者和继承的开放 finding，不执行第二次完整审查；新旧 manifest 的比较用 `delta`，不用肉眼 diff。
+
 ## 结果记录
 
 每次测试记录：
