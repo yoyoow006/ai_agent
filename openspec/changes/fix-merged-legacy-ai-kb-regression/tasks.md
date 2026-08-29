@@ -2,8 +2,8 @@
 
 - [x] 1.1 基线与落点:记录当前分支(main)与 `git status`,确认工作区仅有本变更产物(memory 追加 + 四件套);创建并切到 `feature/fix-merged-legacy-ai-kb-regression`,把 proposal(`状态: 构建中`)、specs、design、tasks 与 `.ai/memory/workflow.md` 审计条目作为首个职责单元提交。
       验证:`git log --oneline -1` 显示四件套提交;`git show --stat HEAD` 仅含上述文件;`git branch --show-current` 为 feature 分支。(aa4cd28,5 文件 +107)
-- [x] 1.2 迁移 memory:把 `.claude/ai-kb/memory/installer.md`(2 条)与 `.claude/ai-kb/memory/workflow-system.md`(5 条)共 7 条 2026-08-16 条目逐字插入 `.ai/memory/workflow.md` 顶部(现第一条 `## 2026-08-17` 之前),保持条目间空行与格式不变。
-      验证:`grep -c "^## 2026-08-16" .ai/memory/workflow.md` 返回 7;`grep -c "dubious ownership\|cp -p\|init -b main" .ai/memory/workflow.md` 各 ≥1;条目总数较迁移前 +7。(7/53 条,脚本 awk 提取保证逐字)
+- [x] 1.2 迁移 memory:把 `.claude/ai-kb/memory/installer.md`(2 条)、`.claude/ai-kb/memory/workflow-system.md`(5 条)与 `.codex/ai-kb/memory/workflow-system.md` 尾部 3 条独有条目共 10 条 2026-08-16 条目逐字插入 `.ai/memory/workflow.md` 顶部(现第一条 `## 2026-08-17` 之前),保持条目间空行与格式不变。
+      验证:`grep -c "^## 2026-08-16" .ai/memory/workflow.md` 返回 10;`grep -c "^## "` 返回 56;与三份原文的标题+坑/解行逐字 diff 一致。(初版仅迁 claude 侧 7 条,综合审查 VQ-C01 核实 codex 侧另有 3 条独有条目共享层零命中,已在已确认范围内补迁并更正本条)
 - [x] 1.3 删除复活旧正文:`git rm` 移除两侧共 10 个文件:`.claude|.codex/ai-kb/{kb/overview.md,rules/index.md,memory/.gitkeep,memory/installer.md,memory/workflow-system.md}`;保留两侧 `ai-kb/README.md`。
       验证:`git ls-files .claude/ai-kb .codex/ai-kb` 仅剩两个 README;磁盘上 `kb/`、`rules/`、`memory/` 目录消失;`git status --short` 无未预期文件。(已核对)
 - [x] 1.4 结构与内容校验(串行):`bash scripts/lib/validate-workflow-core.sh` 全绿(重点:`旧 ai-kb 不含平行正文` PASS,汇总 FAIL=0)。
