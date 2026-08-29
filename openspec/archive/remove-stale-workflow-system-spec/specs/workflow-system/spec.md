@@ -1,9 +1,4 @@
-# workflow-system 规范
-
-## Purpose
-定义五阶段（Open → Design → Build → Verify → Archive）AI 编程工作流系统的行为要求：阶段组织、硬门禁、状态真源与断点续传、原生技能库、ai-kb 知识库、TDD 与两阶段审查纪律、归档流程及兼容性约束。
-
-## Requirements
+## REMOVED Requirements
 
 ### Requirement: 五阶段工作流
 系统 SHALL 以 Open → Design → Build → Verify → Archive 五阶段组织代码变更，每阶段有独立技能与产出物。
