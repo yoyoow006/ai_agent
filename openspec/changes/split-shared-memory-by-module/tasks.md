@@ -11,9 +11,9 @@
 - [x] 1.5 门禁:`bash scripts/lib/validate-workflow-core.sh` FAIL=0;`openspec validate split-shared-memory-by-module --strict --no-interactive` 通过;完整门禁 `bash scripts/validate-workflow.sh` 后台串行现跑 FAIL=0。
       验证:三个命令退出码均 0。
 - [x] 1.6 提交:memory 拆分作为单一职责单元提交。
-      验证:`git show --stat HEAD` 仅 `.ai/memory/{installer.md,workflow.md}`。
+      验证:`git show --stat HEAD` 仅 `.ai/memory/{installer.md,workflow.md}` 与 `.gitignore` 白名单一行(审查 VQ-SM01 更正:原措辞漏计 .gitignore)。
 - [x] 2.1 状态推进:tasks 全勾、proposal `状态: 待验证` 并提交。
-- [ ] 3.1 Verify:主会话 freeze manifest;独立上下文 reviewer 全 diff 综合审查(逐字无损、32/24 计数、归属符合 design 规则 2、范围无扩大);finding 闭环。
+- [x] 3.1 Verify:主会话 freeze manifest;独立上下文 reviewer 全 diff 综合审查(逐字无损、32/24 计数、归属符合 design 规则 2、范围无扩大);finding 闭环。
       验证:manifest 两次 verify VALID;Critical/Important 清零。
 - [ ] 4.1 终验:现跑完整门禁 FAIL=0 + `git diff --check`;`状态: 待归档` 并提交。
 - [ ] 5.1 归档:delta 合并入主规格;`状态: 已归档`;目录移入 archive;追加 `openspec/archive/README.md` 索引行;归档后现跑完整门禁;`chore(archive)` 提交。

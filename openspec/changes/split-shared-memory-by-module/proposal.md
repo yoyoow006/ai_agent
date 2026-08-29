@@ -12,7 +12,7 @@
 1. 新建 `.ai/memory/installer.md`,承接安装器域 32 条:来源变更为 `add-workflow-installer`(2)、`工作流端到端验证(临时项目 add-greeting)`(3,源于安装器端到端验证)、`install-portable-ai-workflow`(16)、`fix-installer-python-38`(1)、`remove-installer-business-knowledge`(1)、`install-codex-workflow-yuxiaor`(5)、`add-installer-upgrade-path`(4)。
 2. `.ai/memory/workflow.md` 保留其余 24 条(工作流治理、校验器、Git 基线/远程/安全、test-login、openspec 流程等)。
 3. **条目正文逐字不动**,只做整条移动;各文件内保持原有时间顺序;两文件均无总标题(与现格式一致)。
-4. 机械校验:两文件 `^## ` 计数之和 = 56(32+24);移动前后全部条目标题+坑/解行拼接 diff 为空;`bash scripts/validate-workflow-core.sh` FAIL=0。
+4. 机械校验:两文件 `^## ` 计数之和 = 56(32+24);移动前后全部条目标题+坑/解行拼接 diff 为空;`bash scripts/lib/validate-workflow-core.sh` FAIL=0(审查 VQ-SM02 更正:原路径漏 lib/ 前缀)。
 5. 规格化:`shared-ai-workflow-infrastructure` 新增 ADDED Requirement「共享 memory 按模块文件维护」,把 README 既有约定升为主规格要求(归档三写与断点恢复按模块落盘/读取)。
 
 ## Impact
