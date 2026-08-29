@@ -1,3 +1,43 @@
+## 2026-08-16 · 来源变更 add-workflow-installer
+**坑**：`cp -p 文件 已存在目录` 不报错而是静默成功（把文件复制进目录内部，exit 0）——`set -e` 与返回码检查都抓不住，安装器因此出现过"目标同名路径是目录 → 假绿 exit 0"
+**解**：复制前前置拒绝：`[ ! -d "$dst" ] || { 报错; exit 1; }`；审查推理不可替代实测（本坑由红测揭穿，两方独立实测确认）
+
+## 2026-08-16 · 来源变更 add-workflow-installer
+**坑**：`TARGET="$(cd "$TARGET" && pwd)" || die "...$TARGET"` 失败时赋值已生效、TARGET 已被置空——报错信息丢失路径；更严重变体是静默空串导致后续以 `/` 为根写入
+**解**：命令替换赋值用临时变量承接：`norm="$(cd -- "$p" && pwd)" || die "...$p"`；对安装/删除类脚本显式拒绝根目录 `/`；危险路径的"先红"实测若会触发真实破坏（写 /），以代码差异+安全绿测替代并记录 TDD 偏差
+
+## 2026-08-16 · 来源变更 init-workflow-system
+**坑**：仓库目录属主为 root 时 git 报 "dubious ownership" 拒绝操作
+**解**：git config --global --add safe.directory <仓库路径>；注意这是机器级配置，换机器要重配
+
+## 2026-08-16 · 来源变更 init-workflow-system
+**坑**：本机 git 版本旧，git init -b main 不被支持（exit 129）
+**解**：git init 后用 git checkout -b main 兼容；写脚本时避免依赖新 git 特性
+
+## 2026-08-16 · 来源变更 init-workflow-system
+**坑**：git 不跟踪空目录，openspec/specs、archive、.claude/skills 等骨架目录在 fresh clone 上消失，结构校验假红
+**解**：空骨架目录放 .gitkeep 入库；终审发现的计划缺口，已修复
+
+## 2026-08-16 · 来源变更 init-workflow-system
+**坑**：本机 core.fileMode=false 掩盖了脚本以 100644 提交的问题，fresh clone 无执行位
+**解**：git update-index --chmod=+x <脚本> 直接改索引模式；校验含执行依赖的文件时留意 fileMode 配置
+
+## 2026-08-16 · 来源变更 init-workflow-system
+**坑**：verify 阶段审查通过后未回写 proposal 状态字段（构建中→待验证→待归档两跳均漏），归档时才发现状态滞后
+**解**：verify 技能后续版本应把状态回写列为显式收尾步；归档开工前先核对 状态: 待归档
+
+## 2026-08-16 · 来源变更 工作流端到端验证（临时项目 add-greeting）
+**坑**：迁移 .codex 工作流后只改了校验器未同步改安装器，install-workflow.sh 仍只装 .claude 资产，装后自检因 .codex 缺失整片判红
+**解**：校验器与安装器是结构不变量的两面，必须同步演进；安装器已补 AGENTS.md + .codex/（README/skills/ai-kb/sdd）+ .gitignore 草稿区规则
+
+## 2026-08-16 · 来源变更 工作流端到端验证（临时项目 add-greeting）
+**坑**：openspec CLI 严格校验要求 Requirement 正文含英文 SHALL/MUST，纯中文"应"判错；且 validate --all 还会校验主 specs（缺 ## Purpose 即红）
+**解**：Requirement 用"系统 SHALL …"中英混排；archive 新建主规格先写完整骨架（# 标题 + ## Purpose + ## Requirements）再并入 delta；终验跑 openspec validate --all
+
+## 2026-08-16 · 来源变更 工作流端到端验证（临时项目 add-greeting）
+**坑**：python unittest 的 __pycache__/*.pyc 被 git add -A 误跟踪，规格审查判越界；安装器不管理目标 .gitignore，.codex/sdd 草稿区裸奔为未跟踪文件
+**解**：项目初始化即写 .gitignore（__pycache__/、*.pyc）；安装器幂等追加 .codex/sdd 忽略规则；实现提交后 git ls-files | grep pyc 自查
+
 ## 2026-08-17 · 来源变更 ignore-root-project-paths
 **坑**：多步 shell 命令中的 `patch` 因上下文错字失败后，后续暂存与提交仍会继续，可能把未更新的任务真源提交出去。
 **解**：补丁必须使用 `--fuzz=0 --no-backup-if-mismatch` 并立即核对目标文件；新增文件还须核对 hunk 行数、`wc -l` 与文件尾部，避免尾行被截断。包含提交的多步命令应启用失败即停，提交前再次扫描 tasks 未勾选项。
@@ -180,3 +220,7 @@
 ## 2026-08-28 · 来源变更 add-installer-upgrade-path（InputError 重新打包陷阱）
 **坑**：`InputError` 继承自 `ValueError`，`except (UnicodeDecodeError, ValueError)` 会把 parser 内部抛的 `InputError`（如 `_unique_json_object` 的 duplicate-key 诊断）一并吞掉，重新打包成泛化的"is not valid JSON"，退出码不变但运维诊断全丢；`load_manifest` 用 `except InputError: raise` 显式穿透是正确的范式。
 **解**：项目内自定义异常类必须**先**于其继承的内建异常被 `except` 透传：`except InputError: raise` 放在 `except (UnicodeDecodeError, ValueError)` 之前；review 时重点扫描 parser/validator 的 except 链是否吞掉自定义诊断。fail-closed 存在性检查用 `os.lstat` 不用 `os.path.exists`（后者跟符号链接，dangle 也返回 False）。JSON 严格解析用 `object_pairs_hook=_unique_json_object` 检重键 + 白名单 key-set + `type(x) is int` 拒绝 `True == 1` 假版本号。
+
+## 2026-08-29 · 来源变更 fix-merged-legacy-ai-kb-regression（审计发现）
+**坑**：手工合并 `Merge remote-tracking branch 'origin/main'`（45e8ed1）把本地线迁移前的 `.claude|codex/ai-kb/{kb,rules,memory}` 平行正文带回 main 并推送；core `旧 ai-kb 不含平行正文` FAIL，契约套件因 fixture 忠实复制现行文件而级联 40/82 假设绿基线的失败。另：两个 validate-workflow 实例并发时 mutation 测试互踩，会产生大额度假失败；契约套件单跑约 5 分钟，120 秒 timeout 不足以作终验证据。
+**解**：合并到 main 属于治理边界，必须走 Archive 确认的整合策略并在推送前本地现跑完整门禁（--no-ff 合并后同样）。诊断契约套件失败先看是否单一根因级联（一个 core FAIL 可放大为几十个 contract 失败）；校验器只能串行单实例运行，长跑用后台任务而非加 timeout。删除复活旧正文前必须**逐侧计数**核对 memory 条目是否已迁移——双侧同名文件不必然同内容，本次 codex 侧比 claude 侧多 3 条独有条目（`grep -c '^## '` 逐文件计数），合计 10 条 2026-08-16 条目未迁移；首轮只迁 claude 侧 7 条即删构成知识丢失，由独立审查 VQ-C01 纠正后补迁。
