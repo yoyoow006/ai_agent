@@ -9,7 +9,7 @@
 | 共享知识层 | `.ai/` | kb、memory、rules、prompts、tools | 路由、踩坑、项目卡、知识沉淀、事实查询 |
 | 项目登记 | `.ai/kb/projects/registry.json`, `.ai/kb/projects/` | registry、项目卡 | project-context、server-registry、workspace-search |
 | 安装器知识分层 | `.gitignore`, `.ai/kb/projects/README.md`, `openspec/specs/installer-knowledge-separation/` | 源仓库业务知识、目标项目登记 | 空白 registry、通用骨架、业务项目卡、防回流 |
-| 便携安装器契约 | `openspec/specs/portable-ai-workflow-installer/`, `scripts/install-ai-workflow.sh`, `scripts/lib/install_ai_workflow.py`, `.ai/installer-ledger.json` | 安装器、跨 Python 兼容、资产契约、升级路径、台账 | 加载时类型别名、Path 包含 helper、入口契约、preview/--help、事务回滚、--upgrade、installer-ledger、SHA-256 判定 |
+| 便携安装器契约 | `openspec/specs/portable-ai-workflow-installer/`, `scripts/install-ai-workflow.sh`, `scripts/lib/install_ai_workflow.py`, `.ai/installer-ledger.json`(安装目标侧运行时产物,源仓库不存在) | 安装器、跨 Python 兼容、资产契约、升级路径、台账 | 加载时类型别名、Path 包含 helper、入口契约、preview/--help、事务回滚、--upgrade、installer-ledger、SHA-256 判定 |
 | Codex 目标安装 | `openspec/specs/codex-workflow-target-installation/` | 外部目录安装、真实路径 | 非 Git 根、符号链接、AGENTS 备份、嵌套业务仓库、幂等安装 |
 | 测试登录项目 | `projects/test-login/` | 登录演示、随机验证 | PBKDF2、验证码、session token、一次性挑战 |
 | OpenSpec 数据层 | `openspec/` | 变更目录 | 模式字段、proposal、delta、tasks、plan、archive |
