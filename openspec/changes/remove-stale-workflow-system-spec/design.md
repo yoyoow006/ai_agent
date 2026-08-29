@@ -13,7 +13,7 @@
 | 两阶段审查 | risk-tiered 分层审查(标准单审/严格双阶段)+ shared-infra finding 台账 | 已取代且矛盾,删 |
 | 归档六步 | archive 技能(双侧)+ risk-tiered 取消/整合路径 + 索引行步骤 | 已取代,删 |
 | openspec CLI 兼容 | openspec/AGENTS.md 工件约定 + shared-infra required 门禁(CLI 缺失语义:默认 SKIP 提示/严格非零) | 语义已覆盖,删 |
-| 零插件依赖 | risk-tiered「仓库技能优先于宿主插件技能」+ 安装器随包自包含契约(portable-installer 规格) | 精神由"仓库优先+插件仅补空缺"与自包含安装承接;绝对化表述与现实(宿主插件存在)不符,删 |
+| 零插件依赖 | risk-tiered「仓库技能优先于宿主插件技能」+ 随包自包含契约(shared-ai-workflow-infrastructure「安装目标内自包含」场景;审查 RS-3 更正——原误引 portable-installer 规格) | 精神由"仓库优先+插件仅补空缺"与自包含安装承接;绝对化表述与现实(宿主插件存在)不符,删 |
 
 结论:无一条含未被承接的活要求;三条与现行正面矛盾。
 

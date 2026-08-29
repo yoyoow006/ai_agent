@@ -11,8 +11,8 @@
 ## T1 删除前证据固化(在 worktree)
 
 1. `openspec validate --all --strict --no-interactive` 输出存档(应 12 规格 passed)。
-2. 引用扫描存档:`grep -rn "workflow-system" scripts/ .ai/ .github/ CLAUDE.md AGENTS.md README.md` 排除 `ai-kb` 与 `__pycache__` 后为空;`grep -rn "specs/workflow-system" . --include="*.md"` 排除 .git/archive/openspec/changes(本变更自身)后为空。
-3. 验证:两份扫描输出为零(非零即停,回 Open 重新核实)。
+2. 引用扫描存档:`grep -rn "workflow-system" scripts/ .ai/ .github/ CLAUDE.md AGENTS.md README.md` 排除 `ai-kb`、`__pycache__`、`.ai/memory` 历史来源名(`来源变更 init-workflow-system`)后为空;`grep -rn "specs/workflow-system" . --include="*.md"` 排除 .git/archive/openspec/changes(本变更自身)后为空。
+3. 验证:两份扫描在上述排除口径下为零;命中仅限历史来源名/本变更自引用,逐条定性后方可放行(审查 RS-2 补口径,实测命中已全部定性为 memory 5 条历史名+计划自身 1 条)。
 
 ## T2 删除与规格层复验
 
