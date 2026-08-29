@@ -1,3 +1,31 @@
+## 2026-08-16 · 来源变更 add-workflow-installer
+**坑**：`cp -p 文件 已存在目录` 不报错而是静默成功（把文件复制进目录内部，exit 0）——`set -e` 与返回码检查都抓不住，安装器因此出现过"目标同名路径是目录 → 假绿 exit 0"
+**解**：复制前前置拒绝：`[ ! -d "$dst" ] || { 报错; exit 1; }`；审查推理不可替代实测（本坑由红测揭穿，两方独立实测确认）
+
+## 2026-08-16 · 来源变更 add-workflow-installer
+**坑**：`TARGET="$(cd "$TARGET" && pwd)" || die "...$TARGET"` 失败时赋值已生效、TARGET 已被置空——报错信息丢失路径；更严重变体是静默空串导致后续以 `/` 为根写入
+**解**：命令替换赋值用临时变量承接：`norm="$(cd -- "$p" && pwd)" || die "...$p"`；对安装/删除类脚本显式拒绝根目录 `/`；危险路径的"先红"实测若会触发真实破坏（写 /），以代码差异+安全绿测替代并记录 TDD 偏差
+
+## 2026-08-16 · 来源变更 init-workflow-system
+**坑**：仓库目录属主为 root 时 git 报 "dubious ownership" 拒绝操作
+**解**：git config --global --add safe.directory <仓库路径>；注意这是机器级配置，换机器要重配
+
+## 2026-08-16 · 来源变更 init-workflow-system
+**坑**：本机 git 版本旧，git init -b main 不被支持（exit 129）
+**解**：git init 后用 git checkout -b main 兼容；写脚本时避免依赖新 git 特性
+
+## 2026-08-16 · 来源变更 init-workflow-system
+**坑**：git 不跟踪空目录，openspec/specs、archive、.claude/skills 等骨架目录在 fresh clone 上消失，结构校验假红
+**解**：空骨架目录放 .gitkeep 入库；终审发现的计划缺口，已修复
+
+## 2026-08-16 · 来源变更 init-workflow-system
+**坑**：本机 core.fileMode=false 掩盖了脚本以 100644 提交的问题，fresh clone 无执行位
+**解**：git update-index --chmod=+x <脚本> 直接改索引模式；校验含执行依赖的文件时留意 fileMode 配置
+
+## 2026-08-16 · 来源变更 init-workflow-system
+**坑**：verify 阶段审查通过后未回写 proposal 状态字段（构建中→待验证→待归档两跳均漏），归档时才发现状态滞后
+**解**：verify 技能后续版本应把状态回写列为显式收尾步；归档开工前先核对 状态: 待归档
+
 ## 2026-08-17 · 来源变更 ignore-root-project-paths
 **坑**：多步 shell 命令中的 `patch` 因上下文错字失败后，后续暂存与提交仍会继续，可能把未更新的任务真源提交出去。
 **解**：补丁必须使用 `--fuzz=0 --no-backup-if-mismatch` 并立即核对目标文件；新增文件还须核对 hunk 行数、`wc -l` 与文件尾部，避免尾行被截断。包含提交的多步命令应启用失败即停，提交前再次扫描 tasks 未勾选项。
