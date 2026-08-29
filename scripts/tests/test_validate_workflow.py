@@ -52,10 +52,11 @@ class PrePushHookTest(unittest.TestCase):
             (root / "scripts" / "lib").mkdir(parents=True)
             shutil.copy(hook_source, root / "scripts" / "hooks" / "pre-push")
             # git 会向 pre-push 传入远端名与 URL 两个参数:钩子不得把它们透传给 core。
+            # 第三组的 stub 参数敏感:收到任何参数即失败,用于抓住透传回归。
             for stub, expected, hook_arguments in (
                 ("exit 0", 0, []),
                 ("exit 1", 1, []),
-                ("exit 0", 0, ["origin", "git@example.invalid:repo.git"]),
+                ('[ "$#" -eq 0 ] || exit 1\nexit 0', 0, ["origin", "git@example.invalid:repo.git"]),
             ):
                 with self.subTest(stub=stub, arguments=hook_arguments):
                     (root / "scripts" / "lib" / "validate-workflow-core.sh").write_text(
