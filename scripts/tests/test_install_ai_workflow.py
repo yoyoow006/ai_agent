@@ -327,6 +327,8 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location("shipped_contract_tests", shipped)
         assert spec is not None and spec.loader is not None
         module = importlib.util.module_from_spec(spec)
+        # 随包文件使用 @dataclass,其字段解析要求模块已注册进 sys.modules。
+        sys.modules[spec.name] = module
         spec.loader.exec_module(module)
         suite = unittest.defaultTestLoader.loadTestsFromModule(module)
 
