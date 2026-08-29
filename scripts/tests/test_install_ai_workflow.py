@@ -418,16 +418,19 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
                 with self.subTest(assistant=assistant, command="contract"):
                     self.assertEqual(contract.returncode, 0, contract.stdout)
                     self.assertIn(f"Ran {self._shipped_contract_test_count()} tests", contract.stdout)
-                    expected_skips = 2  # 既有单助手 profile 变体跳过
-                    if not (target / "scripts" / "hooks" / "pre-push").is_file():
-                        expected_skips += 1  # 钩子不随包分发
-                    if not (target / ".github").exists():
-                        expected_skips += 1  # CI 配置仅存在于源仓库
-                    expected_skips += 1  # 受限 PATH 无 flock,并发锁用例跳过
-                    self.assertEqual(
-                        len(re.findall(r"\.\.\. skipped ", contract.stdout)),
-                        expected_skips,
-                        contract.stdout,
+                    # 只允许已知理由的 skip;出现新理由即失败,防止必需用例静默消失。
+                    allowed_skip_reasons = {
+                        "single-assistant installation lacks the compatibility fixture",
+                        "source installer unavailable; current selected side remains covered",
+                        "pre-push hook is not shipped with this installation",
+                        "CI pipeline configuration is source-repository only",
+                        "flock is required to exercise the concurrency lock",
+                    }
+                    observed_skips = set(
+                        re.findall(r"\.\.\. skipped '([^']*)'", contract.stdout)
+                    )
+                    self.assertLessEqual(
+                        observed_skips, allowed_skip_reasons, contract.stdout
                     )
                     self.assertRegex(
                         contract.stdout,

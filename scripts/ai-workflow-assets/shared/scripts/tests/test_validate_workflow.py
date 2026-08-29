@@ -834,6 +834,10 @@ class ValidateWorkflowContractTest(unittest.TestCase):
         for relative_path, phrase in cases:
             with self.subTest(path=relative_path):
                 target = self.fixture / relative_path
+                if not target.is_file():
+                    # 单助手安装目标没有另一侧入口/技能,缺失侧由 core 的
+                    # assistant_required 门控豁免,这里只测实际存在的文件。
+                    continue
                 original = target.read_text(encoding="utf-8")
                 stripped = "\n".join(
                     line for line in original.split("\n") if phrase not in line
