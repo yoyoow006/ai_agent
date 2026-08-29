@@ -16,5 +16,5 @@
 - [x] 3.1 Verify:主会话 freeze manifest;独立上下文 reviewer 全 diff 综合审查(逐字无损、32/24 计数、归属符合 design 规则 2、范围无扩大);finding 闭环。
       验证:manifest 两次 verify VALID;Critical/Important 清零。
 - [x] 4.1 终验:现跑完整门禁 FAIL=0 + `git diff --check`;`状态: 待归档` 并提交。
-- [ ] 5.1 归档:delta 合并入主规格;`状态: 已归档`;目录移入 archive;追加 `openspec/archive/README.md` 索引行;归档后现跑完整门禁;`chore(archive)` 提交。
+- [x] 5.1 归档:delta 合并入主规格;`状态: 已归档`;目录移入 archive;追加 `openspec/archive/README.md` 索引行;归档后现跑完整门禁;`chore(archive)` 提交。
 - [ ] 6.1 整合:本地 `--no-ff` 合回 main,合并结果复跑完整门禁;按确认授权推送 origin/main。

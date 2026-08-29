@@ -16,3 +16,4 @@
 - `install-codex-workflow-yuxiaor` — 安装 Codex 工作流到外部目标项目(严格)
 - `remove-installer-business-knowledge` — 从安装工具仓库移除业务项目知识(严格)
 - `sanitize-git-baseline-secrets` — 清理 Git 基线中的知识库凭据(严格)
+- `split-shared-memory-by-module` — 共享 memory 按模块拆分:安装器域 32 条移入 installer.md(标准)
