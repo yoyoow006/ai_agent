@@ -19,30 +19,74 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 CAPABILITY_MARKER_ENV = "WORKFLOW_VALIDATOR_CONTRACT_MARKER"
 CAPABILITY_TOKEN_ENV = "WORKFLOW_VALIDATOR_CONTRACT_TOKEN"
 LEGACY_INNER_SENTINEL = "WORKFLOW_VALIDATOR_CONTRACT_INNER"
-VALIDATOR_COMMANDS = (
-    "awk",
-    "bash",
-    "cat",
-    "cmp",
-    "cp",
-    "chmod",
-    "dirname",
-    "find",
-    "git",
-    "grep",
-    "head",
-    "mktemp",
-    "rm",
-    "rmdir",
-    "sed",
-    "sort",
-    "stat",
-    "tail",
-    "touch",
-    "tr",
-    "wc",
-)
 WORKFLOW_FIXTURE_DIRECTORIES = (".ai", ".claude", ".codex", "openspec", "scripts")
+
+
+class PrePushHookTest(unittest.TestCase):
+    """pre-push 钩子只随源仓分发;安装目标内没有该文件时明确跳过。"""
+
+    def test_pre_push_hook_propagates_core_result(self) -> None:
+        hook_source = REPOSITORY_ROOT / "scripts" / "hooks" / "pre-push"
+        is_source_repository = (
+            REPOSITORY_ROOT / "scripts" / "lib" / "install_ai_workflow.py"
+        ).is_file()
+        if not hook_source.is_file():
+            if not is_source_repository:
+                self.skipTest("pre-push hook is not shipped with this installation")
+            self.fail("source repository is missing scripts/hooks/pre-push")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "scripts" / "hooks").mkdir(parents=True)
+            (root / "scripts" / "lib").mkdir(parents=True)
+            shutil.copy(hook_source, root / "scripts" / "hooks" / "pre-push")
+            for stub, expected in (("exit 0", 0), ("exit 1", 1)):
+                with self.subTest(stub=stub):
+                    (root / "scripts" / "lib" / "validate-workflow-core.sh").write_text(
+                        f"#!/usr/bin/env bash\n{stub}\n", encoding="utf-8"
+                    )
+                    result = subprocess.run(
+                        ["/usr/bin/bash", str(root / "scripts" / "hooks" / "pre-push")],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        check=False,
+                        timeout=30,
+                    )
+                    self.assertEqual(expected, result.returncode, msg=result.stdout)
+
+
+class CIPipelineTest(unittest.TestCase):
+    """CI 配置仅存在于源仓库;安装目标内没有 .github 时明确跳过。"""
+
+    def test_ci_runs_installer_suite_as_required_step(self) -> None:
+        workflow = REPOSITORY_ROOT / ".github" / "workflows" / "validate.yml"
+        is_source_repository = (
+            REPOSITORY_ROOT / "scripts" / "lib" / "install_ai_workflow.py"
+        ).is_file()
+        if not workflow.is_file():
+            if not is_source_repository:
+                self.skipTest("CI pipeline configuration is source-repository only")
+            self.fail("source repository is missing .github/workflows/validate.yml")
+        content = workflow.read_text(encoding="utf-8")
+        self.assertIn("bash scripts/validate-workflow.sh --require-openspec", content)
+        self.assertIn(
+            "python3 -B -m unittest -v scripts.tests.test_install_ai_workflow", content
+        )
+
+
+def _core_external_commands(core_path: Path) -> tuple[str, ...]:
+    """唯一权威命令清单:从指定 core 副本解析,不维护第二份白名单。"""
+    result = subprocess.run(
+        ["/usr/bin/bash", str(core_path), "--print-external-commands"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=True,
+        timeout=30,
+    )
+    commands = tuple(line for line in result.stdout.splitlines() if line)
+    assert commands, "core published an empty external command list"
+    return commands
 WORKFLOW_FIXTURE_FILES = (".gitignore", "AGENTS.md", "CLAUDE.md")
 WORKFLOW_FIXTURE_ERROR = "unsafe workflow fixture source"
 
@@ -231,7 +275,9 @@ class ValidateWorkflowContractTest(unittest.TestCase):
         )
         self.stub_bin = temporary_root / "bin"
         self.stub_bin.mkdir()
-        for command in VALIDATOR_COMMANDS:
+        for command in _core_external_commands(
+            self.fixture / "scripts" / "lib" / "validate-workflow-core.sh"
+        ):
             executable = shutil.which(command)
             self.assertIsNotNone(executable, msg=f"missing test prerequisite: {command}")
             (self.stub_bin / command).symlink_to(executable)
@@ -455,6 +501,20 @@ class ValidateWorkflowContractTest(unittest.TestCase):
         self.assertIn("[FAIL]", result.stdout)
         self.assertIn("--unknown", result.stdout)
 
+    def test_print_external_commands_publishes_unique_sorted_list(self) -> None:
+        result = self._run_validator("--print-external-commands")
+
+        self.assertEqual(result.returncode, 0, msg=result.stdout)
+        lines = result.stdout.splitlines()
+        self.assertTrue(lines, msg="empty external command list")
+        self.assertEqual(lines, sorted(lines), msg="external commands must be sorted")
+        self.assertEqual(len(lines), len(set(lines)), msg="external commands must be unique")
+        for line in lines:
+            self.assertRegex(line, r"\A[a-z0-9_.-]+\Z", msg=f"unexpected entry: {line!r}")
+        joined = "\n".join(lines)
+        for expected in ("awk", "bash", "cat", "git", "grep", "sed", "sort", "tr", "wc"):
+            self.assertIn(expected, joined, msg=f"missing required command: {expected}")
+
     def test_internal_core_runs_tools_without_contract_suite(self) -> None:
         marker = self.stub_bin.parent / "python-called"
         self._write_executable("python3", self._recording_python_script(marker))
@@ -583,6 +643,65 @@ class ValidateWorkflowContractTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, msg=result.stdout)
         self.assertIn("[FAIL] 工作流顶层契约测试", result.stdout)
 
+    def test_fast_mode_skips_contract_suite_and_keeps_summary(self) -> None:
+        environment = os.environ.copy()
+        environment["PYTHONDONTWRITEBYTECODE"] = "1"
+        environment.pop(LEGACY_INNER_SENTINEL, None)
+        environment.pop(CAPABILITY_MARKER_ENV, None)
+        environment.pop(CAPABILITY_TOKEN_ENV, None)
+
+        result = subprocess.run(
+            ["/usr/bin/bash", "scripts/validate-workflow.sh", "--fast"],
+            cwd=self.fixture,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stdout)
+        self.assertNotIn("工作流顶层契约测试", result.stdout)
+        self.assertRegex(result.stdout, r"PASS=\d+ FAIL=0 SKIP=\d+\s*\Z")
+
+    def test_second_validator_instance_exits_while_locked(self) -> None:
+        lock_path = self.fixture / ".ai-local" / ".validate.lock"
+        lock_path.parent.mkdir(parents=True, exist_ok=True)
+        holder = subprocess.Popen(
+            [
+                sys.executable,
+                "-c",
+                "import fcntl, sys, time\n"
+                "handle = open(sys.argv[1], 'a+')\n"
+                "fcntl.flock(handle, fcntl.LOCK_EX)\n"
+                "print('locked', flush=True)\n"
+                "time.sleep(60)\n",
+                str(lock_path),
+            ],
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        try:
+            self.assertEqual("locked", holder.stdout.readline().strip())
+            environment = os.environ.copy()
+            environment["PYTHONDONTWRITEBYTECODE"] = "1"
+            result = subprocess.run(
+                ["/usr/bin/bash", "scripts/validate-workflow.sh"],
+                cwd=self.fixture,
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+            self.assertEqual(2, result.returncode, msg=result.stdout)
+            self.assertIn("另一校验实例运行中", result.stdout)
+        finally:
+            holder.kill()
+            holder.wait()
+
     def test_rejects_deleted_or_broken_role_adapters(self) -> None:
         adapters = {
             ".codex/agents/explorer.toml": ".ai/prompts/agents/explorer.md",
@@ -679,6 +798,31 @@ class ValidateWorkflowContractTest(unittest.TestCase):
                         self._assert_mutation_rejected(target)
                     finally:
                         (self.fixture / target).unlink(missing_ok=True)
+
+    def test_rejects_removal_of_gate_tier_and_arbitration_rules(self) -> None:
+        cases = (
+            ("CLAUDE.md", "以仓库技能为准"),
+            ("AGENTS.md", "以仓库技能为准"),
+            (".claude/skills/verify/SKILL.md", "validate-workflow.sh --fast"),
+            (".codex/skills/verify/SKILL.md", "validate-workflow.sh --fast"),
+            (".claude/skills/archive/SKILL.md", "openspec/archive/README.md"),
+            (".codex/skills/archive/SKILL.md", "openspec/archive/README.md"),
+        )
+        for relative_path, phrase in cases:
+            with self.subTest(path=relative_path):
+                target = self.fixture / relative_path
+                original = target.read_text(encoding="utf-8")
+                stripped = "\n".join(
+                    line for line in original.split("\n") if phrase not in line
+                )
+                self.assertNotEqual(stripped, original, msg=f"phrase absent: {phrase}")
+                target.write_text(stripped, encoding="utf-8")
+                try:
+                    result = self._run_validator()
+                    self.assertNotEqual(result.returncode, 0, msg=result.stdout)
+                    self.assertIn("[FAIL]", result.stdout)
+                finally:
+                    target.write_text(original, encoding="utf-8")
 
     def test_rejects_manifest_requirement_for_quick_mode(self) -> None:
         self._assert_mutation_rejected(

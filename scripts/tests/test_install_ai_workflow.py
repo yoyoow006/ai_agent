@@ -22,6 +22,9 @@ INSTALLER = REPOSITORY_ROOT / "scripts" / "install-ai-workflow.sh"
 INSTALLER_MODULE = REPOSITORY_ROOT / "scripts" / "lib" / "install_ai_workflow.py"
 ASSET_ROOT = REPOSITORY_ROOT / "scripts" / "ai-workflow-assets"
 
+# 命令白名单唯一来源是 core 的 --print-external-commands;解析 helper 复用契约套件定义。
+from scripts.tests.test_validate_workflow import _core_external_commands  # noqa: E402
+
 SKILL_NAMES = (
     "archive", "build", "code-review", "design", "git-worktrees", "open",
     "parallel-agents", "subagent-driven", "systematic-debugging", "tdd",
@@ -60,13 +63,6 @@ EXPECTED_ASSET_PATHS = {
         *(f".claude/skills/{name}/SKILL.md" for name in SKILL_NAMES),
     ),
 }
-
-
-PORTABLE_VALIDATOR_COMMANDS = (
-    "awk", "bash", "cat", "cmp", "cp", "chmod", "dirname", "find", "git", "grep",
-    "head", "mktemp", "rm", "rmdir", "sed", "sort", "stat", "tail", "touch",
-    "tr", "wc",
-)
 
 
 def load_installer_module():
@@ -328,7 +324,12 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
     def _restricted_environment(self, root: Path) -> dict[str, str]:
         binary_directory = root / "bin"
         binary_directory.mkdir()
-        for command in (*PORTABLE_VALIDATOR_COMMANDS, "python3"):
+        target_core = next(
+            path
+            for path in (root / "target", root)
+            if (path / "scripts" / "lib" / "validate-workflow-core.sh").is_file()
+        ) / "scripts" / "lib" / "validate-workflow-core.sh"
+        for command in (*_core_external_commands(target_core), "python3"):
             executable = sys.executable if command == "python3" else shutil.which(command)
             self.assertIsNotNone(executable, msg=f"missing test prerequisite: {command}")
             (binary_directory / command).symlink_to(executable)
