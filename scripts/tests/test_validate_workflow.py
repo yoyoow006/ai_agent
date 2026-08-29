@@ -103,11 +103,19 @@ def _core_external_commands(core_path: Path) -> tuple[str, ...]:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
-        check=True,
+        check=False,
         timeout=30,
     )
+    if result.returncode != 0:
+        raise AssertionError(
+            f"core failed to publish external commands (exit {result.returncode}):"
+            f"\n{result.stderr}"
+        )
     commands = tuple(line for line in result.stdout.splitlines() if line)
-    assert commands, "core published an empty external command list"
+    if not commands:
+        raise AssertionError(
+            f"core published an empty external command list:\n{result.stderr}"
+        )
     return commands
 WORKFLOW_FIXTURE_FILES = (".gitignore", "AGENTS.md", "CLAUDE.md")
 WORKFLOW_FIXTURE_ERROR = "unsafe workflow fixture source"
@@ -763,6 +771,72 @@ class ValidateWorkflowContractTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, msg=result.stdout)
         self.assertIn("flock 不可用，降级为无锁并发保护", result.stdout)
         self.assertIn("[PASS] 工作流顶层契约测试", result.stdout)
+
+    def test_wrapper_print_external_commands_passthrough(self) -> None:
+        environment = {
+            "LC_ALL": "C.UTF-8",
+            "PATH": str(self.stub_bin),
+        }
+        result = subprocess.run(
+            ["/usr/bin/bash", "scripts/validate-workflow.sh", "--print-external-commands"],
+            cwd=self.fixture,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stdout)
+        lines = result.stdout.splitlines()
+        self.assertTrue(lines, msg="empty external command list via wrapper")
+        self.assertIn("cat", lines)
+
+    def test_unusable_lock_infrastructure_degrades_with_notice(self) -> None:
+        # 前提:flock 存在(本机/CI),但 .ai-local 是普通文件 → mkdir -p 失败:
+        # 应降级为无锁并正常完成,而不是误诊为"另一校验实例运行中"。
+        if shutil.which("flock") is None:
+            self.skipTest("flock is required to exercise the lock infrastructure path")
+        locked_bin = self.stub_bin.parent / "bin-with-flock"
+        locked_bin.mkdir()
+        for command in _core_external_commands(
+            self.fixture / "scripts" / "lib" / "validate-workflow-core.sh"
+        ):
+            executable = shutil.which(command)
+            self.assertIsNotNone(executable, msg=f"missing test prerequisite: {command}")
+            (locked_bin / command).symlink_to(executable)
+        (locked_bin / "flock").symlink_to(shutil.which("flock"))
+        self._enable_profile_parser()
+        python_stub = locked_bin / "python3"
+        python_stub.write_text(
+            self._recording_python_script(locked_bin.parent / "locked-calls"),
+            encoding="utf-8",
+        )
+        python_stub.chmod(python_stub.stat().st_mode | stat.S_IXUSR)
+
+        lock_dir = self.fixture / ".ai-local"
+        lock_dir.write_text("not a directory\n", encoding="utf-8")
+
+        environment = {
+            "LC_ALL": "C.UTF-8",
+            "PATH": str(locked_bin),
+        }
+        result = subprocess.run(
+            ["/usr/bin/bash", "scripts/validate-workflow.sh"],
+            cwd=self.fixture,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stdout)
+        self.assertIn("锁文件不可用，降级为无锁并发保护", result.stdout)
+        self.assertIn("[PASS] 工作流顶层契约测试", result.stdout)
+        lock_dir.unlink()
 
     def test_rejects_deleted_or_broken_role_adapters(self) -> None:
         adapters = {

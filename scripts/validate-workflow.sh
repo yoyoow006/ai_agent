@@ -12,6 +12,10 @@ for argument in "$@"; do
     --fast)
       fast_mode=1
       ;;
+    --print-external-commands)
+      # 诊断模式直接透传 core(只读、无汇总语义),不进入门禁流程。
+      exec bash "$(dirname "$0")/lib/validate-workflow-core.sh" --print-external-commands
+      ;;
     *)
       forwarded_arguments+=("$argument")
       ;;
@@ -20,11 +24,15 @@ done
 
 # 串行化同一工作树的并发校验：契约套件含 mutation,并发实例会互踩产生假失败。
 if command -v flock >/dev/null 2>&1; then
-  mkdir -p .ai-local
-  exec 9>>.ai-local/.validate.lock
-  if ! flock -n 9; then
-    printf '[FAIL] 另一校验实例运行中，本实例退出（并发校验会互踩）\n' >&2
-    exit 2
+  # 注意:exec 无命令时其重定向会持久作用到当前 shell,故 2>/dev/null 必须
+  # 用编组限定作用域,否则锁冲突消息会被整体吞掉。
+  if mkdir -p .ai-local 2>/dev/null && { exec 9>>.ai-local/.validate.lock; } 2>/dev/null; then
+    if ! flock -n 9; then
+      printf '[FAIL] 另一校验实例运行中，本实例退出（并发校验会互踩）\n' >&2
+      exit 2
+    fi
+  else
+    printf '锁文件不可用，降级为无锁并发保护\n' >&2
   fi
 else
   printf 'flock 不可用，降级为无锁并发保护\n' >&2
