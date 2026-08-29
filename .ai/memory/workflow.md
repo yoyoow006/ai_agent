@@ -180,3 +180,7 @@
 ## 2026-08-28 · 来源变更 add-installer-upgrade-path（InputError 重新打包陷阱）
 **坑**：`InputError` 继承自 `ValueError`，`except (UnicodeDecodeError, ValueError)` 会把 parser 内部抛的 `InputError`（如 `_unique_json_object` 的 duplicate-key 诊断）一并吞掉，重新打包成泛化的"is not valid JSON"，退出码不变但运维诊断全丢；`load_manifest` 用 `except InputError: raise` 显式穿透是正确的范式。
 **解**：项目内自定义异常类必须**先**于其继承的内建异常被 `except` 透传：`except InputError: raise` 放在 `except (UnicodeDecodeError, ValueError)` 之前；review 时重点扫描 parser/validator 的 except 链是否吞掉自定义诊断。fail-closed 存在性检查用 `os.lstat` 不用 `os.path.exists`（后者跟符号链接，dangle 也返回 False）。JSON 严格解析用 `object_pairs_hook=_unique_json_object` 检重键 + 白名单 key-set + `type(x) is int` 拒绝 `True == 1` 假版本号。
+
+## 2026-08-29 · 来源变更 fix-merged-legacy-ai-kb-regression（审计发现）
+**坑**：手工合并 `Merge remote-tracking branch 'origin/main'`（45e8ed1）把本地线迁移前的 `.claude|codex/ai-kb/{kb,rules,memory}` 平行正文带回 main 并推送；core `旧 ai-kb 不含平行正文` FAIL，契约套件因 fixture 忠实复制现行文件而级联 40/82 假设绿基线的失败。另：两个 validate-workflow 实例并发时 mutation 测试互踩，会产生大额度假失败；契约套件单跑约 5 分钟，120 秒 timeout 不足以作终验证据。
+**解**：合并到 main 属于治理边界，必须走 Archive 确认的整合策略并在推送前本地现跑完整门禁（--no-ff 合并后同样）。诊断契约套件失败先看是否单一根因级联（一个 core FAIL 可放大为几十个 contract 失败）；校验器只能串行单实例运行，长跑用后台任务而非加 timeout。删除复活旧正文前先核对其中 memory 条目是否已迁移（本次 7 条 2026-08-16 条目未迁移，直接删会丢知识）。
