@@ -51,7 +51,7 @@ Critical/Important 必须按共享台账处置。修复运行时行为继续用 
 审查通过后，主会话亲自现跑：
 
 - 变更相关测试与必要回归套件；
-- 标准模式运行 `bash scripts/validate-workflow.sh`，逐项核对 `[PASS]`、`[FAIL]`、`[SKIP]` 和末尾汇总；
+- 标准模式运行 `bash scripts/validate-workflow.sh --fast` 与变更相关目标/回归测试，逐项核对 `[PASS]`、`[FAIL]`、`[SKIP]` 和末尾汇总；变更触及工作流入口、技能、校验器或安装资产时改跑全量默认门禁，逐项核对同项汇总；
 - 严格模式必须运行 `bash scripts/validate-workflow.sh --require-openspec`；OpenSpec 和仓库自带必需测试不得 SKIP，任一 FAIL 都阻断；
 - `git diff --check`、目标 diff 和状态清单。
 

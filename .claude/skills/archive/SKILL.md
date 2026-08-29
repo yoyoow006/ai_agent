@@ -42,7 +42,8 @@ Claude 与 Codex 共享 `.ai/`。知识沉淀写可复用事实，不复制变�
 1. 状态置为`已归档`。
 2. 把 `openspec/changes/<变更名>/` 移到 `openspec/archive/<变更名>/`。
 3. 严格模式把 `openspec/plan/<变更名>.md` 移为归档目录的 `plan.md`；标准模式没有独立 plan，不制造空文件。
-4. 检查主规格、归档目录、共享 `.ai`、finding 的未验证范围/残余风险和 Git 状态；`accepted-risk` 必须引用用户明确决定。
+4. 追加 `openspec/archive/README.md` 索引行（变更名—主旨—模式）。
+5. 检查主规格、归档目录、共享 `.ai`、finding 的未验证范围/残余风险和 Git 状态；`accepted-risk` 必须引用用户明确决定。
 
 ## 4. 归档后强制验证
 
