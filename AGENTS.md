@@ -1,55 +1,80 @@
 # AI 编程助手 · Codex 工作流总纲
 
-本仓库自带零第三方插件依赖的五阶段编程工作流（openspec 与 superpowers 的方法论已全部内联为本地技能）。在 Codex 中一切代码变更必须走：**Open → Design → Build → Verify → Archive**。
+本仓库按风险选择流程，先分类再行动。验证证据始终保留，流程产物与审查层数随风险调整。
 
-## 状态真源（新会话必读）
+## 风险路由
 
-- 变更状态：`openspec/changes/<变更名>/proposal.md` 头部 `状态:` 字段
-  取值：`草稿 → 待确认规范 → 设计中 → 待确认计划 → 构建中 → 待验证 → 待归档 → 已归档`
-  活跃变更 = `openspec/changes/` 下各目录
-- 进度：`openspec/changes/<变更名>/tasks.md` 勾选率
-- 开始任何工作前：读上述两文件 + `.codex/ai-kb/rules/index.md`，从断点阶段继续，不重做已完成阶段
-- openspec 数据层（changes/plan/specs/archive）为 `.claude` 与 `.codex` 两套工作流共享的唯一事实源，不复制、不分叉
+开始修改前，用一句话向用户说明模式与理由。未知或边界不清时至少升级到标准；用户可要求更严格，不得把严格任务降级。
 
-## 技能加载规则
+| 模式 | 可观察条件 | 路径 |
+|---|---|---|
+| 快速 | 仅维护已有事实的 Markdown、纯文本、注释或机械格式；不改变运行时、API/Schema、配置语义、安全合规、工作流治理或发布行为 | 探索事实 → 直接修改 → 针对性验证 → 汇报 |
+| 标准 | 低到中风险运行时代码变更，且不命中严格条件 | Open 一次产出可执行四件套 → 一次确认 → Build → 综合 Verify → Archive |
+| 严格 | 权限认证、资金账务、删除/迁移、数据库 Schema、并发一致性、跨服务或公开运行时契约、工作流治理、破坏性操作、大范围重构 | Open → Design → Build → Verify → Archive 完整门禁 |
 
-进入任一阶段前，先完整读取对应技能文档并严格遵循：
+### 快速模式
 
-| 用户意图 | 技能文档 | 关键产出 | 完成标志 |
-|---|---|---|---|
-| 提出新需求 / "开始做 X" | `.codex/skills/open/SKILL.md` | changes/<名>/ 四件套 | 状态→待确认规范 |
-| "确认规范，出计划" | `.codex/skills/design/SKILL.md` | plan/<名>.md + feature 分支 | 状态→构建中 |
-| "确认计划，开工" | `.codex/skills/build/SKILL.md` | 逐任务代码+测试，tasks 勾选 | 状态→待验证 |
-| "构建完成，审查" | `.codex/skills/verify/SKILL.md` | 两阶段审查报告+修复 | 状态→待归档 |
-| "审查通过，归档" | `.codex/skills/archive/SKILL.md` | 主 specs 合并、archive/、合并分支 | 状态→已归档 |
+- 用户清晰的修改请求即实施授权；不创建 OpenSpec、计划、feature/worktree，不用 TDD 或子代理，不归档。
+- 先从代码或其他权威来源核对事实，再修改并现跑格式、链接、示例、结构或事实来源校验，最后检查 diff。
+- 默认不提交或合并 Git。执行中发现必须改变行为或契约，立即停止并升级。
 
-支撑技能按需加载：tdd、subagent-driven、code-review、systematic-debugging、verification、git-worktrees、parallel-agents、writing-skills（均在 `.codex/skills/` 下）。
+### 标准模式
 
-## Codex 原生工具映射
+- Open 一次创建 `proposal.md`、delta `spec.md`、`design.md`、含精确步骤和命令的 `tasks.md`，proposal 记录`模式: 标准`并直接置为`待确认计划`。
+- 唯一一次实施前确认同时覆盖范围、设计、任务与明示的本地整合策略；确认后连续推进，除非范围变化、验证失败、出现争议或需要外部副作用授权。
+- 状态：`待确认计划 → 构建中 → 待验证 → 待归档 → 已归档`。不创建 `openspec/plan`。
+- 默认 feature 分支；仅脏工作区、并行实现、高冲突或用户要求时用 worktree。小任务主会话直执，完成后至多一次全 diff 综合审查。
 
-技能文档中的 Claude 概念在 Codex 中按 `.codex/README.md` 的映射表执行，核心三条：
+### 严格模式
 
-- **子代理派发**：`multi_agent_v1__spawn_agent`（`fork_context: false` = 全新上下文）；续发追问用 `send_input`，收结果用 `wait_agent`，用完 `close_agent`
-- **待办追踪**：`update_plan`（每任务一条，勾选即进度）
-- **文件编辑 / 命令执行**：`apply_patch` / `exec_command`
+- 保留两次实施前确认：四件套确认后才写独立计划，计划确认后才实现。
+- 状态：`草稿 → 待确认规范 → 设计中 → 待确认计划 → 构建中 → 待验证 → 待归档 → 已归档`。
+- 默认隔离 worktree、运行时 TDD、任务级审查及 Verify 双阶段独立审查。
 
-## 硬门禁（绝对纪律，违反即返工）
+## 状态真源
 
-- **G1** 四件套未经用户明确确认，不得写计划
-- **G2** 计划书未经用户明确确认，不得写实现代码
-- **G3** tasks 未全勾/测试未全绿/无命令输出证据，不得声称构建完成
-- **G4** 两阶段审查未通过，不得归档
+- 活跃变更：`openspec/changes/<变更名>/`；状态看 `proposal.md`，进度看 `tasks.md`。
+- 任一未归档状态可经用户明确决定转`已取消`终态：proposal 记`取消原因:`并移入 `openspec/archive/`，不合并 delta、不恢复；助手可建议、不得自行取消。
+- 标准/严格模式开始工作前读取上述文件与 `.ai/rules/index.md`，从断点继续，不重做完成项。
+- `openspec/` 是 `.claude` 与 `.codex` 共享的唯一数据层；两套工作流不得同时推进同一变更。快速模式没有 OpenSpec 状态。
 
-## ai-kb 知识库规则
+## 技能路由
 
-- Open：先读 `.codex/ai-kb/rules/index.md` 路由到模块，再读相关 kb/ 与 memory/
-- Build：派发子代理时附受影响模块的 memory 摘要
-- 任何坑解决后：立即追加 `.codex/ai-kb/memory/<模块>.md`（格式见 `.codex/ai-kb/README.md`）
-- Archive：知识沉淀为归档六步之一（memory/kb/rules 三写），把本次变更遇到的坑与注意事项沉入 memory
+进入阶段前完整读取对应技能：
 
-## 通用纪律
+| 任务 | 技能 |
+|---|---|
+| 新需求与风险分类 | `open` |
+| 严格模式独立计划 | `design` |
+| 已确认方案的实现 | `build` |
+| 构建后审查与终验 | `verify` |
+| 规格、知识和分支收尾 | `archive` |
 
-- 任何不确定：停下问用户，不猜
-- 声称完成前：运行验证命令并展示输出（无证据不声称完成）
-- 审查意见：先验证正确性再实施；有理的改，无理的据实说明
-- 提交粒度：每任务至少一次 git commit
+按触发条件加载 tdd、systematic-debugging、verification、git-worktrees、code-review、subagent-driven、parallel-agents、writing-skills；未命中条件不加载。
+
+## 模式门禁
+
+- **Q1 快速**：没有权威事实核对、针对性验证和 diff 检查，不得声称完成。
+- **S1 标准**：四件套未获一次明确确认，不得实现；tasks/测试未全绿或综合审查仍有 Critical/Important，不得归档。
+- **G1–G4 严格**：四件套未确认不写计划；计划未确认不实现；tasks/测试/证据不全不交 Verify；任务级和双阶段审查未通过不归档。
+
+## 共享审查与有限角色
+
+- 标准/严格完整审查执行 `.ai/rules/review.md`：主会话 freeze，reviewer 读取前和结论前各运行 `review_manifest.py verify`；任一 `STALE` 立即停止。快速模式不创建 manifest、不派角色代理。
+- 标准仍至多一次综合审查；严格仍为任务级审查加 Verify 两个独立关注面，不因 manifest 增加完整审查层数。
+- finding 记录证据、影响、处置、未验证范围和残余风险；已确认范围内最小修复沿用授权，扩大行为、依赖、迁移或外部副作用才重新确认。
+- explorer、reviewer、test worker 仅在既有独立边界命中时使用共享 `.ai/prompts/agents/`；标准小任务继续主会话直执。
+
+## 共享底线
+
+- 保护用户数据与未提交修改；目标重叠时先隔离、绕开或请求决定。
+- 外部或破坏性动作（推送、PR、强推、删除未合并工作等）必须有明确授权。
+- 范围扩大或风险升级时暂停，更新事实源并重新确认；不确定时不猜。
+- 审查意见先验证正确性再处理；完成声明前必须现跑与风险相称的验证并读取退出结果。
+- TDD 用于运行时行为变更和缺陷修复；纯文档、注释、知识库和流程文本使用内容契约、解析、格式和 diff 校验。
+- 提交按可独立回滚的职责单元组织，不按 checklist 机械拆分。
+
+## Codex 适配与知识库
+
+- 工具映射见 `.codex/README.md`；待办用 `update_plan`，文件修改用 `apply_patch`，命令执行用 `exec_command`。
+- Open 按 `.ai/rules/index.md` 路由；解决新坑立即写 `.ai/memory/<模块>.md`；Archive 合并主规格并完成 memory/kb/rules 沉淀。

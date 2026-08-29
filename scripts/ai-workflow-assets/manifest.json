@@ -1,0 +1,289 @@
+{
+   "claude" : [
+      {
+         "mode" : "0644",
+         "path" : ".claude/agents/explorer.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".claude/agents/reviewer.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".claude/agents/test-worker.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".claude/ai-kb/README.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".claude/sdd/.gitkeep"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".claude/skills/archive/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".claude/skills/build/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".claude/skills/code-review/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".claude/skills/design/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".claude/skills/git-worktrees/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".claude/skills/open/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".claude/skills/parallel-agents/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".claude/skills/subagent-driven/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".claude/skills/systematic-debugging/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".claude/skills/tdd/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".claude/skills/verification/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".claude/skills/verify/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".claude/skills/writing-skills/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : "CLAUDE.md"
+      }
+   ],
+   "codex" : [
+      {
+         "mode" : "0644",
+         "path" : ".codex/README.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".codex/agents/explorer.toml"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".codex/agents/reviewer.toml"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".codex/agents/test_worker.toml"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".codex/ai-kb/README.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".codex/sdd/.gitkeep"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".codex/skills/archive/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".codex/skills/build/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".codex/skills/code-review/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".codex/skills/design/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".codex/skills/git-worktrees/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".codex/skills/open/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".codex/skills/parallel-agents/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".codex/skills/subagent-driven/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".codex/skills/systematic-debugging/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".codex/skills/tdd/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".codex/skills/verification/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".codex/skills/verify/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".codex/skills/writing-skills/SKILL.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : "AGENTS.md"
+      }
+   ],
+   "schema_version" : 1,
+   "shared" : [
+      {
+         "mode" : "0644",
+         "path" : ".ai/README.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/kb/README.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/kb/overview.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/kb/projects/README.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/kb/projects/registry.json"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/kb/repository-ignore-rules.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/memory/README.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/prompts/agents/explorer.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/prompts/agents/reviewer.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/prompts/agents/test-worker.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/rules/index.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/rules/review.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/tools/README.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/tools/project_facts.py"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/tools/review_manifest.py"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/tools/tests/__init__.py"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/tools/tests/test_project_facts.py"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/tools/tests/test_review_manifest.py"
+      },
+      {
+         "mode" : "0644",
+         "path" : "openspec/AGENTS.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : "openspec/archive/.gitkeep"
+      },
+      {
+         "mode" : "0644",
+         "path" : "openspec/changes/.gitkeep"
+      },
+      {
+         "mode" : "0644",
+         "path" : "openspec/plan/.gitkeep"
+      },
+      {
+         "mode" : "0644",
+         "path" : "openspec/project.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : "openspec/specs/.gitkeep"
+      },
+      {
+         "mode" : "0644",
+         "path" : "openspec/specs/risk-tiered-ai-workflow/spec.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : "openspec/specs/shared-ai-workflow-infrastructure/spec.md"
+      },
+      {
+         "mode" : "0755",
+         "path" : "scripts/lib/validate-workflow-core.sh"
+      },
+      {
+         "mode" : "0644",
+         "path" : "scripts/tests/__init__.py"
+      },
+      {
+         "mode" : "0644",
+         "path" : "scripts/tests/test_validate_workflow.py"
+      },
+      {
+         "mode" : "0755",
+         "path" : "scripts/validate-workflow.sh"
+      },
+      {
+         "mode" : "0644",
+         "path" : "scripts/workflow-pressure-scenarios.md"
+      }
+   ]
+}

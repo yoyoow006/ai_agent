@@ -1,0 +1,215 @@
+[PASS] 助手 profile 合法: codex
+[PASS] 目录存在: openspec/changes
+[PASS] 目录存在: openspec/plan
+[PASS] 目录存在: openspec/specs
+[PASS] 目录存在: openspec/archive
+[PASS] 目录存在: .ai/kb
+[PASS] 目录存在: .ai/kb/projects
+[PASS] 目录存在: .ai/rules
+[PASS] 目录存在: .ai/memory
+[PASS] 目录存在: .ai/prompts/agents
+[PASS] 目录存在: .ai/tools
+[PASS] 目录存在: .ai/tools/tests
+[PASS] 目录存在: .codex/skills
+[PASS] 目录存在: .codex/sdd
+[PASS] 文件存在: openspec/AGENTS.md
+[PASS] 文件存在: openspec/project.md
+[PASS] 文件存在: .ai/README.md
+[PASS] 文件存在: .ai/rules/index.md
+[PASS] 文件存在: .ai/rules/review.md
+[PASS] 文件存在: .ai/kb/projects/registry.json
+[PASS] 文件存在: .ai/tools/project_facts.py
+[PASS] 文件存在: .ai/tools/review_manifest.py
+[PASS] 文件存在: .ai/tools/README.md
+[PASS] 文件存在: scripts/workflow-pressure-scenarios.md
+[PASS] 文件存在: .codex/ai-kb/README.md
+[PASS] 文件存在: .codex/README.md
+[PASS] 旧 ai-kb 不含平行正文
+[PASS] 活跃入口不引用旧 ai-kb 正文
+[PASS] Codex 旧知识入口只指向共享 .ai
+[PASS] 项目 registry JSON 可解析
+[PASS] Python 缓存路径已忽略
+[PASS] 技能存在: .codex/open
+[PASS] frontmatter: .codex/open
+[PASS] 技能存在: .codex/design
+[PASS] frontmatter: .codex/design
+[PASS] 技能存在: .codex/build
+[PASS] frontmatter: .codex/build
+[PASS] 技能存在: .codex/verify
+[PASS] frontmatter: .codex/verify
+[PASS] 技能存在: .codex/archive
+[PASS] frontmatter: .codex/archive
+[PASS] 技能存在: .codex/tdd
+[PASS] frontmatter: .codex/tdd
+[PASS] 技能存在: .codex/subagent-driven
+[PASS] frontmatter: .codex/subagent-driven
+[PASS] 技能存在: .codex/code-review
+[PASS] frontmatter: .codex/code-review
+[PASS] 技能存在: .codex/systematic-debugging
+[PASS] frontmatter: .codex/systematic-debugging
+[PASS] 技能存在: .codex/verification
+[PASS] frontmatter: .codex/verification
+[PASS] 技能存在: .codex/git-worktrees
+[PASS] frontmatter: .codex/git-worktrees
+[PASS] 技能存在: .codex/parallel-agents
+[PASS] frontmatter: .codex/parallel-agents
+[PASS] 技能存在: .codex/writing-skills
+[PASS] frontmatter: .codex/writing-skills
+[PASS] mutation: 拒绝非法状态
+[PASS] mutation: 标准拒绝严格专用草稿态
+[PASS] AGENTS.md 三级模式定义
+[PASS] AGENTS.md 标准单确认
+[PASS] AGENTS.md 严格 8 态
+[PASS] AGENTS.md 共享底线
+[PASS] 核心规则无统一重流程回归
+[PASS] .codex Open 快速豁免
+[PASS] .codex Open 标准直接待确认
+[PASS] .codex Open 需求理解
+[PASS] .codex Design 仅严格
+[PASS] .codex Design worktree 顺序
+[PASS] .codex Build 标准 feature 落点
+[PASS] .codex Build 风险分支
+[PASS] .codex Verify 标准单审严格双审
+[PASS] .codex Verify 严格 required 门禁
+[PASS] .codex Archive 模式分支
+[PASS] .codex Archive required 门禁
+[PASS] .codex TDD 非运行时边界
+[PASS] .codex review 条件触发
+[PASS] .codex review 输出契约
+[PASS] .codex subagent 条件触发
+[PASS] .codex worktree 风险触发
+[PASS] 共享 Review 规则
+[PASS] 共享角色契约: explorer
+[PASS] 共享角色契约: reviewer
+[PASS] 共享角色契约: test-worker
+[PASS] 角色适配: .codex/agents/explorer.toml
+[PASS] 角色适配: .codex/agents/reviewer.toml
+[PASS] 角色适配: .codex/agents/test_worker.toml
+[PASS] mutation: 入口拒绝文档统一四件套
+[PASS] mutation Q: 快速拒绝强制 manifest
+[PASS] mutation S: 标准拒绝第二次完整审查
+[PASS] mutation X: 拒绝所有任务机械调用角色
+[PASS] mutation: .codex Open 拒绝文档统一四件套
+[PASS] mutation: .codex Design 拒绝标准独立计划
+[PASS] mutation: .codex Build 拒绝标准双阶段审查
+[PASS] mutation: .codex Verify 拒绝标准双阶段审查
+[PASS] Q/R/S/X 压力契约
+[PASS] SDD 草稿区已忽略
+[PASS] 无每任务机械提交规则
+[PASS] Codex 工具映射
+[PASS] 事实工具必需测试（registry/边界/分页/ignore）
+[PASS] Review manifest 必需测试（freeze/STALE/delta）
+[PASS] OpenSpec validate --all --no-interactive
+[FAIL] 工作流顶层契约测试
+  test_arbitrary_capability_environment_cannot_skip_contract_suite (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest) ... ok
+  test_base_fixture_accepts_a_valid_profile (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest) ... ok
+  test_default_reports_skip_when_openspec_is_missing (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest) ... ok
+  test_forged_same_uid_capability_cannot_skip_contract_suite (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest) ... ok
+  test_internal_core_runs_tools_without_contract_suite (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest) ... ok
+  test_outer_validator_fails_when_contract_suite_fails (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest) ... ok
+  test_public_entry_statically_requires_core_and_contract_suite (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest) ... ok
+  test_python_cache_paths_are_ignored_and_checked (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest) ... ok
+  test_rejects_deleted_or_broken_role_adapters (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest) ... ok
+  test_rejects_mandatory_agent_for_every_task (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest) ... ok
+  test_rejects_manifest_requirement_for_quick_mode (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest) ... ok
+  test_rejects_reintroduced_parallel_ai_kb_body (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest) ... ok
+  test_rejects_second_full_review_for_standard_mode (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest) ... ok
+  test_required_mode_fails_when_openspec_is_missing (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest) ... ok
+  test_required_mode_passes_with_openspec_stub (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest) ... ok
+  test_required_mode_rejects_failed_openspec_validation (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest) ... ok
+  test_unknown_argument_is_rejected (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest) ... ok
+  test_validator_supports_non_git_workflow_root (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest) ... FAIL
+  test_copy_accepts_a_single_assistant_source (scripts.tests.test_validate_workflow.WorkflowFixtureCopyTests) ... ok
+  test_copy_is_limited_to_validator_workflow_roots (scripts.tests.test_validate_workflow.WorkflowFixtureCopyTests) ... ok
+  test_copy_rejects_a_nested_directory_symlink (scripts.tests.test_validate_workflow.WorkflowFixtureCopyTests) ... ok
+  test_copy_rejects_a_nested_fifo (scripts.tests.test_validate_workflow.WorkflowFixtureCopyTests) ... ok
+  test_copy_rejects_a_nested_file_symlink (scripts.tests.test_validate_workflow.WorkflowFixtureCopyTests) ... ok
+  test_copy_rejects_a_symlink_replacement_after_preflight (scripts.tests.test_validate_workflow.WorkflowFixtureCopyTests) ... ok
+  test_copy_rejects_a_top_level_dangling_symlink (scripts.tests.test_validate_workflow.WorkflowFixtureCopyTests) ... ok
+  test_copy_rejects_a_top_level_directory_symlink (scripts.tests.test_validate_workflow.WorkflowFixtureCopyTests) ... ok
+  test_copy_rejects_symlinks_even_with_ignored_cache_names (scripts.tests.test_validate_workflow.WorkflowFixtureCopyTests) ... ok
+  test_arbitrary_capability_environment_cannot_skip_contract_suite (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_base_fixture_accepts_a_valid_profile (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_default_reports_skip_when_openspec_is_missing (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_forged_same_uid_capability_cannot_skip_contract_suite (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_internal_core_runs_tools_without_contract_suite (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_legacy_bodies_remain_rejected_for_each_profile (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_outer_validator_fails_when_contract_suite_fails (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_profile_cannot_bypass_public_contract_suite (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_profile_changes_after_parse_are_rejected (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_public_entry_statically_requires_core_and_contract_suite (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_python_cache_paths_are_ignored_and_checked (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_rejects_deleted_or_broken_role_adapters (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_rejects_mandatory_agent_for_every_task (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_rejects_manifest_requirement_for_quick_mode (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_rejects_reintroduced_parallel_ai_kb_body (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_rejects_second_full_review_for_standard_mode (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_required_mode_fails_when_openspec_is_missing (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_required_mode_passes_with_openspec_stub (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_required_mode_rejects_failed_openspec_validation (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_shared_gates_remain_required_for_each_profile (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_unknown_argument_is_rejected (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... ok
+  test_validator_supports_non_git_workflow_root (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests) ... FAIL
+  test_arbitrary_capability_environment_cannot_skip_contract_suite (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_base_fixture_accepts_a_valid_profile (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_default_reports_skip_when_openspec_is_missing (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_entry_mutations_derive_the_fixture_primary_entry (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_forged_same_uid_capability_cannot_skip_contract_suite (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_installed_fixture_without_installer_uses_canonical_profile (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_installer_selected_only_metadata_allows_core_validation (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_installer_selected_only_metadata_allows_public_validation (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_internal_core_runs_tools_without_contract_suite (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_internal_recording_stub_delegates_profile_parser (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_malformed_profiles_fail_closed_without_leaking_content (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_missing_profile_still_requires_both_assistants (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... skipped 'single-assistant installation lacks the compatibility fixture'
+  test_other_assistant_installation_coverage_is_available (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... skipped 'source installer unavailable; current selected side remains covered'
+  test_outer_validator_fails_when_contract_suite_fails (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_profile_targets_derive_the_fixture_canonical_assistant (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_proposal_mutation_is_independent_of_historical_changes (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_public_entry_statically_requires_core_and_contract_suite (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_public_recording_stub_delegates_profile_parser (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_python_cache_paths_are_ignored_and_checked (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_rejects_deleted_or_broken_role_adapters (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_rejects_mandatory_agent_for_every_task (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_rejects_manifest_requirement_for_quick_mode (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_rejects_reintroduced_parallel_ai_kb_body (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_rejects_second_full_review_for_standard_mode (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_required_mode_fails_when_openspec_is_missing (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_required_mode_passes_with_openspec_stub (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_required_mode_rejects_failed_openspec_validation (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_selected_profile_allows_the_other_assistant_to_be_absent (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_selected_profile_rejects_broken_and_legacy_adapter_references (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_selected_profile_rejects_entry_agent_and_skill_mutations (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_unknown_argument_is_rejected (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_unselected_broken_remnants_are_ignored (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... ok
+  test_validator_supports_non_git_workflow_root (scripts.tests.test_validate_workflow.WorkflowProfileTests) ... FAIL
+
+  ======================================================================
+  FAIL: test_validator_supports_non_git_workflow_root (scripts.tests.test_validate_workflow.ValidateWorkflowContractTest)
+  ----------------------------------------------------------------------
+  Traceback (most recent call last):
+    File "/media/shitou/石头/wksource/yuxiaor_prj_2025/scripts/tests/test_validate_workflow.py", line 653, in test_validator_supports_non_git_workflow_root
+      self.assertIn("[PASS] Claude SDD 草稿区已忽略", result.stdout)
+  AssertionError: '[PASS] Claude SDD 草稿区已忽略' not found in '[PASS] 助手 profile 合法: codex\n[PASS] 目录存在: openspec/changes\n[PASS] 目录存在: openspec/plan\n[PASS] 目录存在: openspec/specs\n[PASS] 目录存在: openspec/archive\n[PASS] 目录存在: .ai/kb\n[PASS] 目录存在: .ai/kb/projects\n[PASS] 目录存在: .ai/rules\n[PASS] 目录存在: .ai/memory\n[PASS] 目录存在: .ai/prompts/agents\n[PASS] 目录存在: .ai/tools\n[PASS] 目录存在: .ai/tools/tests\n[PASS] 目录存在: .codex/skills\n[PASS] 目录存在: .codex/sdd\n[PASS] 文件存在: openspec/AGENTS.md\n[PASS] 文件存在: openspec/project.md\n[PASS] 文件存在: .ai/README.md\n[PASS] 文件存在: .ai/rules/index.md\n[PASS] 文件存在: .ai/rules/review.md\n[PASS] 文件存在: .ai/kb/projects/registry.json\n[PASS] 文件存在: .ai/tools/project_facts.py\n[PASS] 文件存在: .ai/tools/review_manifest.py\n[PASS] 文件存在: .ai/tools/README.md\n[PASS] 文件存在: scripts/workflow-pressure-scenarios.md\n[PASS] 文件存在: .codex/ai-kb/README.md\n[PASS] 文件存在: .codex/README.md\n[PASS] 旧 ai-kb 不含平行正文\n[PASS] 活跃入口不引用旧 ai-kb 正文\n[PASS] Codex 旧知识入口只指向共享 .ai\n[PASS] 项目 registry JSON 可解析\n[PASS] Python 缓存路径已忽略\n[PASS] 技能存在: .codex/open\n[PASS] frontmatter: .codex/open\n[PASS] 技能存在: .codex/design\n[PASS] frontmatter: .codex/design\n[PASS] 技能存在: .codex/build\n[PASS] frontmatter: .codex/build\n[PASS] 技能存在: .codex/verify\n[PASS] frontmatter: .codex/verify\n[PASS] 技能存在: .codex/archive\n[PASS] frontmatter: .codex/archive\n[PASS] 技能存在: .codex/tdd\n[PASS] frontmatter: .codex/tdd\n[PASS] 技能存在: .codex/subagent-driven\n[PASS] frontmatter: .codex/subagent-driven\n[PASS] 技能存在: .codex/code-review\n[PASS] frontmatter: .codex/code-review\n[PASS] 技能存在: .codex/systematic-debugging\n[PASS] frontmatter: .codex/systematic-debugging\n[PASS] 技能存在: .codex/verification\n[PASS] frontmatter: .codex/verification\n[PASS] 技能存在: .codex/git-worktrees\n[PASS] frontmatter: .codex/git-worktrees\n[PASS] 技能存在: .codex/parallel-agents\n[PASS] frontmatter: .codex/parallel-agents\n[PASS] 技能存在: .codex/writing-skills\n[PASS] frontmatter: .codex/writing-skills\n[PASS] mutation: 拒绝非法状态\n[PASS] mutation: 标准拒绝严格专用草稿态\n[PASS] AGENTS.md 三级模式定义\n[PASS] AGENTS.md 标准单确认\n[PASS] AGENTS.md 严格 8 态\n[PASS] AGENTS.md 共享底线\n[PASS] 核心规则无统一重流程回归\n[PASS] .codex Open 快速豁免\n[PASS] .codex Open 标准直接待确认\n[PASS] .codex Open 需求理解\n[PASS] .codex Design 仅严格\n[PASS] .codex Design worktree 顺序\n[PASS] .codex Build 标准 feature 落点\n[PASS] .codex Build 风险分支\n[PASS] .codex Verify 标准单审严格双审\n[PASS] .codex Verify 严格 required 门禁\n[PASS] .codex Archive 模式分支\n[PASS] .codex Archive required 门禁\n[PASS] .codex TDD 非运行时边界\n[PASS] .codex review 条件触发\n[PASS] .codex review 输出契约\n[PASS] .codex subagent 条件触发\n[PASS] .codex worktree 风险触发\n[PASS] 共享 Review 规则\n[PASS] 共享角色契约: explorer\n[PASS] 共享角色契约: reviewer\n[PASS] 共享角色契约: test-worker\n[PASS] 角色适配: .codex/agents/explorer.toml\n[PASS] 角色适配: .codex/agents/reviewer.toml\n[PASS] 角色适配: .codex/agents/test_worker.toml\n[PASS] mutation: 入口拒绝文档统一四件套\n[PASS] mutation Q: 快速拒绝强制 manifest\n[PASS] mutation S: 标准拒绝第二次完整审查\n[PASS] mutation X: 拒绝所有任务机械调用角色\n[PASS] mutation: .codex Open 拒绝文档统一四件套\n[PASS] mutation: .codex Design 拒绝标准独立计划\n[PASS] mutation: .codex Build 拒绝标准双阶段审查\n[PASS] mutation: .codex Verify 拒绝标准双阶段审查\n[PASS] Q/R/S/X 压力契约\n[PASS] SDD 草稿区已忽略\n[PASS] 无每任务机械提交规则\n[PASS] Codex 工具映射\n[PASS] 事实工具必需测试（registry/边界/分页/ignore）\n[PASS] Review manifest 必需测试（freeze/STALE/delta）\n[SKIP] OpenSpec CLI 缺失；未运行 openspec validate --all --no-interactive\nINTERNAL_RESULT PASS=101 FAIL=0 SKIP=1\n'
+
+  ======================================================================
+  FAIL: test_validator_supports_non_git_workflow_root (scripts.tests.test_validate_workflow.WorkflowProfileMutationTests)
+  ----------------------------------------------------------------------
+  Traceback (most recent call last):
+    File "/media/shitou/石头/wksource/yuxiaor_prj_2025/scripts/tests/test_validate_workflow.py", line 653, in test_validator_supports_non_git_workflow_root
+      self.assertIn("[PASS] Claude SDD 草稿区已忽略", result.stdout)
+  AssertionError: '[PASS] Claude SDD 草稿区已忽略' not found in '[PASS] 助手 profile 合法: codex\n[PASS] 目录存在: openspec/changes\n[PASS] 目录存在: openspec/plan\n[PASS] 目录存在: openspec/specs\n[PASS] 目录存在: openspec/archive\n[PASS] 目录存在: .ai/kb\n[PASS] 目录存在: .ai/kb/projects\n[PASS] 目录存在: .ai/rules\n[PASS] 目录存在: .ai/memory\n[PASS] 目录存在: .ai/prompts/agents\n[PASS] 目录存在: .ai/tools\n[PASS] 目录存在: .ai/tools/tests\n[PASS] 目录存在: .codex/skills\n[PASS] 目录存在: .codex/sdd\n[PASS] 文件存在: openspec/AGENTS.md\n[PASS] 文件存在: openspec/project.md\n[PASS] 文件存在: .ai/README.md\n[PASS] 文件存在: .ai/rules/index.md\n[PASS] 文件存在: .ai/rules/review.md\n[PASS] 文件存在: .ai/kb/projects/registry.json\n[PASS] 文件存在: .ai/tools/project_facts.py\n[PASS] 文件存在: .ai/tools/review_manifest.py\n[PASS] 文件存在: .ai/tools/README.md\n[PASS] 文件存在: scripts/workflow-pressure-scenarios.md\n[PASS] 文件存在: .codex/ai-kb/README.md\n[PASS] 文件存在: .codex/README.md\n[PASS] 旧 ai-kb 不含平行正文\n[PASS] 活跃入口不引用旧 ai-kb 正文\n[PASS] Codex 旧知识入口只指向共享 .ai\n[PASS] 项目 registry JSON 可解析\n[PASS] Python 缓存路径已忽略\n[PASS] 技能存在: .codex/open\n[PASS] frontmatter: .codex/open\n[PASS] 技能存在: .codex/design\n[PASS] frontmatter: .codex/design\n[PASS] 技能存在: .codex/build\n[PASS] frontmatter: .codex/build\n[PASS] 技能存在: .codex/verify\n[PASS] frontmatter: .codex/verify\n[PASS] 技能存在: .codex/archive\n[PASS] frontmatter: .codex/archive\n[PASS] 技能存在: .codex/tdd\n[PASS] frontmatter: .codex/tdd\n[PASS] 技能存在: .codex/subagent-driven\n[PASS] frontmatter: .codex/subagent-driven\n[PASS] 技能存在: .codex/code-review\n[PASS] frontmatter: .codex/code-review\n[PASS] 技能存在: .codex/systematic-debugging\n[PASS] frontmatter: .codex/systematic-debugging\n[PASS] 技能存在: .codex/verification\n[PASS] frontmatter: .codex/verification\n[PASS] 技能存在: .codex/git-worktrees\n[PASS] frontmatter: .codex/git-worktrees\n[PASS] 技能存在: .codex/parallel-agents\n[PASS] frontmatter: .codex/parallel-agents\n[PASS] 技能存在: .codex/writing-skills\n[PASS] frontmatter: .codex/writing-skills\n[PASS] mutation: 拒绝非法状态\n[PASS] mutation: 标准拒绝严格专用草稿态\n[PASS] AGENTS.md 三级模式定义\n[PASS] AGENTS.md 标准单确认\n[PASS] AGENTS.md 严格 8 态\n[PASS] AGENTS.md 共享底线\n[PASS] 核心规则无统一重流程回归\n[PASS] .codex Open 快速豁免\n[PASS] .codex Open 标准直接待确认\n[PASS] .codex Open 需求理解\n[PASS] .codex Design 仅严格\n[PASS] .codex Design worktree 顺序\n[PASS] .codex Build 标准 feature 落点\n[PASS] .codex Build 风险分支\n[PASS] .codex Verify 标准单审严格双审\n[PASS] .codex Verify 严格 required 门禁\n[PASS] .codex Archive 模式分支\n[PASS] .codex Archive required 门禁\n[PASS] .codex TDD 非运行时边界\n[PASS] .codex review 条件触发\n[PASS] .codex review 输出契约\n[PASS] .codex subagent 条件触发\n[PASS] .codex worktree 风险触发\n[PASS] 共享 Review 规则\n[PASS] 共享角色契约: explorer\n[PASS] 共享角色契约: reviewer\n[PASS] 共享角色契约: test-worker\n[PASS] 角色适配: .codex/agents/explorer.toml\n[PASS] 角色适配: .codex/agents/reviewer.toml\n[PASS] 角色适配: .codex/agents/test_worker.toml\n[PASS] mutation: 入口拒绝文档统一四件套\n[PASS] mutation Q: 快速拒绝强制 manifest\n[PASS] mutation S: 标准拒绝第二次完整审查\n[PASS] mutation X: 拒绝所有任务机械调用角色\n[PASS] mutation: .codex Open 拒绝文档统一四件套\n[PASS] mutation: .codex Design 拒绝标准独立计划\n[PASS] mutation: .codex Build 拒绝标准双阶段审查\n[PASS] mutation: .codex Verify 拒绝标准双阶段审查\n[PASS] Q/R/S/X 压力契约\n[PASS] SDD 草稿区已忽略\n[PASS] 无每任务机械提交规则\n[PASS] Codex 工具映射\n[PASS] 事实工具必需测试（registry/边界/分页/ignore）\n[PASS] Review manifest 必需测试（freeze/STALE/delta）\n[SKIP] OpenSpec CLI 缺失；未运行 openspec validate --all --no-interactive\nINTERNAL_RESULT PASS=101 FAIL=0 SKIP=1\n'
+
+  ======================================================================
+  FAIL: test_validator_supports_non_git_workflow_root (scripts.tests.test_validate_workflow.WorkflowProfileTests)
+  ----------------------------------------------------------------------
+  Traceback (most recent call last):
+    File "/media/shitou/石头/wksource/yuxiaor_prj_2025/scripts/tests/test_validate_workflow.py", line 653, in test_validator_supports_non_git_workflow_root
+      self.assertIn("[PASS] Claude SDD 草稿区已忽略", result.stdout)
+  AssertionError: '[PASS] Claude SDD 草稿区已忽略' not found in '[PASS] 助手 profile 合法: codex\n[PASS] 目录存在: openspec/changes\n[PASS] 目录存在: openspec/plan\n[PASS] 目录存在: openspec/specs\n[PASS] 目录存在: openspec/archive\n[PASS] 目录存在: .ai/kb\n[PASS] 目录存在: .ai/kb/projects\n[PASS] 目录存在: .ai/rules\n[PASS] 目录存在: .ai/memory\n[PASS] 目录存在: .ai/prompts/agents\n[PASS] 目录存在: .ai/tools\n[PASS] 目录存在: .ai/tools/tests\n[PASS] 目录存在: .codex/skills\n[PASS] 目录存在: .codex/sdd\n[PASS] 文件存在: openspec/AGENTS.md\n[PASS] 文件存在: openspec/project.md\n[PASS] 文件存在: .ai/README.md\n[PASS] 文件存在: .ai/rules/index.md\n[PASS] 文件存在: .ai/rules/review.md\n[PASS] 文件存在: .ai/kb/projects/registry.json\n[PASS] 文件存在: .ai/tools/project_facts.py\n[PASS] 文件存在: .ai/tools/review_manifest.py\n[PASS] 文件存在: .ai/tools/README.md\n[PASS] 文件存在: scripts/workflow-pressure-scenarios.md\n[PASS] 文件存在: .codex/ai-kb/README.md\n[PASS] 文件存在: .codex/README.md\n[PASS] 旧 ai-kb 不含平行正文\n[PASS] 活跃入口不引用旧 ai-kb 正文\n[PASS] Codex 旧知识入口只指向共享 .ai\n[PASS] 项目 registry JSON 可解析\n[PASS] Python 缓存路径已忽略\n[PASS] 技能存在: .codex/open\n[PASS] frontmatter: .codex/open\n[PASS] 技能存在: .codex/design\n[PASS] frontmatter: .codex/design\n[PASS] 技能存在: .codex/build\n[PASS] frontmatter: .codex/build\n[PASS] 技能存在: .codex/verify\n[PASS] frontmatter: .codex/verify\n[PASS] 技能存在: .codex/archive\n[PASS] frontmatter: .codex/archive\n[PASS] 技能存在: .codex/tdd\n[PASS] frontmatter: .codex/tdd\n[PASS] 技能存在: .codex/subagent-driven\n[PASS] frontmatter: .codex/subagent-driven\n[PASS] 技能存在: .codex/code-review\n[PASS] frontmatter: .codex/code-review\n[PASS] 技能存在: .codex/systematic-debugging\n[PASS] frontmatter: .codex/systematic-debugging\n[PASS] 技能存在: .codex/verification\n[PASS] frontmatter: .codex/verification\n[PASS] 技能存在: .codex/git-worktrees\n[PASS] frontmatter: .codex/git-worktrees\n[PASS] 技能存在: .codex/parallel-agents\n[PASS] frontmatter: .codex/parallel-agents\n[PASS] 技能存在: .codex/writing-skills\n[PASS] frontmatter: .codex/writing-skills\n[PASS] mutation: 拒绝非法状态\n[PASS] mutation: 标准拒绝严格专用草稿态\n[PASS] AGENTS.md 三级模式定义\n[PASS] AGENTS.md 标准单确认\n[PASS] AGENTS.md 严格 8 态\n[PASS] AGENTS.md 共享底线\n[PASS] 核心规则无统一重流程回归\n[PASS] .codex Open 快速豁免\n[PASS] .codex Open 标准直接待确认\n[PASS] .codex Open 需求理解\n[PASS] .codex Design 仅严格\n[PASS] .codex Design worktree 顺序\n[PASS] .codex Build 标准 feature 落点\n[PASS] .codex Build 风险分支\n[PASS] .codex Verify 标准单审严格双审\n[PASS] .codex Verify 严格 required 门禁\n[PASS] .codex Archive 模式分支\n[PASS] .codex Archive required 门禁\n[PASS] .codex TDD 非运行时边界\n[PASS] .codex review 条件触发\n[PASS] .codex review 输出契约\n[PASS] .codex subagent 条件触发\n[PASS] .codex worktree 风险触发\n[PASS] 共享 Review 规则\n[PASS] 共享角色契约: explorer\n[PASS] 共享角色契约: reviewer\n[PASS] 共享角色契约: test-worker\n[PASS] 角色适配: .codex/agents/explorer.toml\n[PASS] 角色适配: .codex/agents/reviewer.toml\n[PASS] 角色适配: .codex/agents/test_worker.toml\n[PASS] mutation: 入口拒绝文档统一四件套\n[PASS] mutation Q: 快速拒绝强制 manifest\n[PASS] mutation S: 标准拒绝第二次完整审查\n[PASS] mutation X: 拒绝所有任务机械调用角色\n[PASS] mutation: .codex Open 拒绝文档统一四件套\n[PASS] mutation: .codex Design 拒绝标准独立计划\n[PASS] mutation: .codex Build 拒绝标准双阶段审查\n[PASS] mutation: .codex Verify 拒绝标准双阶段审查\n[PASS] Q/R/S/X 压力契约\n[PASS] SDD 草稿区已忽略\n[PASS] 无每任务机械提交规则\n[PASS] Codex 工具映射\n[PASS] 事实工具必需测试（registry/边界/分页/ignore）\n[PASS] Review manifest 必需测试（freeze/STALE/delta）\n[SKIP] OpenSpec CLI 缺失；未运行 openspec validate --all --no-interactive\nINTERNAL_RESULT PASS=101 FAIL=0 SKIP=1\n'
+
+  ----------------------------------------------------------------------
+  Ran 82 tests in 110.342s
+
+  FAILED (failures=3, skipped=2)
+PASS=102 FAIL=1 SKIP=0
