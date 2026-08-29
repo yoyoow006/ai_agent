@@ -427,6 +427,7 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
                         "pre-push hook is not shipped with this installation",
                         "CI pipeline configuration is source-repository only",
                         "flock is required to exercise the concurrency lock",
+                        "flock is required to exercise the lock infrastructure path",
                     }
                     observed_skips = set(
                         re.findall(r"\.\.\. skipped '([^']*)'", contract.stdout)
