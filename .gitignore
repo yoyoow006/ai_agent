@@ -12,5 +12,6 @@ __pycache__/
 /.ai/memory/*
 !/.ai/memory/README.md
 !/.ai/memory/workflow.md
+!/.ai/memory/installer.md
 /REVIEW.md
 /*.code-workspace
