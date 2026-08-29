@@ -23,11 +23,11 @@ if command -v flock >/dev/null 2>&1; then
   mkdir -p .ai-local
   exec 9>>.ai-local/.validate.lock
   if ! flock -n 9; then
-    printf '[FAIL] 另一校验实例运行中,本实例退出(并发校验会互踩)\n' >&2
+    printf '[FAIL] 另一校验实例运行中，本实例退出（并发校验会互踩）\n' >&2
     exit 2
   fi
 else
-  printf 'flock 不可用,降级为无锁并发保护\n' >&2
+  printf 'flock 不可用，降级为无锁并发保护\n' >&2
 fi
 
 core_output="$(mktemp)"

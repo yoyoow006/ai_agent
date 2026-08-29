@@ -726,6 +726,44 @@ class ValidateWorkflowContractTest(unittest.TestCase):
             holder.kill()
             holder.wait()
 
+    def test_missing_flock_degrades_to_unlocked_with_notice(self) -> None:
+        degraded_bin = self.stub_bin.parent / "bin-without-flock"
+        degraded_bin.mkdir()
+        for command in _core_external_commands(
+            self.fixture / "scripts" / "lib" / "validate-workflow-core.sh"
+        ):
+            if command == "flock":
+                continue
+            executable = shutil.which(command)
+            self.assertIsNotNone(executable, msg=f"missing test prerequisite: {command}")
+            (degraded_bin / command).symlink_to(executable)
+        self._enable_profile_parser()
+        python_stub = degraded_bin / "python3"
+        python_stub.write_text(
+            self._recording_python_script(degraded_bin.parent / "degraded-calls"),
+            encoding="utf-8",
+        )
+        python_stub.chmod(python_stub.stat().st_mode | stat.S_IXUSR)
+
+        environment = {
+            "LC_ALL": "C.UTF-8",
+            "PATH": str(degraded_bin),
+        }
+        result = subprocess.run(
+            ["/usr/bin/bash", "scripts/validate-workflow.sh"],
+            cwd=self.fixture,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+
+        self.assertEqual(result.returncode, 0, msg=result.stdout)
+        self.assertIn("flock 不可用，降级为无锁并发保护", result.stdout)
+        self.assertIn("[PASS] 工作流顶层契约测试", result.stdout)
+
     def test_rejects_deleted_or_broken_role_adapters(self) -> None:
         adapters = {
             ".codex/agents/explorer.toml": ".ai/prompts/agents/explorer.md",
