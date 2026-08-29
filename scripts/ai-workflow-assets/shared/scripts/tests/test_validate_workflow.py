@@ -34,18 +34,39 @@ class PrePushHookTest(unittest.TestCase):
             if not is_source_repository:
                 self.skipTest("pre-push hook is not shipped with this installation")
             self.fail("source repository is missing scripts/hooks/pre-push")
+        if is_source_repository:
+            # fileMode=false 的挂载上磁盘权限不可信,索引模式才是权威信号。
+            listing = subprocess.run(
+                ["git", "ls-files", "-s", "scripts/hooks/pre-push"],
+                cwd=REPOSITORY_ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True,
+                timeout=30,
+            )
+            self.assertIn("100755 ", listing.stdout, msg=listing.stdout)
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / "scripts" / "hooks").mkdir(parents=True)
             (root / "scripts" / "lib").mkdir(parents=True)
             shutil.copy(hook_source, root / "scripts" / "hooks" / "pre-push")
-            for stub, expected in (("exit 0", 0), ("exit 1", 1)):
-                with self.subTest(stub=stub):
+            # git 会向 pre-push 传入远端名与 URL 两个参数:钩子不得把它们透传给 core。
+            for stub, expected, hook_arguments in (
+                ("exit 0", 0, []),
+                ("exit 1", 1, []),
+                ("exit 0", 0, ["origin", "git@example.invalid:repo.git"]),
+            ):
+                with self.subTest(stub=stub, arguments=hook_arguments):
                     (root / "scripts" / "lib" / "validate-workflow-core.sh").write_text(
                         f"#!/usr/bin/env bash\n{stub}\n", encoding="utf-8"
                     )
                     result = subprocess.run(
-                        ["/usr/bin/bash", str(root / "scripts" / "hooks" / "pre-push")],
+                        [
+                            "/usr/bin/bash",
+                            str(root / "scripts" / "hooks" / "pre-push"),
+                            *hook_arguments,
+                        ],
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,
                         text=True,
@@ -666,6 +687,8 @@ class ValidateWorkflowContractTest(unittest.TestCase):
         self.assertRegex(result.stdout, r"PASS=\d+ FAIL=0 SKIP=\d+\s*\Z")
 
     def test_second_validator_instance_exits_while_locked(self) -> None:
+        if shutil.which("flock") is None:
+            self.skipTest("flock is required to exercise the concurrency lock")
         lock_path = self.fixture / ".ai-local" / ".validate.lock"
         lock_path.parent.mkdir(parents=True, exist_ok=True)
         holder = subprocess.Popen(

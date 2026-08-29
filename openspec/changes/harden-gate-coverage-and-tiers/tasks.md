@@ -8,7 +8,7 @@
 - [x] 6. P1a CI:validate.yml 增安装器套件独立步骤(结构断言:步骤存在且不可跳过)。
 - [x] 7. P3d 仲裁行:CLAUDE.md、AGENTS.md、资产两入口各加一句(镜像与 mutation 断言保短语)。
 - [x] 8. P2b 技能分层 + archive 索引步骤:verify/archive 技能双侧+资产同步更新(短语保全断言)。
-- [x] 9. 资产同步:全部随包文件逐字节同步 manifest 覆盖范围。
+- [x] 9. 资产同步:全部随包文件逐字节同步 manifest 覆盖范围。(初版漏同步随包契约测试副本,任务级审查 F1 揭穿;同步后 F2 揭示目标侧计数断言与锁用例需适配,F1-F3/F5 均已修复:钩子去参数透传+索引 100755+带参用例、锁用例 flock skip、目标侧 Ran N 动态统计、README 措辞限定;3aa3879 注记中"仅 1 个环境性失败"系指 main 诊断,worktree 首跑实为 2 失败,以本注记更正)
 - [ ] 10. 严格 Build 纪律:隔离 worktree、每职责单元 TDD 红绿、任务级审查(manifest freeze/verify)、按职责单元提交。
 - [ ] 11. Verify 双阶段独立审查(规格符合性→代码质量)+ 主会话 `--require-openspec` 全量终验。
 - [ ] 12. Archive:合并 delta、索引行、知识沉淀、归档后全量复验、`--no-ff` 合回 main、合并结果复跑全量、按授权推送。

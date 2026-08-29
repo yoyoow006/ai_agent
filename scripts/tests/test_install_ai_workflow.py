@@ -321,6 +321,22 @@ class AssistantSelectionTests(unittest.TestCase):
 
 
 class InstalledWorkflowValidationTests(unittest.TestCase):
+    def _shipped_contract_test_count(self) -> int:
+        """随包契约套件的用例数:从资产副本动态加载统计,避免硬编码漂移。"""
+        shipped = ASSET_ROOT / "shared" / "scripts" / "tests" / "test_validate_workflow.py"
+        spec = importlib.util.spec_from_file_location("shipped_contract_tests", shipped)
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        suite = unittest.defaultTestLoader.loadTestsFromModule(module)
+
+        def collect(test) -> int:
+            if isinstance(test, unittest.TestSuite):
+                return sum(collect(item) for item in test)
+            return 1
+
+        return collect(suite)
+
     def _restricted_environment(self, root: Path) -> dict[str, str]:
         binary_directory = root / "bin"
         binary_directory.mkdir()
@@ -401,8 +417,18 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
 
                 with self.subTest(assistant=assistant, command="contract"):
                     self.assertEqual(contract.returncode, 0, contract.stdout)
-                    self.assertIn("Ran 82 tests", contract.stdout)
-                    self.assertEqual(len(re.findall(r"\.\.\. skipped ", contract.stdout)), 2, contract.stdout)
+                    self.assertIn(f"Ran {self._shipped_contract_test_count()} tests", contract.stdout)
+                    expected_skips = 2  # 既有单助手 profile 变体跳过
+                    if not (target / "scripts" / "hooks" / "pre-push").is_file():
+                        expected_skips += 1  # 钩子不随包分发
+                    if not (target / ".github").exists():
+                        expected_skips += 1  # CI 配置仅存在于源仓库
+                    expected_skips += 1  # 受限 PATH 无 flock,并发锁用例跳过
+                    self.assertEqual(
+                        len(re.findall(r"\.\.\. skipped ", contract.stdout)),
+                        expected_skips,
+                        contract.stdout,
+                    )
                     self.assertRegex(
                         contract.stdout,
                         r"test_installer_selected_only_metadata_allows_core_validation .* \.\.\. ok",

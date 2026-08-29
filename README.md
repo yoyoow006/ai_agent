@@ -103,7 +103,7 @@ openspec validate <变更名> --strict --no-interactive
 git config core.hooksPath scripts/hooks
 ```
 
-启用后每次 `git push` 前自动运行秒级 core 结构校验，任一 FAIL 阻断推送——避免"本地合并破坏门禁后靠 CI 事后发现"（本仓库 2026-08-29 曾发生合并复活旧正文直推 main 的事故）。校验器以 flock 串行化并发实例；`flock` 不可用时自动降级为无锁并提示。取消启用：`git config --unset core.hooksPath`。
+启用后每次 `git push` 前自动运行秒级 core 结构校验，任一 FAIL 阻断推送——避免"本地合并破坏门禁后靠 CI 事后发现"（本仓库 2026-08-29 曾发生合并复活旧正文直推 main 的事故）。`validate-workflow.sh` 公共入口以 flock 串行化并发实例（钩子直接调用 core，不经过该锁）；`flock` 不可用时自动降级为无锁并提示。取消启用：`git config --unset core.hooksPath`。
 
 ## 写作约定（避坑）
 

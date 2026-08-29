@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # pre-push 本地防护：推送前现跑秒级 core 结构校验，任一 FAIL 阻断本次 push。
 # 启用：git config core.hooksPath scripts/hooks（自愿启用，不影响未启用环境）。
+# 注意：git 会向 pre-push 传入远端名/URL 两个参数，core 不接受位置参数，
+# 因此这里不透传 "$@"。
 set -u
-exec bash "$(dirname "$0")/../lib/validate-workflow-core.sh" "$@"
+exec bash "$(dirname "$0")/../lib/validate-workflow-core.sh"
