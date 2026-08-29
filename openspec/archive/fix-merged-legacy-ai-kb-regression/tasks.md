@@ -20,5 +20,5 @@
       验证:退出码 0、FAIL=0;`状态: 待归档` 已提交。(fda139b 树上 FINAL_EXIT=0、PASS=185 FAIL=0;diff --check 干净;finding 台账 Critical=0 未决)
 - [x] 5.1 归档:delta 合并入 `openspec/specs/shared-ai-workflow-infrastructure/spec.md`(MODIFIED 整体替换,含新增场景);proposal `状态: 已归档`;目录移入 `openspec/archive/`;归档后现跑 `bash scripts/validate-workflow.sh` 全绿;`git add openspec/ .ai/ && git commit -m "chore(archive): fix-merged-legacy-ai-kb-regression"`。
       验证:主规格含新场景"合并复活已删除的旧正文";archive 目录就位;校验 FAIL=0。(主规格场景已并入;目录已移动;知识三写按需完成——memory 已沉淀逐侧计数教训,kb/rules 无稳定事实变化;提交前归档后校验结果记录于归档提交信息)
-- [ ] 6.1 整合:按已确认策略本地 `--no-ff` 合回 main,合并结果上复跑 `bash scripts/validate-workflow.sh` 全绿;推送 origin/main 等待用户单独授权。
-      验证:main HEAD 为合并提交;校验退出码 0、FAIL=0;未执行任何 push。
+- [x] 6.1 整合:按已确认策略本地 `--no-ff` 合回 main,合并结果上复跑 `bash scripts/validate-workflow.sh` 全绿;推送 origin/main 等待用户单独授权。
+      验证:main HEAD 为合并提交;校验退出码 0、FAIL=0;未执行任何 push。(合并 90d5959;合并结果现跑 MAIN_EXIT=0、PASS=183 FAIL=0;推送授权来自用户实施确认时选择的"--no-ff 合回 main 并推送(本次一并对推送授权)",推送在本回填提交后执行)
