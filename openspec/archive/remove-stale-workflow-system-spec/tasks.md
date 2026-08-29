@@ -7,4 +7,4 @@
 - [x] 5. 门禁:`bash scripts/validate-workflow.sh --fast` 秒级核对 + required 全量现跑全绿(治理资产变更,Verify 不降层)。
 - [x] 6. 任务级审查:freeze manifest + 独立 reviewer 核对逐条映射与零引用。
 - [x] 7. Verify 双阶段(规格符合性→代码质量)+ finding 闭环 + `--require-openspec` 终验。
-- [ ] 8. Archive:REMOVED 落地(主规格文件删除)、memory 新坑沉淀(如有)、索引行、归档后 required 门禁、`--no-ff` 合回 main、合并结果复跑、按授权推送。
+- [x] 8. Archive:REMOVED 落地(主规格文件删除)、memory 新坑沉淀(如有)、索引行、归档后 required 门禁、`--no-ff` 合回 main、合并结果复跑、按授权推送。(REMOVED 已于 5370b9f 落地;无新坑不需 memory;索引行已加;归档后与合并后门禁见提交信息)
