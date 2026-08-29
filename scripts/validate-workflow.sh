@@ -14,7 +14,7 @@ for argument in "$@"; do
       ;;
     --print-external-commands)
       # 诊断模式直接透传 core(只读、无汇总语义),不进入门禁流程。
-      exec bash "$(dirname "$0")/lib/validate-workflow-core.sh" --print-external-commands
+      exec bash scripts/lib/validate-workflow-core.sh --print-external-commands
       ;;
     *)
       forwarded_arguments+=("$argument")
