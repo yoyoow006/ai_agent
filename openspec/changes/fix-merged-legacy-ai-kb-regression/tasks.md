@@ -14,8 +14,8 @@
       验证:`git log --oneline` 新增提交信息明确;`git status --short` 干净(允许后续 Verify 产物)。(943d914,+28/-122;diff-check CLEAN)
 - [x] 2.1 状态推进:tasks 全勾后把 proposal `状态:` 置为`待验证`并提交,交 Verify。
       验证:proposal 头部显示 `状态: 待验证`。
-- [ ] 3.1 Verify 综合审查:主会话 `python3 .ai/tools/review_manifest.py freeze` 冻结范围,派独立上下文 reviewer 按 `.ai/rules/review.md` 全 diff 综合审查(关注面:delta 场景落地、7 条迁移逐字无损、删除清单精确、无范围扩大);finding 按"验证→处置"闭环。
-      验证:manifest 两次 `verify` 均 `VALID`;审查结论引用 manifest id;Critical/Important 全部关闭。
+- [x] 3.1 Verify 综合审查:主会话 `python3 .ai/tools/review_manifest.py freeze` 冻结范围,派独立上下文 reviewer 按 `.ai/rules/review.md` 全 diff 综合审查(关注面:delta 场景落地、迁移逐字无损、删除清单精确、无范围扩大);finding 按"验证→处置"闭环。
+      验证:manifest 两次 `verify` 均 `VALID`;审查结论引用 manifest id;Critical/Important 全部关闭。(首轮 FAIL:VQ-C01 Critical 经核实为真——codex 侧 3 条独有条目未迁;cdcf5a2 修复后重冻结 1bddc094 差异复审通过,VQ-C01 resolved、无新增 finding;台账见 review-findings.md)
 - [ ] 4.1 终验:主会话现跑 `bash scripts/validate-workflow.sh`(全绿)与 `git diff --check`;状态置`待归档`并提交审查修复。
       验证:退出码 0、FAIL=0;`状态: 待归档` 已提交。
 - [ ] 5.1 归档:delta 合并入 `openspec/specs/shared-ai-workflow-infrastructure/spec.md`(MODIFIED 整体替换,含新增场景);proposal `状态: 已归档`;目录移入 `openspec/archive/`;归档后现跑 `bash scripts/validate-workflow.sh` 全绿;`git add openspec/ .ai/ && git commit -m "chore(archive): fix-merged-legacy-ai-kb-regression"`。
