@@ -17,3 +17,4 @@
 - `remove-installer-business-knowledge` — 从安装工具仓库移除业务项目知识(严格)
 - `sanitize-git-baseline-secrets` — 清理 Git 基线中的知识库凭据(严格)
 - `split-shared-memory-by-module` — 共享 memory 按模块拆分:安装器域 32 条移入 installer.md(标准)
+- `harden-gate-coverage-and-tiers` — 门禁覆盖、分层与自防护：安装器套件入 CI、命令清单单一来源、--fast、flock、pre-push、技能仲裁(严格)

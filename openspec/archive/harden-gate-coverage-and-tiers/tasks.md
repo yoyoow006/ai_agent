@@ -11,4 +11,4 @@
 - [x] 9. 资产同步:全部随包文件逐字节同步 manifest 覆盖范围。(初版漏同步随包契约测试副本,任务级审查 F1 揭穿;同步后 F2 揭示目标侧计数断言与锁用例需适配,F1-F3/F5 均已修复:钩子去参数透传+索引 100755+带参用例、锁用例 flock skip、目标侧 Ran N 动态统计、README 措辞限定;3aa3879 注记中"仅 1 个环境性失败"系指 main 诊断,worktree 首跑实为 2 失败,以本注记更正)
 - [x] 10. 严格 Build 纪律:隔离 worktree、每职责单元 TDD 红绿、任务级审查(manifest freeze/verify)、按职责单元提交。(偏差注记:任务级审查按四职责单元合并为两轮——首轮 f50c710c 中止留 F1-F5,处置后 d8719f82 差异复审全 resolved;T1/T6/T7 的 core 改动同居一文件合并提交)
 - [x] 11. Verify 双阶段独立审查(规格符合性→代码质量)+ 主会话 `--require-openspec` 全量终验。(阶段1 PASS@ee79c827、阶段2 PASS@24f2e091,12 finding 全处置见 review-findings.md;终验链 required 门禁 PASS=191 FAIL=0 EXIT=0,完整安装器套件 82 用例仅 1 环境性失败零 error)
-- [ ] 12. Archive:合并 delta、索引行、知识沉淀、归档后全量复验、`--no-ff` 合回 main、合并结果复跑全量、按授权推送。
+- [x] 12. Archive:合并 delta、索引行、知识沉淀、归档后全量复验、`--no-ff` 合回 main、合并结果复跑全量、按授权推送。(delta 已并入两主规格,含 VQ-F1 场景保全;memory 4 新坑+1 处更正、rules/kb/索引行已沉淀;归档后与合并后门禁结果见提交信息)

@@ -94,3 +94,19 @@
 ## 2026-08-29 · 来源变更 fix-merged-legacy-ai-kb-regression（审计发现）
 **坑**：手工合并 `Merge remote-tracking branch 'origin/main'`（45e8ed1）把本地线迁移前的 `.claude|codex/ai-kb/{kb,rules,memory}` 平行正文带回 main 并推送；core `旧 ai-kb 不含平行正文` FAIL，契约套件因 fixture 忠实复制现行文件而级联 40/82 假设绿基线的失败。另：两个 validate-workflow 实例并发时 mutation 测试互踩，会产生大额度假失败；契约套件单跑约 5 分钟，120 秒 timeout 不足以作终验证据。
 **解**：合并到 main 属于治理边界，必须走 Archive 确认的整合策略并在推送前本地现跑完整门禁（--no-ff 合并后同样）。诊断契约套件失败先看是否单一根因级联（一个 core FAIL 可放大为几十个 contract 失败）；校验器只能串行单实例运行，长跑用后台任务而非加 timeout。删除复活旧正文前必须**逐侧计数**核对 memory 条目是否已迁移——双侧同名文件不必然同内容，本次 codex 侧比 claude 侧多 3 条独有条目（`grep -c '^## '` 逐文件计数），合计 10 条 2026-08-16 条目未迁移；首轮只迁 claude 侧 7 条即删构成知识丢失，由独立审查 VQ-C01 纠正后补迁。
+
+## 2026-08-30 · 来源变更 harden-gate-coverage-and-tiers（exec 重定向持久化）
+**坑**：bash 中 `exec 9>>file 2>/dev/null` 在 exec 无命令时，行内全部重定向（含 2>/dev/null）会**持久作用到当前 shell**，后续所有 >&2 输出被静默吞掉——锁冲突消息凭空消失、退出码却正常。
+**解**：exec 行只保留要持久的 fd 重定向，临时静默用编组限定：`{ exec 9>>file; } 2>/dev/null`；改完必须现跑"锁冲突消息可见"的用例验证，不能只看退出码。
+
+## 2026-08-30 · 来源变更 harden-gate-coverage-and-tiers（grep 前导连字符模式）
+**坑**：core 的 contains_all 用 `grep -Fq "$term" "$file"`，断言短语以 `--` 开头（如 `--fast`）时被 grep 解析为长选项而报错，结构断言假红。
+**解**：断言类 grep 一律 `grep -Fq -e "$term" -- "$file"`；新增以连字符开头的断言短语前先想到该坑。
+
+## 2026-08-30 · 来源变更 harden-gate-coverage-and-tiers（套件运行期间提交）
+**坑**：全量安装器套件运行约 20 分钟，期间任何提交都会让先后执行的用例读到不同树，产生"CONFLICT/失同步"类时序伪影失败（本变更踩两次）。
+**解**：终验链（全量门禁+安装器套件）一旦启动，仓库零编辑；需要修复先停套件、改完重启。多轮修复期的中间套件结果只作参考，最终证据只认最终树上的一次完整现跑。
+
+## 2026-08-30 · 来源变更 harden-gate-coverage-and-tiers（目标内与源仓的测试环境差异）
+**坑**：同一份契约测试在源仓与安装目标内运行环境不同：目标受限 PATH 无 flock、无 .github、单助手只有一侧入口/技能——硬编码两侧路径或依赖 flock 的用例在目标内报 FileNotFoundError/假失败。
+**解**：随包用例必须按环境自适应：文件存在性 continue、flock 缺失 skipTest（理由登记进目标侧白名单）、源仓特有断言以 install_ai_workflow.py 存在为源仓标志；目标侧 skip 断言用"已知理由集合"而非精确计数（类继承会放大同类 skip）。
