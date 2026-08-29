@@ -35,6 +35,33 @@ report_skip() {
   skip_count=$((skip_count + 1))
 }
 
+# 唯一权威的外部命令清单：校验沙箱 PATH 白名单从此处解析，
+# 不得在其他文件维护第二份副本。新增依赖时同步本清单（保持排序）。
+print_external_commands() {
+  printf '%s\n' \
+    awk \
+    bash \
+    cat \
+    chmod \
+    cmp \
+    cp \
+    dirname \
+    find \
+    git \
+    grep \
+    head \
+    mktemp \
+    rm \
+    rmdir \
+    sed \
+    sort \
+    stat \
+    tail \
+    touch \
+    tr \
+    wc
+}
+
 read_profile_token() {
   python3 -B -c "
 import hashlib
@@ -168,6 +195,10 @@ while test "$#" -gt 0; do
     --require-openspec)
       require_openspec=1
       ;;
+    --print-external-commands)
+      print_external_commands
+      exit 0
+      ;;
     *)
       report_fail "参数错误: 未知参数 $1"
       internal_result
@@ -236,7 +267,7 @@ contains_all() {
   shift
   local term
   for term in "$@"; do
-    grep -Fq "$term" "$file" || return 1
+    grep -Fq -e "$term" -- "$file" || return 1
   done
 }
 
@@ -479,6 +510,7 @@ for doc in "${required_docs[@]}"; do
   check "$doc 标准单确认" contains_all "$doc" '一次确认' '待确认计划' '不创建'
   check "$doc 严格 9 态" contains_all "$doc" '草稿' '待确认规范' '设计中' '构建中' '待验证' '待归档' '已归档' '已取消'
   check "$doc 共享底线" contains_all "$doc" '用户' '外部' '破坏性' '验证'
+  check "$doc 技能仲裁" contains_all "$doc" '仓库技能为准' '插件技能'
 done
 check "核心规则无统一重流程回归" policy_ok "${policy_files[@]}"
 
@@ -495,8 +527,10 @@ for agent in "${required_agents[@]}"; do
   check "$agent Build 风险分支" contains_all "$agent/skills/build/SKILL.md" '标准小型、边界清晰任务' '严格' '可独立回滚的职责单元'
   check "$agent Verify 标准单审严格双审" contains_all "$agent/skills/verify/SKILL.md" '一次综合审查' '双阶段独立审查' '规格符合性' '代码质量'
   check "$agent Verify 严格 required 门禁" contains_all "$agent/skills/verify/SKILL.md" 'bash scripts/validate-workflow.sh --require-openspec' '不得 SKIP'
+  check "$agent Verify 标准分层" contains_all "$agent/skills/verify/SKILL.md" '--fast' '改跑全量默认门禁'
   check "$agent Archive 模式分支" contains_all "$agent/skills/archive/SKILL.md" '标准模式' '严格模式' 'ADDED' '知识沉淀'
   check "$agent Archive required 门禁" contains_all "$agent/skills/archive/SKILL.md" 'bash scripts/validate-workflow.sh --require-openspec' '不得 SKIP'
+  check "$agent Archive 归档索引" contains_all "$agent/skills/archive/SKILL.md" 'openspec/archive/README.md'
   check "$agent TDD 非运行时边界" contains_all "$agent/skills/tdd/SKILL.md" '运行时行为' '纯文档' '内容契约'
   check "$agent review 条件触发" contains_all "$agent/skills/code-review/SKILL.md" '标准小任务' '严格模式' '综合审查'
   check "$agent review 输出契约" contains_all "$agent/skills/code-review/SKILL.md" 'Verdict: PASS | FAIL' 'file:line' 'Verification:' 'Unresolved:'

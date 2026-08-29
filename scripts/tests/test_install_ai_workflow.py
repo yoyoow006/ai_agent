@@ -22,6 +22,9 @@ INSTALLER = REPOSITORY_ROOT / "scripts" / "install-ai-workflow.sh"
 INSTALLER_MODULE = REPOSITORY_ROOT / "scripts" / "lib" / "install_ai_workflow.py"
 ASSET_ROOT = REPOSITORY_ROOT / "scripts" / "ai-workflow-assets"
 
+# 命令白名单唯一来源是 core 的 --print-external-commands;解析 helper 复用契约套件定义。
+from scripts.tests.test_validate_workflow import _core_external_commands  # noqa: E402
+
 SKILL_NAMES = (
     "archive", "build", "code-review", "design", "git-worktrees", "open",
     "parallel-agents", "subagent-driven", "systematic-debugging", "tdd",
@@ -60,13 +63,6 @@ EXPECTED_ASSET_PATHS = {
         *(f".claude/skills/{name}/SKILL.md" for name in SKILL_NAMES),
     ),
 }
-
-
-PORTABLE_VALIDATOR_COMMANDS = (
-    "awk", "bash", "cat", "cmp", "cp", "chmod", "dirname", "find", "git", "grep",
-    "head", "mktemp", "rm", "rmdir", "sed", "sort", "stat", "tail", "touch",
-    "tr", "wc",
-)
 
 
 def load_installer_module():
@@ -325,10 +321,33 @@ class AssistantSelectionTests(unittest.TestCase):
 
 
 class InstalledWorkflowValidationTests(unittest.TestCase):
+    def _shipped_contract_test_count(self) -> int:
+        """随包契约套件的用例数:从资产副本动态加载统计,避免硬编码漂移。"""
+        shipped = ASSET_ROOT / "shared" / "scripts" / "tests" / "test_validate_workflow.py"
+        spec = importlib.util.spec_from_file_location("shipped_contract_tests", shipped)
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        # 随包文件使用 @dataclass,其字段解析要求模块已注册进 sys.modules。
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        suite = unittest.defaultTestLoader.loadTestsFromModule(module)
+
+        def collect(test) -> int:
+            if isinstance(test, unittest.TestSuite):
+                return sum(collect(item) for item in test)
+            return 1
+
+        return collect(suite)
+
     def _restricted_environment(self, root: Path) -> dict[str, str]:
         binary_directory = root / "bin"
         binary_directory.mkdir()
-        for command in (*PORTABLE_VALIDATOR_COMMANDS, "python3"):
+        target_core = next(
+            path
+            for path in (root / "target", root)
+            if (path / "scripts" / "lib" / "validate-workflow-core.sh").is_file()
+        ) / "scripts" / "lib" / "validate-workflow-core.sh"
+        for command in (*_core_external_commands(target_core), "python3"):
             executable = sys.executable if command == "python3" else shutil.which(command)
             self.assertIsNotNone(executable, msg=f"missing test prerequisite: {command}")
             (binary_directory / command).symlink_to(executable)
@@ -400,8 +419,22 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
 
                 with self.subTest(assistant=assistant, command="contract"):
                     self.assertEqual(contract.returncode, 0, contract.stdout)
-                    self.assertIn("Ran 82 tests", contract.stdout)
-                    self.assertEqual(len(re.findall(r"\.\.\. skipped ", contract.stdout)), 2, contract.stdout)
+                    self.assertIn(f"Ran {self._shipped_contract_test_count()} tests", contract.stdout)
+                    # 只允许已知理由的 skip;出现新理由即失败,防止必需用例静默消失。
+                    allowed_skip_reasons = {
+                        "single-assistant installation lacks the compatibility fixture",
+                        "source installer unavailable; current selected side remains covered",
+                        "pre-push hook is not shipped with this installation",
+                        "CI pipeline configuration is source-repository only",
+                        "flock is required to exercise the concurrency lock",
+                        "flock is required to exercise the lock infrastructure path",
+                    }
+                    observed_skips = set(
+                        re.findall(r"\.\.\. skipped '([^']*)'", contract.stdout)
+                    )
+                    self.assertLessEqual(
+                        observed_skips, allowed_skip_reasons, contract.stdout
+                    )
                     self.assertRegex(
                         contract.stdout,
                         r"test_installer_selected_only_metadata_allows_core_validation .* \.\.\. ok",

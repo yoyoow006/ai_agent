@@ -52,6 +52,8 @@
 
 按触发条件加载 tdd、systematic-debugging、verification、git-worktrees、code-review、subagent-driven、parallel-agents、writing-skills；未命中条件不加载。
 
+宿主插件技能与仓库技能职责重叠时，以仓库技能为准；插件技能仅在仓库技能未覆盖的空缺时补充使用。
+
 ## 模式门禁
 
 - **Q1 快速**：没有权威事实核对、针对性验证和 diff 检查，不得声称完成。

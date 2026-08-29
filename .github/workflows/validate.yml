@@ -22,3 +22,5 @@ jobs:
         run: npm install -g @fission-ai/openspec@1.3.1
       - name: Validate workflow
         run: bash scripts/validate-workflow.sh --require-openspec
+      - name: Install workflow installer tests
+        run: python3 -B -m unittest -v scripts.tests.test_install_ai_workflow

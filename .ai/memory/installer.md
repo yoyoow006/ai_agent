@@ -127,3 +127,7 @@
 ## 2026-08-28 · 来源变更 add-installer-upgrade-path（InputError 重新打包陷阱）
 **坑**：`InputError` 继承自 `ValueError`，`except (UnicodeDecodeError, ValueError)` 会把 parser 内部抛的 `InputError`（如 `_unique_json_object` 的 duplicate-key 诊断）一并吞掉，重新打包成泛化的"is not valid JSON"，退出码不变但运维诊断全丢；`load_manifest` 用 `except InputError: raise` 显式穿透是正确的范式。
 **解**：项目内自定义异常类必须**先**于其继承的内建异常被 `except` 透传：`except InputError: raise` 放在 `except (UnicodeDecodeError, ValueError)` 之前；review 时重点扫描 parser/validator 的 except 链是否吞掉自定义诊断。fail-closed 存在性检查用 `os.lstat` 不用 `os.path.exists`（后者跟符号链接，dangle 也返回 False）。JSON 严格解析用 `object_pairs_hook=_unique_json_object` 检重键 + 白名单 key-set + `type(x) is int` 拒绝 `True == 1` 假版本号。
+
+## 2026-08-30 · 来源变更 harden-gate-coverage-and-tiers（importlib 动态加载随包测试）
+**坑**：importlib 按路径加载测试模块若不先 `sys.modules[spec.name] = module`，随包文件里的 @dataclass 在字段解析时取 `sys.modules.get(cls.__module__)` 得 None 直接 AttributeError；且不带 -B 运行会把 __pycache__ 写进资产目录，被"manifest 精确枚举物理资产"用例逮住。
+**解**：与仓库既有 load_installer_module 同款写法——先注册 sys.modules 再 exec_module；动态统计资产测试一律 PYTHONDONTWRITEBYTECODE=1/-B 调用；资产目录出现 __pycache__ 立即删除并排查调用方。

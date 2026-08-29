@@ -13,7 +13,7 @@
 | Codex 目标安装 | `openspec/specs/codex-workflow-target-installation/` | 外部目录安装、真实路径 | 非 Git 根、符号链接、AGENTS 备份、嵌套业务仓库、幂等安装 |
 | 测试登录项目 | `projects/test-login/` | 登录演示、随机验证 | PBKDF2、验证码、session token、一次性挑战 |
 | OpenSpec 数据层 | `openspec/` | 变更目录 | 模式字段、proposal、delta、tasks、plan、archive |
-| 工作流校验器 | `scripts/validate-workflow.sh` | 结构校验、回归守卫 | mutation、镜像、非法状态、旧重流程、假绿、required、OpenSpec strict、非 Git 根、PASS/FAIL/SKIP |
+| 工作流校验器 | `scripts/validate-workflow.sh`, `scripts/hooks/pre-push` | 结构校验、回归守卫、本地推送防护 | mutation、镜像、非法状态、旧重流程、假绿、required、OpenSpec strict、非 Git 根、PASS/FAIL/SKIP、--fast 分层、--print-external-commands、命令清单单一来源、flock 并发锁 |
 | 仓库忽略规则 | `.gitignore` | Git 忽略、本地路径 | `.worktrees`、`.codex/sdd`、`.claude/sdd`、外部项目 |
 | Git 仓库基线 | `.git/`, `.gitignore`, `openspec/specs/git-repository-baseline/` | 初始提交、main 基线 | root commit、git status、OpenSpec 基线、本地草稿忽略、独立远程授权 |
 | Git 基线安全 | `.git/`, `.gitignore`, `openspec/specs/git-baseline-secret-hygiene/` | secret scan、凭据清理、历史重建 | 字面凭据、reachable history、reflog、prune、外部轮换 |
