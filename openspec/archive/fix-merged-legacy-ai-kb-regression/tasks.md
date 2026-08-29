@@ -18,7 +18,7 @@
       验证:manifest 两次 `verify` 均 `VALID`;审查结论引用 manifest id;Critical/Important 全部关闭。(首轮 FAIL:VQ-C01 Critical 经核实为真——codex 侧 3 条独有条目未迁;cdcf5a2 修复后重冻结 1bddc094 差异复审通过,VQ-C01 resolved、无新增 finding;台账见 review-findings.md)
 - [x] 4.1 终验:主会话现跑 `bash scripts/validate-workflow.sh`(全绿)与 `git diff --check`;状态置`待归档`并提交审查修复。
       验证:退出码 0、FAIL=0;`状态: 待归档` 已提交。(fda139b 树上 FINAL_EXIT=0、PASS=185 FAIL=0;diff --check 干净;finding 台账 Critical=0 未决)
-- [ ] 5.1 归档:delta 合并入 `openspec/specs/shared-ai-workflow-infrastructure/spec.md`(MODIFIED 整体替换,含新增场景);proposal `状态: 已归档`;目录移入 `openspec/archive/`;归档后现跑 `bash scripts/validate-workflow.sh` 全绿;`git add openspec/ .ai/ && git commit -m "chore(archive): fix-merged-legacy-ai-kb-regression"`。
-      验证:主规格含新场景"合并复活已删除的旧正文";archive 目录就位;校验 FAIL=0。
+- [x] 5.1 归档:delta 合并入 `openspec/specs/shared-ai-workflow-infrastructure/spec.md`(MODIFIED 整体替换,含新增场景);proposal `状态: 已归档`;目录移入 `openspec/archive/`;归档后现跑 `bash scripts/validate-workflow.sh` 全绿;`git add openspec/ .ai/ && git commit -m "chore(archive): fix-merged-legacy-ai-kb-regression"`。
+      验证:主规格含新场景"合并复活已删除的旧正文";archive 目录就位;校验 FAIL=0。(主规格场景已并入;目录已移动;知识三写按需完成——memory 已沉淀逐侧计数教训,kb/rules 无稳定事实变化;提交前归档后校验结果记录于归档提交信息)
 - [ ] 6.1 整合:按已确认策略本地 `--no-ff` 合回 main,合并结果上复跑 `bash scripts/validate-workflow.sh` 全绿;推送 origin/main 等待用户单独授权。
       验证:main HEAD 为合并提交;校验退出码 0、FAIL=0;未执行任何 push。
