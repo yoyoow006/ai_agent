@@ -19,3 +19,4 @@
 - `split-shared-memory-by-module` — 共享 memory 按模块拆分:安装器域 32 条移入 installer.md(标准)
 - `harden-gate-coverage-and-tiers` — 门禁覆盖、分层与自防护：安装器套件入 CI、命令清单单一来源、--fast、flock、pre-push、技能仲裁(严格)
 - `remove-stale-workflow-system-spec` — 移除迁移遗留的五阶段旧规格(严格)
+- `fix-install-workflow-legacy-ai-kb` — 修复 bash 安装器残留旧 ai-kb 布局导致安装必然失败：资产树单一来源、双运行时目标模型定型、--fast 自检分层、旧布局自愈(标准)
