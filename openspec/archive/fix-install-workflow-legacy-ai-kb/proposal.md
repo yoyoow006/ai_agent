@@ -1,7 +1,7 @@
 # 修复 install-workflow.sh 残留旧 ai-kb 布局导致安装必然失败
 
 模式: 标准
-状态: 待验证
+状态: 已归档
 
 ## Why
 
