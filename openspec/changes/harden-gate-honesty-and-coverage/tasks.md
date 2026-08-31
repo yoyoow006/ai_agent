@@ -9,7 +9,7 @@
   - fixture 中 `.codex/skills/parallel-agents/SKILL.md` 注记注入 `multi_agent_v1__spawn_agent` → 运行 core 必须出现对应 `[FAIL]`；
   - fixture 中资产树副本注入 `send_input` → `[FAIL]`；
   - 注记缺 `wait_agent`（替换为任意非现行名）→ `[FAIL]`。
-- 验证：`python3 -m unittest -v scripts.tests.test_validate_workflow` 新用例红（FAIL 项缺失导致断言失败），其余不回归。
+- 验证：`python3 -B -m unittest -v scripts.tests.test_validate_workflow` 新用例红（FAIL 项缺失导致断言失败），其余不回归。
 
 ## 2. [x] 红：归档索引完整性测试
 
@@ -45,8 +45,8 @@
 >
 > 第三轮 1 失败（claude+contract）：安装器测试的跳过理由白名单拦截了新理由 `codex assistant is not present in this fixture`（note 测试在 claude-only 目标的设计性跳过）。诊断运行证实差异集恰为该理由；已按白名单机制显式登记（`test_install_ai_workflow.py:426`）。该文件为源仓专属，无资产副本需要同步。
 
-- `python3 -m unittest -v scripts.tests.test_validate_workflow` → 全绿；
-- `python3 -m unittest -v scripts.tests.test_install_ai_workflow` → 全绿（资产一致性受其保护）；
+- `python3 -B -m unittest -v scripts.tests.test_validate_workflow` → 全绿；
+- `python3 -B -m unittest -v scripts.tests.test_install_ai_workflow` → 全绿（资产一致性受其保护；`-B` 必需——无 `-B` 时 `exec_module` 会把 `__pycache__` 写进资产树令物理枚举必败，审查 F-1 指出的基线既有陷阱）；
 - `bash scripts/validate-workflow.sh` → 全 PASS、`SKIP=0`、无内部跳过注解（源仓契约套件零跳过）；
 - `bash scripts/validate-workflow.sh --fast` → 行为不变（无注解、无新检查异常）。
 - 预期结果：全部退出码 0。
