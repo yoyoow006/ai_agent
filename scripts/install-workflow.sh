@@ -181,8 +181,10 @@ if ! grep -qxF '# >>> install-workflow.sh >>>' "$gi"; then
   printf '%s\n' \
     '# >>> install-workflow.sh >>>' \
     '/.ai-local/' \
-    '/.codex/sdd/' \
-    '/.claude/sdd/' \
+    '/.codex/sdd/*' \
+    '!/.codex/sdd/.gitkeep' \
+    '/.claude/sdd/*' \
+    '!/.claude/sdd/.gitkeep' \
     '/.worktrees/' \
     '__pycache__/' \
     '*.py[cod]' \

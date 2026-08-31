@@ -66,10 +66,23 @@ class FreshInstallTests(unittest.TestCase):
             # project.md 是通用占位版而非本仓库业务描述
             project_md = (target / "openspec/project.md").read_text(encoding="utf-8")
             self.assertIn("项目上下文", project_md)
-            # .gitignore 标记块幂等落位（含 Python 缓存与草稿区规则）
+            # .gitignore 标记块幂等落位（含 Python 缓存与草稿区规则；
+            # sdd 用星形式+反例，保证随包 .gitkeep 可入库、克隆后骨架目录不丢）
             gitignore = (target / ".gitignore").read_text(encoding="utf-8")
-            for rule in ("/.ai-local/", "/.worktrees/", "__pycache__/", "*.py[cod]"):
+            for rule in (
+                "/.ai-local/",
+                "/.worktrees/",
+                "__pycache__/",
+                "*.py[cod]",
+                "/.codex/sdd/*",
+                "!/.codex/sdd/.gitkeep",
+                "/.claude/sdd/*",
+                "!/.claude/sdd/.gitkeep",
+            ):
                 self.assertIn(rule, gitignore, msg=f".gitignore 缺规则: {rule}")
+            # 目录式规则会让 .gitkeep 不可入库（克隆后 sdd 目录缺失、core 自检红）
+            self.assertNotIn("/.codex/sdd/\n", gitignore, msg="sdd 不得用目录式忽略")
+            self.assertNotIn("/.claude/sdd/\n", gitignore, msg="sdd 不得用目录式忽略")
             # 双运行时目标模型：不生成 profile、不随附便携安装器（源仓标记），
             # 装后自检为 --fast 秒级 core 校验
             self.assertFalse(

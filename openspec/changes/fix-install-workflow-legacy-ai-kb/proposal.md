@@ -29,7 +29,7 @@
 
 - 变更文件：`scripts/install-workflow.sh`、`scripts/tests/test_install_workflow.py`、本变更四件套；不改 Python 安装器与校验器行为。
 - 触及安装资产 → Verify 终验与归档后验证使用**全量门禁**（非 `--fast`）。
-- 用户影响：README"方式二"第一条命令恢复可用；已用旧命令半装的目标项目重跑即修复（资产幂等、memory 不覆盖）。
+- 用户影响：README"方式二"第一条命令恢复可用；已用旧命令半装的目标项目**重跑并加 `--force`** 即修复（冲突文件逐个备份后补齐；memory 不覆盖；迁移前旧布局残留同样走 `--force` 整目录备份自愈）。
 
 ## 本地整合策略
 
