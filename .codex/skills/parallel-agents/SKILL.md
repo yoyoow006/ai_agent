@@ -5,7 +5,7 @@ description: 用于面对 2 个及以上互相独立、无共享状态、无顺�
 
 # 派发并行代理
 
-> **Codex 执行环境：** 本文的「派发子代理」一律用 `multi_agent_v1__spawn_agent`（`fork_context: false`，全新上下文）执行；续发追问用 `send_input`，收结果用 `wait_agent`，用完 `close_agent`。工具映射见 `.codex/README.md`。
+> **Codex 执行环境：** 本文的「派发子代理」一律用 `spawn_agent`（`fork_turns: "none"`，全新上下文）执行；续发追问用 `followup_task`（仅传消息用 `send_message`），收结果用 `wait_agent`。工具映射见 `.codex/README.md`。
 
 ## 概述
 
