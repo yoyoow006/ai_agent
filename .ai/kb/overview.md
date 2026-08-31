@@ -8,7 +8,7 @@
 - `.ai/`：助手共享的 kb（稳定事实）、memory（踩坑）、rules（路由）、prompts 与只读 tools。
 - `.codex/sdd/` / `.claude/sdd/`：仅在确需子代理时使用的本地草稿区，Git 忽略。
 - `openspec/`：标准/严格变更的数据层，与 Claude 共享。
-- `scripts/validate-workflow.sh`：结构、镜像、禁止规则和 mutation 回归校验；`--fast` 仅跑秒级 core（标准 Verify 分层），默认全量，严格恒 `--require-openspec`；flock 串行化并发，`scripts/hooks/pre-push` 提供自愿启用的本地推送防护。
+- `scripts/validate-workflow.sh`：结构、镜像、禁止规则和 mutation 回归校验；`--fast` 仅跑秒级 core（标准 Verify 分层），默认全量，严格恒 `--require-openspec`；flock 串行化并发，`scripts/hooks/pre-push` 提供自愿启用的本地推送防护。core 另守卫：废弃工具名零残留（技能树/`.codex/README.md`/资产树 `*.md`/`*.toml`）、parallel-agents 注记现行工具名、归档索引与目录 1:1；wrapper 在汇总行前透传契约套件内部设计性跳过明细（不改顶层计数）。
 - `projects/test-login/`：离线 Python 标准库登录与随机验证演示，不承载共享业务项目事实。
 
 本总览合并了原 Claude 风险摘要与 Codex 模块/底线信息；助手特有工具行为仍留在各自适配目录。

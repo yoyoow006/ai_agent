@@ -110,3 +110,19 @@
 ## 2026-08-30 · 来源变更 harden-gate-coverage-and-tiers（目标内与源仓的测试环境差异）
 **坑**：同一份契约测试在源仓与安装目标内运行环境不同：目标受限 PATH 无 flock、无 .github、单助手只有一侧入口/技能——硬编码两侧路径或依赖 flock 的用例在目标内报 FileNotFoundError/假失败。
 **解**：随包用例必须按环境自适应：文件存在性 continue、flock 缺失 skipTest（理由登记进目标侧白名单）、源仓特有断言以 install_ai_workflow.py 存在为源仓标志；目标侧 skip 断言用"已知理由集合"而非精确计数（类继承会放大同类 skip）。
+
+## 2026-08-31 · 来源变更 harden-gate-honesty-and-coverage（校验器自扫描）
+**坑**：新增"废弃工具名零残留"扫描覆盖 scripts/ai-workflow-assets 时，资产树里的校验器自身副本含 token 清单字面量——检查扫到自己必红（自引用）
+**解**：扫描限定 --include='*.md'/'*.toml'（契约对象是指导正文非可执行源码），天然排除 .sh；新增内容扫描类检查先想"扫描器自己的源码在不在范围内"
+
+## 2026-08-31 · 来源变更 harden-gate-honesty-and-coverage（shell 检查函数返回值）
+**坑**：retired_tool_names_absent 以 for 循环内 grep -q 收尾，无命中时末条 grep 退出码 1 直接成为函数返回值——检查恒 FAIL，注入类测试照样绿（有命中也 return 1），只有干净环境用例才暴露
+**解**：check 用的 shell 函数必须显式收尾 return 0；"注入必红"用例必须配"干净必绿"用例成对写，否则拦不住恒 FAIL 型假检查
+
+## 2026-08-31 · 来源变更 harden-gate-honesty-and-coverage（随包用例不得假设源仓结构）
+**坑**：test_rejects_archive_index_drift 初版直接读 fixture 的 openspec/archive/README.md——源仓有该文件，但安装目标按设计是空白基线（只有 .gitkeep），目标内套件 FileNotFoundError 连带 contract/public/required 三变体失败
+**解**：随包契约用例对仓库结构的任何假设都要自包含构造（备份/恢复整个目录 + 合成受控状态），不依赖"源仓恰好有"；新增用例必须在安装器套件（目标环境）里过一遍才算绿
+
+## 2026-08-31 · 来源变更 harden-gate-honesty-and-coverage（跳过理由白名单登记）
+**坑**：新增条件 skipTest（"codex assistant is not present in this fixture"）在 claude-only 安装目标触发，被 test_install_ai_workflow 的 allowed_skip_reasons 白名单拦截（"出现新理由即失败"是防用例静默消失的守卫，设计如此）
+**解**：随包套件每新增一个 skipTest 理由，必须同步登记进该白名单——这是显式登记机制而非障碍；子代理修此类失败时先看差异集是否恰为未登记理由
