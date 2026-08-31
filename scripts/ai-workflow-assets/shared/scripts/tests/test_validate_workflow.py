@@ -979,6 +979,144 @@ class ValidateWorkflowContractTest(unittest.TestCase):
             self._primary_entry(), "所有任务必须调用角色代理后才能开始。"
         )
 
+    def test_rejects_retired_codex_tool_names(self) -> None:
+        cases = (
+            (".codex/skills/parallel-agents/SKILL.md", "multi_agent_v1__spawn_agent"),
+            (".claude/skills/parallel-agents/SKILL.md", "close_agent"),
+            ("scripts/ai-workflow-assets/codex/.codex/skills/parallel-agents/SKILL.md", "send_input"),
+            (".codex/README.md", "fork_context"),
+        )
+        for relative_path, token in cases:
+            target = self.fixture / relative_path
+            if not target.is_file():
+                # 单助手安装目标没有另一侧路径；该例天然无法注入。
+                continue
+            with self.subTest(path=relative_path, token=token):
+                original = target.read_text(encoding="utf-8")
+                target.write_text(
+                    f"{original}\n旧工具 `{token}` 残留示例。\n", encoding="utf-8"
+                )
+                try:
+                    result = self._run_validator()
+                    self.assertNotEqual(result.returncode, 0, msg=result.stdout)
+                    self.assertIn("[FAIL] 废弃工具名零残留", result.stdout)
+                finally:
+                    target.write_text(original, encoding="utf-8")
+
+    def test_rejects_parallel_agents_note_without_current_tool_names(self) -> None:
+        relative_path = ".codex/skills/parallel-agents/SKILL.md"
+        if not (self.fixture / relative_path).is_file():
+            self.skipTest("codex assistant is not present in this fixture")
+        target = self.fixture / relative_path
+        original = target.read_text(encoding="utf-8")
+        self.assertIn("wait_agent", original)
+        target.write_text(
+            original.replace("wait_agent", "wait_legacy"), encoding="utf-8"
+        )
+        try:
+            result = self._run_validator()
+            self.assertNotEqual(result.returncode, 0, msg=result.stdout)
+            self.assertIn("[FAIL] 注记现行工具名", result.stdout)
+        finally:
+            target.write_text(original, encoding="utf-8")
+
+    def test_rejects_archive_index_drift(self) -> None:
+        # 自包含受控归档：不依赖源仓 README（安装目标按设计没有该文件）。
+        archive = self.fixture / "openspec/archive"
+        backup = tempfile.TemporaryDirectory()
+        self.addCleanup(backup.cleanup)
+        shutil.move(str(archive), backup.name)
+        archive.mkdir()
+        readme = archive / "README.md"
+        index_line = "- `alpha-change` — 受控归档(标准)\n"
+        try:
+            # 完好状态：目录与索引 1:1，校验必须通过。
+            (archive / "alpha-change").mkdir()
+            readme.write_text(
+                f"# 归档变更索引\n\n{index_line}", encoding="utf-8"
+            )
+            result = self._run_validator()
+            self.assertEqual(result.returncode, 0, msg=result.stdout)
+
+            def expect_index_fail() -> None:
+                result = self._run_validator()
+                self.assertNotEqual(result.returncode, 0, msg=result.stdout)
+                self.assertIn("[FAIL] 归档索引与目录 1:1", result.stdout)
+
+            # 缺失：索引行被删。
+            readme.write_text("# 归档变更索引\n", encoding="utf-8")
+            expect_index_fail()
+            # 悬空：索引指向不存在的目录。
+            readme.write_text(
+                f"# 归档变更索引\n\n{index_line}- `ghost-change` — 不存在(标准)\n",
+                encoding="utf-8",
+            )
+            expect_index_fail()
+            # 重复：同一目录两行索引。
+            readme.write_text(
+                f"# 归档变更索引\n\n{index_line}{index_line}", encoding="utf-8"
+            )
+            expect_index_fail()
+        finally:
+            shutil.rmtree(archive, ignore_errors=True)
+            shutil.move(str(Path(backup.name) / "archive"), str(archive.parent))
+
+    def test_empty_archive_without_index_still_passes(self) -> None:
+        archive = self.fixture / "openspec/archive"
+        backup = tempfile.TemporaryDirectory()
+        self.addCleanup(backup.cleanup)
+        shutil.move(str(archive), backup.name)
+        archive.mkdir()
+        try:
+            result = self._run_validator()
+            self.assertEqual(result.returncode, 0, msg=result.stdout)
+        finally:
+            shutil.rmtree(archive, ignore_errors=True)
+            shutil.move(
+                str(Path(backup.name) / "archive"), str(archive.parent)
+            )
+
+    def test_public_entry_surfaces_contract_suite_internal_skips(self) -> None:
+        contract_test = self.fixture / "scripts/tests/test_validate_workflow.py"
+        contract_test.write_text(
+            "import unittest\n\n"
+            "class InstalledContract(unittest.TestCase):\n"
+            "    def test_ok(self):\n"
+            "        self.assertTrue(True)\n\n"
+            "    def test_skipped(self):\n"
+            "        self.skipTest('source-repository only')\n",
+            encoding="utf-8",
+        )
+        # 默认 stub 只处理 profile 解析；这里让契约套件真正跑起来，
+        # 但 tools discover 仍走 stub（保持秒级）。
+        self._write_executable(
+            "python3",
+            "#!/bin/sh\n"
+            "if test \"$1\" = \"-B\" && test \"$2\" = \"-c\"; then\n"
+            f"  exec {sys.executable} \"$@\"\n"
+            "fi\n"
+            "if test \"$1\" = \"-B\" && test \"$2\" = \"-m\" && test \"$4\" != \"discover\"; then\n"
+            f"  exec {sys.executable} \"$@\"\n"
+            "fi\n"
+            "exit 0\n",
+        )
+        environment = {"LC_ALL": "C.UTF-8", "PATH": str(self.stub_bin)}
+        result = subprocess.run(
+            ["/usr/bin/bash", "scripts/validate-workflow.sh"],
+            cwd=self.fixture,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            timeout=120,
+        )
+        self.assertEqual(result.returncode, 0, msg=result.stdout)
+        self.assertIn("契约套件内部设计性跳过 1 项", result.stdout)
+        self.assertIn("source-repository only", result.stdout)
+        # 汇总行保持末行，SKIP 字段不含套件内部跳过（openspec stub 仍为 1）。
+        self.assertRegex(result.stdout, r"PASS=\d+ FAIL=0 SKIP=1\s*\Z")
+
 
 class WorkflowInstalledPortabilityRegressionTests:
     def _select_only(self, assistant: str) -> None:

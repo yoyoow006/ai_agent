@@ -423,6 +423,7 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
                     # 只允许已知理由的 skip;出现新理由即失败,防止必需用例静默消失。
                     allowed_skip_reasons = {
                         "single-assistant installation lacks the compatibility fixture",
+                        "codex assistant is not present in this fixture",
                         "source installer unavailable; current selected side remains covered",
                         "pre-push hook is not shipped with this installation",
                         "CI pipeline configuration is source-repository only",
