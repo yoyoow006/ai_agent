@@ -1,7 +1,7 @@
 # 修复 install-workflow.sh 残留旧 ai-kb 布局导致安装必然失败
 
 模式: 标准
-状态: 待确认计划
+状态: 待验证
 
 ## Why
 
@@ -19,9 +19,11 @@
 ## What Changes
 
 - 重构 `scripts/install-workflow.sh` 的资产复制段：源从"手维护的仓库活动树路径"改为 `scripts/ai-workflow-assets/{shared,claude,codex}` 资产树整体复制（与 Python 安装器同一单一来源，不解析 manifest.json，保持零依赖），使布局迁移后悬空引用在结构上不可能。
-- 保留既有契约：冲突默认中止/`--force` 逐文件 `<原名>.bak` 备份、memory 永不覆盖（扩展到 `.ai/memory/`）、无效目标退出码 2、装后自检全绿才算成功。
-- 新增 `scripts/tests/test_install_workflow.py` 回归测试（空装/无效目标/无参/冲突中止/--force/memory 保护），补齐该脚本零覆盖的缺口。
-- delta 修订 `workflow-installer` 规格：资产清单对齐当前布局（`.ai/` 通用共享层 + 兼容重定向入口 + 校验套件含 lib/tests），Purpose 措辞随归档合并更新。
+- **双运行时目标模型定型**（2026-08-31 构建中两次证据驱动重确认，用户终选"保留双装+自检降层"）：不生成 `.ai/assistant-profile.json`、不随附便携安装器文件（`scripts/lib/install_ai_workflow.py` 是随包套件的源仓标记，随附即被要求成为完整源仓）；装后自检改跑 `--fast` 秒级 core 结构校验，完整契约套件归源仓 CI。曾实测否决两方案："生成规范侧 profile"（随包套件 2 例失败放大为 10 例）、"附带便携安装器三件"（撞源仓标记：要求 git 已提交钩子与 CI 配置）。
+- 迁移前旧布局残留（`ai-kb/{kb,rules,memory}` 含正文）：无 `--force` 明确中止指引，有 `--force` 整目录备份 `ai-kb.bak/` 后重装重定向入口——否则目标校验器 `legacy_ai_kb_body_absent` 必红。
+- 保留既有契约：冲突默认中止/`--force` 逐文件 `<原名>.bak` 备份、memory 永不覆盖（`.ai/memory/`）、无效目标退出码 2、装后自检全绿才算成功。
+- 新增 `scripts/tests/test_install_workflow.py` 契约测试 7 例（空装/无效目标/无参/--help/冲突中止/--force+memory 保护/旧布局残留）并挂入源仓 CI（`validate.yml` 新增步骤），补齐零覆盖缺口。
+- delta 修订 `workflow-installer` 规格：资产清单对齐当前布局（`.ai/` 通用共享层 + 兼容重定向入口 + 校验套件含 lib/tests）、装后自检分层为 `--fast`、新增旧布局残留场景；Purpose 措辞随归档合并更新。
 
 ## Impact
 
