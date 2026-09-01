@@ -434,6 +434,53 @@ mirror_equal() {
   return "$result"
 }
 
+# 已废弃工具名零残留：登记数守卫只管注记有几条，本检查管内容——
+# 技能树、Codex 工具映射权威 README 与安装器资产树（存在时）的文档正文
+# （*.md/*.toml）出现任一废弃 token 即视为对现行映射的漂移。
+# 限定文档后缀同时避免命中校验器自身副本里的 token 清单字面量（自引用）。
+retired_tool_names_absent() {
+  local candidates=(.codex/skills .claude/skills .codex/README.md scripts/ai-workflow-assets)
+  local targets=() path token
+  for path in "${candidates[@]}"; do
+    test -e "$path" && targets+=("$path")
+  done
+  test "${#targets[@]}" -gt 0 || return 0
+  for token in 'multi_agent_v1__spawn_agent' 'send_input' 'close_agent' 'fork_context'; do
+    grep -R -F -q --include='*.md' --include='*.toml' \
+      -e "$token" -- "${targets[@]}" && return 1
+  done
+  return 0
+}
+
+# Codex 侧 parallel-agents 技能必须含现行派发工具名，与 .codex/README.md 映射一致。
+adapter_note_tools_ok() {
+  contains_all .codex/skills/parallel-agents/SKILL.md \
+    'spawn_agent' 'followup_task' 'send_message' 'wait_agent' 'fork_turns'
+}
+
+# 归档索引与目录严格 1:1：缺失、悬空、重复都视为归档数据不完整。
+# 空归档且无 README（安装目标空白基线）为 vacuous 通过。
+archive_index_ok() {
+  local readme=openspec/archive/README.md
+  local dirs entries
+  dirs="$(mktemp)" || return 1
+  entries="$(mktemp)" || { rm -f "$dirs"; return 1; }
+  find openspec/archive -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort >"$dirs"
+  if test -s "$dirs" && ! test -f "$readme"; then
+    rm -f "$dirs" "$entries"
+    return 1
+  fi
+  if test -f "$readme"; then
+    sed -n 's/^- `\([^`]*\)`.*/\1/p' "$readme" | sort >"$entries"
+    if awk 'seen[$0]++ { found = 1 } END { exit !found }' "$entries"; then
+      rm -f "$dirs" "$entries"
+      return 1
+    fi
+    cmp -s "$dirs" "$entries" || { rm -f "$dirs" "$entries"; return 1; }
+  fi
+  rm -f "$dirs" "$entries"
+}
+
 required_agents=()
 required_docs=()
 assistant_required claude && required_agents+=(.claude) && required_docs+=(CLAUDE.md)
@@ -538,6 +585,8 @@ for agent in "${required_agents[@]}"; do
   check "$agent worktree 风险触发" contains_all "$agent/skills/git-worktrees/SKILL.md" '快速模式' '标准模式' '严格模式' '脏工作区'
 done
 
+check "归档索引与目录 1:1" archive_index_ok
+
 check "共享 Review 规则" contains_all .ai/rules/review.md 'review_manifest.py verify' 'STALE' 'accepted-risk' '未验证范围' '残余风险'
 for role in explorer reviewer test-worker; do
   check "共享角色契约: $role" test -f ".ai/prompts/agents/$role.md"
@@ -566,6 +615,11 @@ if assistant_required codex && assistant_required claude; then
     check "双套语义镜像: $skill" mirror_equal "$skill"
   done
   check "适配注记登记数" adapter_note_registry_ok
+fi
+
+check "废弃工具名零残留" retired_tool_names_absent
+if assistant_required codex; then
+  check "注记现行工具名" adapter_note_tools_ok
 fi
 
 primary_doc="${required_docs[0]}"

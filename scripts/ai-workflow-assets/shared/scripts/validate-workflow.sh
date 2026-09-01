@@ -83,6 +83,13 @@ fi
 if python3 -B -m unittest -v scripts.tests.test_validate_workflow >"$contract_output" 2>&1; then
   printf "[PASS] 工作流顶层契约测试\n"
   pass_count=$((pass_count + 1))
+  # 透明化：套件整体计 1 个门禁检查，但内部设计性跳过（如源仓专属的
+  # CI/pre-push 检查）必须在汇总前逐条可见；不计入顶层 SKIP 字段。
+  contract_skips="$(grep -c '\.\.\. skipped' "$contract_output")"
+  if test "$contract_skips" -gt 0; then
+    printf "  契约套件内部设计性跳过 %d 项（源仓专属能力；不影响门禁计数）:\n" "$contract_skips"
+    grep '\.\.\. skipped' "$contract_output" | sed 's/^/  - /'
+  fi
 else
   printf "[FAIL] 工作流顶层契约测试\n"
   fail_count=$((fail_count + 1))
