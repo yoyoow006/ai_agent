@@ -69,7 +69,7 @@ description: 用于遇到任何缺陷、测试失败或意外行为时，在提�
 
 4. **在多组件系统中收集证据**
 
-   **当系统有多个组件时（CI → 构建 → 签名，API → 服务 → 数据库）：**
+   **当系统有多个组件时（安装入口 → 安装库 → 目标环境 → 校验器）：**
 
    **在提出修复之前，先加诊断埋点：**
    ```
@@ -84,32 +84,26 @@ description: 用于遇到任何缺陷、测试失败或意外行为时，在提�
    然后专门调查那个组件
    ```
 
-   **示例（多层系统）：**
+   **示例（本仓库安装器链路）：**
    ```bash
-   # 第 1 层：Workflow
-   echo "=== Workflow 中可用的密钥： ==="
-   echo "IDENTITY: ${IDENTITY:+SET}${IDENTITY:-UNSET}"
+   # 第 1 层：安装入口（shell）
+   bash -x scripts/install-workflow.sh --dry-run 2>&1 | tail -5
 
-   # 第 2 层：构建脚本
-   echo "=== 构建脚本中的环境变量： ==="
-   env | grep IDENTITY || echo "IDENTITY not in environment"
+   # 第 2 层：安装库（python）
+   python3 -c "import json; m=json.load(open('scripts/ai-workflow-assets/manifest.json')); print(len(m['claude']), 'claude 条目')"
 
-   # 第 3 层：签名脚本
-   echo "=== 钥匙串状态： ==="
-   security list-keychains
-   security find-identity -v
+   # 第 3 层：目标环境（git/权限）
+   ls -ld "$TARGET/.ai" 2>/dev/null; test -w "$TARGET" && echo "目标可写"
 
-   # 第 4 层：实际签名
-   codesign --sign "$IDENTITY" --verbose=4 "$APP"
+   # 第 4 层：装后校验
+   cd "$TARGET" && bash scripts/validate-workflow.sh --fast 2>&1 | tail -3
    ```
 
-   **这能揭示：** 哪一层失败（密钥 → workflow ✓，workflow → 构建 ✗）
+   **这能揭示：** 哪一层失败（入口参数 → ✓，资产清单 → ✓，目标权限 → ✗）
 
 5. **追踪数据流**
 
    **当错误深藏于调用栈时：**
-
-   根因回溯（root-cause-tracing）是源技能的伴生文档，此伴生文档未随本仓库迁移，核心规则已内联于下文速记版。
 
    **速记版：**
    - 坏值从哪里产生？
@@ -242,7 +236,7 @@ description: 用于遇到任何缺陷、测试失败或意外行为时，在提�
 - "这不是没在发生吗？"——你假设了但没验证
 - "它会给我们看……吗？"——你早该加证据收集
 - "别猜了"——你在没理解的情况下提修复
-- "Ultra-think 这个"——质疑根本问题，不只是症状
+- "深度推演这个"——质疑根本问题，不只是症状
 - "我们卡住了？"（沮丧）——你的思路没在工作
 
 **看到这些信号：停下。回到阶段 1。**
@@ -282,7 +276,7 @@ description: 用于遇到任何缺陷、测试失败或意外行为时，在提�
 
 ## 辅助技术
 
-以下技术属于系统化调试的一部分，其完整伴生文档未随本仓库迁移，核心规则已内联（根因回溯速记版见阶段 1）：
+以下技术属于系统化调试的一部分，核心规则已内联（根因回溯速记版见阶段 1）：
 
 - **root-cause-tracing（根因回溯）**——沿调用栈向后追踪缺陷，找到最初的触发点
 - **defense-in-depth（纵深防御）**——找到根因后，在多个层上加校验
