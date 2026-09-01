@@ -407,9 +407,11 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
         return {"LC_ALL": "C.UTF-8", "PATH": str(binary_directory)}
 
     def _run_target(self, target: Path, environment: dict[str, str], *command: str):
+        # 默认 900 秒覆盖全量门禁耗时（基线 ~350 秒 + 校验器扩守卫后 ~400 秒，2x 裕度）。
+        # 原 240 秒是仓库初始化时设定的，会随契约套件增长与守卫新增先于该值——预存失配。
         return subprocess.run(
             list(command), cwd=target, env=environment, text=True,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False, timeout=240,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False, timeout=900,
         )
 
     def _git_identity(self, target: Path):
