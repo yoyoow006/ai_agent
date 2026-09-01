@@ -1020,6 +1020,87 @@ class ValidateWorkflowContractTest(unittest.TestCase):
         finally:
             target.write_text(original, encoding="utf-8")
 
+    def test_rejects_migration_notes_in_guarded_skills(self) -> None:
+        guarded = (
+            ".claude/skills/writing-skills/SKILL.md",
+            ".codex/skills/writing-skills/SKILL.md",
+            ".claude/skills/parallel-agents/SKILL.md",
+            ".codex/skills/parallel-agents/SKILL.md",
+            ".claude/skills/systematic-debugging/SKILL.md",
+            ".codex/skills/systematic-debugging/SKILL.md",
+        )
+        for relative_path in guarded:
+            target = self.fixture / relative_path
+            if not target.is_file():
+                # 单助手安装目标没有另一侧路径；该例天然无法注入。
+                continue
+            with self.subTest(path=relative_path):
+                original = target.read_text(encoding="utf-8")
+                target.write_text(
+                    f"{original}\n（源技能伴生文档未随本仓库迁移，此处注记。）\n",
+                    encoding="utf-8",
+                )
+                try:
+                    result = self._run_validator()
+                    self.assertNotEqual(result.returncode, 0, msg=result.stdout)
+                    self.assertIn("[FAIL] 技能迁移注记零残留", result.stdout)
+                finally:
+                    target.write_text(original, encoding="utf-8")
+
+    def test_rejects_writing_skills_without_char_metric(self) -> None:
+        for relative_path in (
+            ".claude/skills/writing-skills/SKILL.md",
+            ".codex/skills/writing-skills/SKILL.md",
+        ):
+            target = self.fixture / relative_path
+            if not target.is_file():
+                continue
+            agent = relative_path.split("/")[0]
+            with self.subTest(path=relative_path):
+                original = target.read_text(encoding="utf-8")
+                self.assertIn("tr -d", original)
+                self.assertIn("wc -m", original)
+                target.write_text(
+                    original.replace("tr -d", "wc -w"), encoding="utf-8"
+                )
+                try:
+                    result = self._run_validator()
+                    self.assertNotEqual(result.returncode, 0, msg=result.stdout)
+                    self.assertIn(
+                        f"[FAIL] {agent} writing-skills 字符口径锚串",
+                        result.stdout,
+                    )
+                finally:
+                    target.write_text(original, encoding="utf-8")
+
+    def test_rejects_writing_skills_without_scenario_binding(self) -> None:
+        for relative_path in (
+            ".claude/skills/writing-skills/SKILL.md",
+            ".codex/skills/writing-skills/SKILL.md",
+        ):
+            target = self.fixture / relative_path
+            if not target.is_file():
+                continue
+            agent = relative_path.split("/")[0]
+            with self.subTest(path=relative_path):
+                original = target.read_text(encoding="utf-8")
+                self.assertIn("workflow-pressure-scenarios.md", original)
+                target.write_text(
+                    original.replace(
+                        "workflow-pressure-scenarios.md", "scenario-file.md"
+                    ),
+                    encoding="utf-8",
+                )
+                try:
+                    result = self._run_validator()
+                    self.assertNotEqual(result.returncode, 0, msg=result.stdout)
+                    self.assertIn(
+                        f"[FAIL] {agent} writing-skills 场景重跑绑定",
+                        result.stdout,
+                    )
+                finally:
+                    target.write_text(original, encoding="utf-8")
+
     def test_rejects_archive_index_drift(self) -> None:
         # 自包含受控归档：不依赖源仓 README（安装目标按设计没有该文件）。
         archive = self.fixture / "openspec/archive"
