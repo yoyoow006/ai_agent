@@ -458,6 +458,21 @@ adapter_note_tools_ok() {
     'spawn_agent' 'followup_task' 'send_message' 'wait_agent' 'fork_turns'
 }
 
+# 受守护技能（writing-skills/parallel-agents/systematic-debugging）双树正文
+# 不得残留对未随仓库迁移源文档的叙事性注记。只检查显式 SKILL.md 清单——
+# 主规格与 memory 合法含该字样，不得递归扫描误伤。
+skill_migration_notes_absent() {
+  local agent skill
+  for agent in "${required_agents[@]}"; do
+    for skill in writing-skills parallel-agents systematic-debugging; do
+      if grep -Fq -e "未随本仓库迁移" -- "$agent/skills/$skill/SKILL.md" 2>/dev/null; then
+        return 1
+      fi
+    done
+  done
+  return 0
+}
+
 # 归档索引与目录严格 1:1：缺失、悬空、重复都视为归档数据不完整。
 # 空归档且无 README（安装目标空白基线）为 vacuous 通过。
 archive_index_ok() {
@@ -621,6 +636,11 @@ check "废弃工具名零残留" retired_tool_names_absent
 if assistant_required codex; then
   check "注记现行工具名" adapter_note_tools_ok
 fi
+check "技能迁移注记零残留" skill_migration_notes_absent
+for agent in "${required_agents[@]}"; do
+  check "$agent writing-skills 字符口径锚串" contains_all "$agent/skills/writing-skills/SKILL.md" 'tr -d' 'wc -m'
+  check "$agent writing-skills 场景重跑绑定" contains_all "$agent/skills/writing-skills/SKILL.md" 'workflow-pressure-scenarios.md' '重跑'
+done
 
 primary_doc="${required_docs[0]}"
 check "mutation: 入口拒绝文档统一四件套" mutation_rejected "$primary_doc" "所有文档变更必须创建四件套和 OpenSpec。"
