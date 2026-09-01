@@ -86,20 +86,20 @@ description: 用于遇到任何缺陷、测试失败或意外行为时，在提�
 
    **示例（本仓库安装器链路）：**
    ```bash
-   # 第 1 层：安装入口（shell）
-   bash -x scripts/install-workflow.sh --dry-run 2>&1 | tail -5
+   # 第 1 层：便携安装器入口（shell→python，--dry-run 只打印计划不写入）
+   bash scripts/install-ai-workflow.sh --target "$TARGET" --assistant claude --dry-run 2>&1 | tail -5
 
-   # 第 2 层：安装库（python）
-   python3 -c "import json; m=json.load(open('scripts/ai-workflow-assets/manifest.json')); print(len(m['claude']), 'claude 条目')"
+   # 第 2 层：安装库（python 模块能否加载）
+   python3 -c "import sys; sys.path.insert(0,'scripts/lib'); import install_ai_workflow; print('安装库可导入')"
 
-   # 第 3 层：目标环境（git/权限）
+   # 第 3 层：目标环境（写权限）
    ls -ld "$TARGET/.ai" 2>/dev/null; test -w "$TARGET" && echo "目标可写"
 
    # 第 4 层：装后校验
    cd "$TARGET" && bash scripts/validate-workflow.sh --fast 2>&1 | tail -3
    ```
 
-   **这能揭示：** 哪一层失败（入口参数 → ✓，资产清单 → ✓，目标权限 → ✗）
+   **这能揭示：** 哪一层失败（入口计划打印 → ✓，安装库加载 → ✓，目标权限 → ✗）
 
 5. **追踪数据流**
 
