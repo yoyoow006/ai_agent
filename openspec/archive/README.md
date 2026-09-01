@@ -23,3 +23,4 @@
 - `harden-gate-honesty-and-coverage` — 门禁三查：注记工具名契约、归档索引 1:1、套件内部跳过透明化(标准)
 - `fix-installer-suite-pycache-self-contamination` — 修复安装器套件无 -B 自污资产树：加载期字节码抑制(标准)
 - `add-installer-legacy-archive-selfcheck-test` — 安装器 legacy 归档自检回归用例：精确单一信号与补救路径锁定(标准)
+- `slim-workflow-skills` — 工作流技能正文瘦身与本土化：三技能 SKILL.md 压缩＋示例换本仓库栈＋字符口径验证命令＋技能编辑↔场景重跑绑定＋校验器迁移注记 absence 与 writing-skills 双树锚串三守卫(严格)
