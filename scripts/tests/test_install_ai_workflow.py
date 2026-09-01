@@ -329,7 +329,14 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
         module = importlib.util.module_from_spec(spec)
         # 随包文件使用 @dataclass,其字段解析要求模块已注册进 sys.modules。
         sys.modules[spec.name] = module
-        spec.loader.exec_module(module)
+        # 无 -B 运行时 exec_module 会把 __pycache__ 写进资产树,令同轮稍后
+        # 的物理枚举自污必败;加载期间抑制字节码写入(-B 下为无害冗余)。
+        previous_dont_write_bytecode = sys.dont_write_bytecode
+        sys.dont_write_bytecode = True
+        try:
+            spec.loader.exec_module(module)
+        finally:
+            sys.dont_write_bytecode = previous_dont_write_bytecode
         suite = unittest.defaultTestLoader.loadTestsFromModule(module)
 
         def collect(test) -> int:
@@ -338,6 +345,53 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
             return 1
 
         return collect(suite)
+
+    def test_shipped_contract_count_leaves_no_asset_pycache_without_dash_b(self) -> None:
+        """无 -B 运行时统计随包套件不得把 __pycache__ 写进资产树。
+
+        陷阱：exec_module 的字节码缓存落在资产副本旁，同轮稍后的
+        test_manifest_exactly_enumerates_sorted_physical_assets 即自污必败，
+        且报错误导性指向 manifest 而非真因。
+        """
+        program = (
+            "import sys\n"
+            "sys.dont_write_bytecode = False\n"
+            "sys.path.insert(0, '.')\n"
+            "from scripts.tests.test_install_ai_workflow import"
+            " InstalledWorkflowValidationTests\n"
+            "case = InstalledWorkflowValidationTests(\n"
+            "    'test_installed_codex_and_claude_validate_without_source_or_openspec')\n"
+            "case._shipped_contract_test_count()\n"
+            "from pathlib import Path\n"
+            "found = [str(p) for p in"
+            " Path('scripts/ai-workflow-assets').rglob('__pycache__')]\n"
+            "print('PYCACHE:' + (';'.join(found) if found else 'NONE'))\n"
+        )
+        environment = {
+            key: value for key, value in os.environ.items()
+            if key != "PYTHONDONTWRITEBYTECODE"
+        }
+
+        def clean_asset_pycache() -> None:
+            for entry in ASSET_ROOT.rglob("__pycache__"):
+                shutil.rmtree(entry, ignore_errors=True)
+
+        clean_asset_pycache()
+        try:
+            result = subprocess.run(
+                [sys.executable, "-c", program],
+                cwd=REPOSITORY_ROOT,
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                check=False,
+                timeout=120,
+            )
+            self.assertEqual(result.returncode, 0, msg=result.stderr or result.stdout)
+            self.assertIn("PYCACHE:NONE", result.stdout, msg=result.stdout)
+        finally:
+            clean_asset_pycache()
 
     def _restricted_environment(self, root: Path) -> dict[str, str]:
         binary_directory = root / "bin"

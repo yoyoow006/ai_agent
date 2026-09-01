@@ -126,3 +126,11 @@
 ## 2026-08-31 · 来源变更 harden-gate-honesty-and-coverage（跳过理由白名单登记）
 **坑**：新增条件 skipTest（"codex assistant is not present in this fixture"）在 claude-only 安装目标触发，被 test_install_ai_workflow 的 allowed_skip_reasons 白名单拦截（"出现新理由即失败"是防用例静默消失的守卫，设计如此）
 **解**：随包套件每新增一个 skipTest 理由，必须同步登记进该白名单——这是显式登记机制而非障碍；子代理修此类失败时先看差异集是否恰为未登记理由
+
+## 2026-09-01 · 来源变更 fix-installer-suite-pycache-self-contamination（终验套件编排）
+**坑**：两个 20 分钟级安装器全量套件（带/不带 -B）并行跑，CPU 争抢使目标内 `bash scripts/validate-workflow.sh --require-openspec` 超过 `_run_target` 的 240s 超时——TimeoutExpired 假错误，单跑即绿
+**解**：安装器全量套件只串行跑（双模式需求用命令链一次后台执行）；超时类失败先查是否资源争抢再查代码
+
+## 2026-09-01 · 来源变更 fix-installer-suite-pycache-self-contamination（git 物质化重置权限）
+**坑**：umask-002 机器上 git merge/checkout 重写工作树文件后，资产树可执行文件回到 0775（git 只跟踪执行位，写入按当前 umask）——昨天 chmod 过的规范权限被今天的 merge 冲掉，安装器套件 mode 断言再度失败
+**解**：umask-002 检出环境在每次 merge/checkout 后、跑安装器套件前重跑权限规范化（dirs/files 644、两个可执行 755）；根治需测试放宽 group-write 位或统一 022 检出，属范围外环境事项
