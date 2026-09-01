@@ -22,3 +22,4 @@
 - `fix-install-workflow-legacy-ai-kb` — 修复 bash 安装器残留旧 ai-kb 布局导致安装必然失败：资产树单一来源、双运行时目标模型定型、--fast 自检分层、旧布局自愈(标准)
 - `harden-gate-honesty-and-coverage` — 门禁三查：注记工具名契约、归档索引 1:1、套件内部跳过透明化(标准)
 - `fix-installer-suite-pycache-self-contamination` — 修复安装器套件无 -B 自污资产树：加载期字节码抑制(标准)
+- `add-installer-legacy-archive-selfcheck-test` — 安装器 legacy 归档自检回归用例：精确单一信号与补救路径锁定(标准)

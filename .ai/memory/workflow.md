@@ -134,3 +134,7 @@
 ## 2026-09-01 · 来源变更 fix-installer-suite-pycache-self-contamination（git 物质化重置权限）
 **坑**：umask-002 机器上 git merge/checkout 重写工作树文件后，资产树可执行文件回到 0775（git 只跟踪执行位，写入按当前 umask）——昨天 chmod 过的规范权限被今天的 merge 冲掉，安装器套件 mode 断言再度失败
 **解**：umask-002 检出环境在每次 merge/checkout 后、跑安装器套件前重跑权限规范化（dirs/files 644、两个可执行 755）；根治需测试放宽 group-write 位或统一 022 检出，属范围外环境事项
+
+## 2026-09-01 · 来源变更 harden-gate-honesty-and-coverage（存量目标命中归档索引检查）
+**坑**：新增"归档索引与目录 1:1"在存量安装目标上报 FAIL——目标里有历史归档目录但从未建 README 索引（旧技能版归档时无此步骤，安装器也不分发 README）；fresh 目标 vacuous PASS（套件已验证），但升级/重装到有历史归档的目标时装后自检 --fast 变红，用户易误判为安装损坏
+**解**：属预期数据契约信号而非缺陷——一次性 back-fill README 索引（按各归档 proposal 的标题/模式生成行）即永久消除；已加回归用例锁定（add-installer-legacy-archive-selfcheck-test，2026-09-01 归档）：精确单一 [FAIL] 信号 + back-fill 后复跑 --fast 转绿，双断言入 LegacyLayoutTests

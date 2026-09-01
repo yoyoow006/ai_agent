@@ -1,7 +1,8 @@
 """install-workflow.sh（bash 一键安装器）契约测试。
 
 覆盖规格 openspec/specs/workflow-installer：一键安装（当前 .ai/ 布局）、
-目标路径无效、用法错误、冲突防护、--force 备份、memory 永不覆盖。
+目标路径无效、用法错误、冲突防护、--force 备份、memory 永不覆盖、
+legacy 布局（旧 ai-kb 整目录备份、历史归档缺索引的装后自检信号与补救）。
 空目标端到端用例同时是"布局迁移后安装器悬空引用"的回归捕获器。
 """
 from __future__ import annotations
@@ -133,6 +134,39 @@ class ConflictTests(unittest.TestCase):
 
 
 class LegacyLayoutTests(unittest.TestCase):
+    def test_legacy_archive_without_index_fails_selfcheck_then_recovers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "demo"
+            target.mkdir()
+            # legacy 归档：有归档目录但从未建 README 索引（旧技能版归档无此步骤）
+            archived = target / "openspec/archive/old-change"
+            archived.mkdir(parents=True)
+            (archived / "proposal.md").write_text(
+                "# 旧变更\n\n模式: 标准\n状态: 已归档\n", encoding="utf-8"
+            )
+            result = run_installer(str(target))
+            combined = result.stdout + result.stderr
+            # 安装完成但装后自检红：精确单一信号指向归档索引契约，非安装损坏
+            self.assertEqual(result.returncode, 1, msg=combined)
+            fail_lines = [line for line in combined.splitlines() if line.startswith("[FAIL]")]
+            self.assertEqual(
+                fail_lines, ["[FAIL] 归档索引与目录 1:1"], msg=combined
+            )
+            # 一次性补救：back-fill 与目录 1:1 的索引行后，复跑目标自检转绿
+            (target / "openspec/archive/README.md").write_text(
+                "- `old-change` — 旧变更(标准)\n", encoding="utf-8"
+            )
+            check = subprocess.run(
+                ["bash", "scripts/validate-workflow.sh", "--fast"],
+                cwd=target,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+                timeout=120,
+            )
+            self.assertEqual(check.returncode, 0, msg=check.stdout + check.stderr)
+
     def test_legacy_ai_kb_requires_force_then_backed_up(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / "demo"
