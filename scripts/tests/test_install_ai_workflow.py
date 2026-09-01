@@ -321,7 +321,8 @@ class AssistantSelectionTests(unittest.TestCase):
 
 
 class InstalledWorkflowValidationTests(unittest.TestCase):
-    def _shipped_contract_test_count(self) -> int:
+    @staticmethod
+    def _shipped_contract_test_count() -> int:
         """随包契约套件的用例数:从资产副本动态加载统计,避免硬编码漂移。"""
         shipped = ASSET_ROOT / "shared" / "scripts" / "tests" / "test_validate_workflow.py"
         spec = importlib.util.spec_from_file_location("shipped_contract_tests", shipped)
@@ -359,9 +360,7 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
             "sys.path.insert(0, '.')\n"
             "from scripts.tests.test_install_ai_workflow import"
             " InstalledWorkflowValidationTests\n"
-            "case = InstalledWorkflowValidationTests(\n"
-            "    'test_installed_codex_and_claude_validate_without_source_or_openspec')\n"
-            "case._shipped_contract_test_count()\n"
+            "InstalledWorkflowValidationTests._shipped_contract_test_count()\n"
             "from pathlib import Path\n"
             "found = [str(p) for p in"
             " Path('scripts/ai-workflow-assets').rglob('__pycache__')]\n"
