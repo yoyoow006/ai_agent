@@ -138,4 +138,4 @@
 
 ## 2026-08-31 · 来源变更 harden-gate-honesty-and-coverage（审查发现，登记为后续小修建议）
 **坑**：无 -B 手工跑 python3 -m unittest scripts.tests.test_install_ai_workflow 必败 test_manifest_exactly_enumerates_sorted_physical_assets：_shipped_contract_test_count 的 exec_module 会把 __pycache__ 写进资产树，且 InstalledWorkflowValidationTests(I) 默认排序先于 PortableAssetManifestTests(P)，同一轮内自污后物理枚举必红；报错指向 manifest 而非真因，极具误导性（基线既有，CI 带 -B 不受影响）
-**解**：跑安装器套件一律带 -B（tasks/规格/CI 均已如此）；后续小修候选（harden-gate-honesty-and-coverage 审查 F-1，范围外登记）：_shipped_contract_test_count 外围临时 sys.dont_write_bytecode，或物理枚举过滤 __pycache__/*.pyc
+**解**：跑安装器套件一律带 -B（tasks/规格/CI 均已如此）；已修（fix-installer-suite-pycache-self-contamination，2026-09-01 归档）：_shipped_contract_test_count 提为 staticmethod 且 exec_module 外围临时 sys.dont_write_bytecode、finally 恢复——不带 -B 全量套件亦绿、资产树零 __pycache__，另有子进程复现回归测试
