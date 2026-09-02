@@ -508,14 +508,15 @@ archive_index_ok() {
     rm -f "$dirs_unsorted" "$dirs" "$entries_unsorted" "$entries"
     return 1
   fi
-  for path in "${archive_paths[@]}"; do
+  # bash ≤4.3 在 set -u 下展开空数组视为未绑定变量；用条件展开守卫（与 wrapper 同款习语）。
+  for path in ${archive_paths[@]+"${archive_paths[@]}"}; do
     if test -L "$path"; then
       rm -f "$dirs_unsorted" "$dirs" "$entries_unsorted" "$entries"
       return 1
     fi
     test -d "$path" && archive_names+=("${path##*/}")
   done
-  for path in "${archive_names[@]}"; do
+  for path in ${archive_names[@]+"${archive_names[@]}"}; do
     if ! printf '%s\n' "$path" >>"$dirs_unsorted"; then
       rm -f "$dirs_unsorted" "$dirs" "$entries_unsorted" "$entries"
       return 1
