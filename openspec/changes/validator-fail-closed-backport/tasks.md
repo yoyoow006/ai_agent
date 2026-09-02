@@ -14,7 +14,9 @@
   - 实施偏差：umask-002 会话下 `cp` 覆盖使资产树带组写位（664/775），`PortableAssetManifestTests` 断言 436!=420；按 `.ai/memory/installer.md` 2026-09-02 权威配方归因（`git ls-files -s` 索引模式位正常、blob 一致，纯磁盘工件），按 manifest 三组 chmod 归一 70/70（exec 仅两脚本 0755、其余 0644），git 零模式差异，定点重跑 2/2 绿。
 - [x] 1.9 全量验证：`python3 -B -m unittest scripts.tests.test_validate_workflow` 150/150 全绿（2026-09-02）；`bash scripts/validate-workflow.sh` 全量门禁 PASS=200 FAIL=0 SKIP=0；legacy 安装器套件 8/8 绿；便携安装器套件归一后全量重跑 83/83 OK（1495s）。
 - [x] 1.9a 任务级审查（Build 纪律）：独立 reviewer 按 `.ai/rules/review.md` 完成，manifest `b68c8a81…` 两次 verify VALID，五关注面通过，红灯基线独立复现。finding 台账：F1-awk-cmp-injection-gap（Minor，open）——delta spec「底层命令错误不得假绿」Scenario 中 awk/cmp 两条 WHEN 无自动化注入测试，仅有同构路径证据；处置为后续小变更补注入测试或随 meta 上游补齐后回流，不扩大本变更范围，不阻断。无 Critical/Important。
-- [ ] 1.10 Verify 双阶段独立审查（manifest freeze + `review_manifest.py verify`）。
+- [x] 1.10 Verify 双阶段独立审查（manifest freeze + `review_manifest.py verify`）。
   - 阶段1（规格符合性）：通过，无 Critical/Important，继承 F1（Minor open）。
   - 阶段2（代码质量）：F-Q1（Important，open→已修复待 delta 复审）——bash ≤4.3 在 `set -u` 下空数组展开 `"${arr[@]}"` 视为未绑定变量致 core 中止；空归档/仅 README 归档（安装目标空白基线）命中。最小修复：两处循环改仓库既有习语 `${arr[@]+"${arr[@]}"}`（与 wrapper 同款）+ `$?` 捕获行加锚定注释。验证：自编译 bash 3.2.0 三态驱动（空/仅 README/有目录）全部产出 INTERNAL_RESULT；宿主 150/150 全绿；`--fast` 199/0/0；镜像一致；坑已沉淀 `.ai/memory/workflow.md`（含 meta 库原件仍带此潜伏缺陷的回流提示）。
+  - delta 复审（manifest `94282fbc…`，base 08293a2）：F-Q1 判定 **resolved**（习语等价性、三态端到端、宿主回归、锚定注释、镜像五项独立复现）；F1 维持 Minor open 不阻断。
+  - 主会话终验（2026-09-02 现跑）：`bash scripts/validate-workflow.sh --require-openspec` → 0 个 FAIL 行，`PASS=200 FAIL=0 SKIP=0`，exit 0（OpenSpec 必检执行未 SKIP）；`git diff --check` 干净；工作区干净。
 - [ ] 1.11 Archive：合并 delta 到 `shared-ai-workflow-infrastructure` 主规格、更新归档索引、回流结论沉淀 `.ai/memory/workflow.md`。
