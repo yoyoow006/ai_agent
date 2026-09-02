@@ -24,7 +24,7 @@
 
 ## 4. 严格模式终验（Verify/Archive 恒全量）
 
-- [ ] 4.1 `bash scripts/validate-workflow.sh --require-openspec` 退出码 0、FAIL=0
-- [ ] 4.2 `openspec validate --all --strict` 全部通过
-- [ ] 4.3 完整 diff 复核：改动仅含场景文件×2、校验器×2、（如有）测试计数断言、本变更目录四件套＋重跑记录
+- [x] 4.1 `bash scripts/validate-workflow.sh --require-openspec` 退出码 0、FAIL=0（实测 GATE-EXIT=0、PASS=200 FAIL=0 SKIP=0）
+- [x] 4.2 `openspec validate --all --strict` 全部通过（实测 11 passed, 0 failed）
+- [x] 4.3 完整 diff 复核：改动仅含场景文件×2、校验器×2、（如有）测试计数断言、本变更目录四件套＋重跑记录（实测 main..HEAD 恰 10 文件：变更目录 6（四件套＋计划＋重跑记录）＋场景×2＋校验器×2；计数断言无需改动）
 - [ ] 4.4 Archive 时把 delta 的 MODIFIED Requirement 合并进 `openspec/specs/risk-tiered-ai-workflow/spec.md` 主规格（手工编辑，git merge 不自动合并 delta），归档后复跑 4.1/4.2 确认主规格自洽
