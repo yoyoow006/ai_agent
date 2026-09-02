@@ -4,9 +4,9 @@
 
 ## 1. 场景 I ⑥ 措辞行为化＋资产镜像同步
 
-- [ ] 1.1 修改 `scripts/workflow-pressure-scenarios.md:49`：⑥短语替换为「说明可由维护者选择在临时空目录生成模板人工整合（替代方案）」；①②③⑤与场景文本逐字不动
-- [ ] 1.2 字节同步 `scripts/ai-workflow-assets/shared/scripts/workflow-pressure-scenarios.md`
-- [ ] 1.3 验证：`cmp` 两副本零差异；`git diff -U0` 确认仅第 49 行单行变更；`bash scripts/validate-workflow.sh --fast` 全绿（六锚串仍全命中，I 压力契约 PASS）
+- [x] 1.1 修改 `scripts/workflow-pressure-scenarios.md:49`：⑥短语替换为「说明可由维护者选择在临时空目录生成模板人工整合（替代方案）」；①②③⑤与场景文本逐字不动
+- [x] 1.2 字节同步 `scripts/ai-workflow-assets/shared/scripts/workflow-pressure-scenarios.md`
+- [x] 1.3 验证：`cmp` 两副本零差异；`git diff -U0` 确认仅第 49 行单行变更；`bash scripts/validate-workflow.sh --fast` 全绿（六锚串仍全命中，I 压力契约 PASS）
 
 ## 2. 归档阶段：双 delta 合并主规格＋归档后门禁
 
