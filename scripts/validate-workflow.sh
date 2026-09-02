@@ -85,10 +85,32 @@ if python3 -B -m unittest -v scripts.tests.test_validate_workflow >"$contract_ou
   pass_count=$((pass_count + 1))
   # 透明化：套件整体计 1 个门禁检查，但内部设计性跳过（如源仓专属的
   # CI/pre-push 检查）必须在汇总前逐条可见；不计入顶层 SKIP 字段。
-  contract_skips="$(grep -c '\.\.\. skipped' "$contract_output")"
+  contract_skip_status=0
+  contract_skips="$(grep -c '\.\.\. skipped' "$contract_output")" || contract_skip_status=$?
+  case "$contract_skip_status" in
+    0|1)
+      case "$contract_skips" in
+        ""|*[!0-9]*)
+          printf "[FAIL] 契约套件内部跳过计数解析失败（结果必须为非负整数）\n"
+          fail_count=$((fail_count + 1))
+          contract_skips=0
+          ;;
+      esac
+      ;;
+    *)
+      printf "[FAIL] 契约套件内部跳过计数解析失败（grep exit %d）\n" "$contract_skip_status"
+      fail_count=$((fail_count + 1))
+      contract_skips=0
+      ;;
+  esac
   if test "$contract_skips" -gt 0; then
     printf "  契约套件内部设计性跳过 %d 项（源仓专属能力；不影响门禁计数）:\n" "$contract_skips"
-    grep '\.\.\. skipped' "$contract_output" | sed 's/^/  - /'
+    sed -n '/\.\.\. skipped/{s/^/  - /;p;}' "$contract_output"
+    contract_skip_render_status=$?
+    if test "$contract_skip_render_status" -ne 0; then
+      printf "[FAIL] 契约套件内部跳过明细渲染失败（sed exit %d）\n" "$contract_skip_render_status"
+      fail_count=$((fail_count + 1))
+    fi
   fi
 else
   printf "[FAIL] 工作流顶层契约测试\n"

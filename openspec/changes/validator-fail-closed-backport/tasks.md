@@ -1,13 +1,17 @@
 # Tasks
 
-- [ ] 1.1 第一次确认四件套范围、非目标与验收标准（当前待确认）。
-- [ ] 1.2 Design 阶段产出独立实现计划 `openspec/plan/validator-fail-closed-backport.md`（精确到函数级改动点、测试适配清单与验证命令），第二次确认后才实施。
-- [ ] 1.3 wrapper 跳过计数 fail-closed：`contract_skips` 显式读取 grep 退出码（0/1 之外判 FAIL）并校验非负整数，解析失败计 FAIL 且按 0 继续汇总。
-- [ ] 1.4 wrapper 明细渲染 fail-closed：跳过明细改用 `sed -n` 单步渲染并检查退出码，失败计 FAIL；顶层 SKIP 计数与正常明细输出不变。
-- [ ] 1.5 core `retired_tool_names_absent`：grep 退出码三态 case（0 命中判失败、1 无匹配继续、其余判失败）。
-- [ ] 1.6 core `archive_index_ok`：glob 枚举（dotglob/nullglob 保存恢复）+ 符号链接拒绝 + mktemp 中转与 printf/sort/sed/awk/cmp 逐步退出码检查；空归档 vacuous 通过语义保持。
-- [ ] 1.7 移植适配 6 个 fail-closed 回归测试：非 GNU find、归档目录符号链接（真实/隐藏/仓内/外部/dangling）、sort 错误、跳过计数 grep 错误、明细渲染 sed 错误、废弃名扫描错误。
-- [ ] 1.8 资产模板同步：`scripts/ai-workflow-assets/shared/scripts/` 下 core、wrapper、tests 三份镜像与运行副本逐字节一致。
-- [ ] 1.9 全量验证：`python3 -B -m unittest scripts.tests.test_validate_workflow` 全绿；`bash scripts/validate-workflow.sh` 全量门禁无新增 FAIL；涉及资产树的安装器套件通过（注意 `_run_target` 超时基线，见 memory）。
+- [x] 1.1 第一次确认四件套范围、非目标与验收标准（2026-09-02 用户确认）。
+- [x] 1.2 Design 阶段产出独立实现计划 `openspec/plan/validator-fail-closed-backport.md`（精确到函数级改动点、测试适配清单与验证命令），第二次确认后实施（2026-09-02 用户确认）。
+- [x] 1.3 wrapper 跳过计数 fail-closed：`contract_skips` 显式读取 grep 退出码（0/1 之外判 FAIL）并校验非负整数，解析失败计 FAIL 且按 0 继续汇总。
+- [x] 1.4 wrapper 明细渲染 fail-closed：跳过明细改用 `sed -n` 单步渲染并检查退出码，失败计 FAIL；顶层 SKIP 计数与正常明细输出不变。
+  - 实施偏差：计划代码块中 sed 表达式误写为 `p/}`（GNU sed 语法错误、rc=1），修正为 meta 库原件的 `p;}`；该笔误由本变更新加的渲染退出码检查当场捕获（`test_public_entry_surfaces_contract_suite_internal_skips` 转 RED 定位），计划文本已同步修正。
+- [x] 1.5 core `retired_tool_names_absent`：grep 退出码三态 case（0 命中判失败、1 无匹配继续、其余判失败）。
+- [x] 1.6 core `archive_index_ok`：glob 枚举（dotglob/nullglob 保存恢复）+ 符号链接拒绝 + mktemp 中转与 printf/sort/sed/awk/cmp 逐步退出码检查；空归档 vacuous 通过语义保持。
+- [x] 1.7 移植适配 fail-closed 回归测试：非 GNU find、归档目录符号链接（真实/隐藏/仓内/外部/dangling）、sort 错误、跳过计数 grep 错误、明细渲染 sed 错误、废弃名扫描错误，另加「grep 正常返回但计数非整数」共 7 个。
+  - 实施偏差：计划预判 sort 错误测试修复前为绿（不变量守护）；实测修复前亦红——entries 侧 `sed | sort` 同样经过坏掉的 sort 后两侧集合同空、`cmp` 相等造成假绿，红灯更完整，测试本身与 meta 库原件逐字一致。
+  - 红灯基线：7 测试 × 3 profile 变体类 = 21 红，既有 129 测试全绿。
+- [x] 1.8 资产模板同步：`scripts/ai-workflow-assets/shared/scripts/` 下 core、wrapper、tests 三份镜像与运行副本逐字节一致（三个 `diff -q` 无输出）。
+  - 实施偏差：umask-002 会话下 `cp` 覆盖使资产树带组写位（664/775），`PortableAssetManifestTests` 断言 436!=420；按 `.ai/memory/installer.md` 2026-09-02 权威配方归因（`git ls-files -s` 索引模式位正常、blob 一致，纯磁盘工件），按 manifest 三组 chmod 归一 70/70（exec 仅两脚本 0755、其余 0644），git 零模式差异，定点重跑 2/2 绿。
+- [x] 1.9 全量验证：`python3 -B -m unittest scripts.tests.test_validate_workflow` 150/150 全绿（2026-09-02）；`bash scripts/validate-workflow.sh` 全量门禁 PASS=200 FAIL=0 SKIP=0；legacy 安装器套件 8/8 绿；便携安装器套件 82/83 绿 + 唯一失败为上述 umask 磁盘工件（归一后定点 2/2 绿），归一后全量重跑见 Verify 证据。
 - [ ] 1.10 Verify 双阶段独立审查（manifest freeze + `review_manifest.py verify`）。
 - [ ] 1.11 Archive：合并 delta 到 `shared-ai-workflow-infrastructure` 主规格、更新归档索引、回流结论沉淀 `.ai/memory/workflow.md`。

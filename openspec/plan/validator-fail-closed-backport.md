@@ -417,7 +417,7 @@ archive_index_ok() {
   esac
   if test "$contract_skips" -gt 0; then
     printf "  契约套件内部设计性跳过 %d 项（源仓专属能力；不影响门禁计数）:\n" "$contract_skips"
-    sed -n '/\.\.\. skipped/{s/^/  - /;p/}' "$contract_output"
+    sed -n '/\.\.\. skipped/{s/^/  - /;p;}' "$contract_output"
     contract_skip_render_status=$?
     if test "$contract_skip_render_status" -ne 0; then
       printf "[FAIL] 契约套件内部跳过明细渲染失败（sed exit %d）\n" "$contract_skip_render_status"

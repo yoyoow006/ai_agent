@@ -440,14 +440,20 @@ mirror_equal() {
 # 限定文档后缀同时避免命中校验器自身副本里的 token 清单字面量（自引用）。
 retired_tool_names_absent() {
   local candidates=(.codex/skills .claude/skills .codex/README.md scripts/ai-workflow-assets)
-  local targets=() path token
+  local targets=() path token grep_status
   for path in "${candidates[@]}"; do
     test -e "$path" && targets+=("$path")
   done
   test "${#targets[@]}" -gt 0 || return 0
   for token in 'multi_agent_v1__spawn_agent' 'send_input' 'close_agent' 'fork_context'; do
     grep -R -F -q --include='*.md' --include='*.toml' \
-      -e "$token" -- "${targets[@]}" && return 1
+      -e "$token" -- "${targets[@]}"
+    grep_status=$?
+    case "$grep_status" in
+      0) return 1 ;;
+      1) ;;
+      *) return 1 ;;
+    esac
   done
   return 0
 }
@@ -477,23 +483,80 @@ skill_migration_notes_absent() {
 # 空归档且无 README（安装目标空白基线）为 vacuous 通过。
 archive_index_ok() {
   local readme=openspec/archive/README.md
-  local dirs entries
-  dirs="$(mktemp)" || return 1
-  entries="$(mktemp)" || { rm -f "$dirs"; return 1; }
-  find openspec/archive -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | sort >"$dirs"
+  local dirs_unsorted dirs entries_unsorted entries path
+  local archive_paths=() archive_names=()
+  local dotglob_was_set=0 nullglob_was_set=0
+  local enumeration_status=0 restore_status=0 awk_status
+  dirs_unsorted="$(mktemp)" || return 1
+  dirs="$(mktemp)" || { rm -f "$dirs_unsorted"; return 1; }
+  entries_unsorted="$(mktemp)" || { rm -f "$dirs_unsorted" "$dirs"; return 1; }
+  entries="$(mktemp)" || { rm -f "$dirs_unsorted" "$dirs" "$entries_unsorted"; return 1; }
+  shopt -q dotglob && dotglob_was_set=1
+  shopt -q nullglob && nullglob_was_set=1
+  if ! shopt -s dotglob nullglob; then
+    rm -f "$dirs_unsorted" "$dirs" "$entries_unsorted" "$entries"
+    return 1
+  fi
+  archive_paths=(openspec/archive/*) || enumeration_status=$?
+  if test "$dotglob_was_set" -eq 0; then
+    shopt -u dotglob || restore_status=1
+  fi
+  if test "$nullglob_was_set" -eq 0; then
+    shopt -u nullglob || restore_status=1
+  fi
+  if test "$enumeration_status" -ne 0 || test "$restore_status" -ne 0; then
+    rm -f "$dirs_unsorted" "$dirs" "$entries_unsorted" "$entries"
+    return 1
+  fi
+  for path in "${archive_paths[@]}"; do
+    if test -L "$path"; then
+      rm -f "$dirs_unsorted" "$dirs" "$entries_unsorted" "$entries"
+      return 1
+    fi
+    test -d "$path" && archive_names+=("${path##*/}")
+  done
+  for path in "${archive_names[@]}"; do
+    if ! printf '%s\n' "$path" >>"$dirs_unsorted"; then
+      rm -f "$dirs_unsorted" "$dirs" "$entries_unsorted" "$entries"
+      return 1
+    fi
+  done
+  if ! sort "$dirs_unsorted" >"$dirs"; then
+    rm -f "$dirs_unsorted" "$dirs" "$entries_unsorted" "$entries"
+    return 1
+  fi
   if test -s "$dirs" && ! test -f "$readme"; then
-    rm -f "$dirs" "$entries"
+    rm -f "$dirs_unsorted" "$dirs" "$entries_unsorted" "$entries"
     return 1
   fi
   if test -f "$readme"; then
-    sed -n 's/^- `\([^`]*\)`.*/\1/p' "$readme" | sort >"$entries"
-    if awk 'seen[$0]++ { found = 1 } END { exit !found }' "$entries"; then
-      rm -f "$dirs" "$entries"
+    if ! sed -n 's/^- `\([^`]*\)`.*/\1/p' "$readme" >"$entries_unsorted"; then
+      rm -f "$dirs_unsorted" "$dirs" "$entries_unsorted" "$entries"
       return 1
     fi
-    cmp -s "$dirs" "$entries" || { rm -f "$dirs" "$entries"; return 1; }
+    if ! sort "$entries_unsorted" >"$entries"; then
+      rm -f "$dirs_unsorted" "$dirs" "$entries_unsorted" "$entries"
+      return 1
+    fi
+    awk 'seen[$0]++ { found = 1 } END { exit !found }' "$entries"
+    awk_status=$?
+    case "$awk_status" in
+      0)
+        rm -f "$dirs_unsorted" "$dirs" "$entries_unsorted" "$entries"
+        return 1
+        ;;
+      1) ;;
+      *)
+        rm -f "$dirs_unsorted" "$dirs" "$entries_unsorted" "$entries"
+        return 1
+        ;;
+    esac
+    if ! cmp -s "$dirs" "$entries"; then
+      rm -f "$dirs_unsorted" "$dirs" "$entries_unsorted" "$entries"
+      return 1
+    fi
   fi
-  rm -f "$dirs" "$entries"
+  rm -f "$dirs_unsorted" "$dirs" "$entries_unsorted" "$entries"
 }
 
 required_agents=()
