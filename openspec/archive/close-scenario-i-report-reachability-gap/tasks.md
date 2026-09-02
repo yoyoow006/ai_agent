@@ -10,10 +10,10 @@
 
 ## 2. 归档阶段：双 delta 合并主规格＋归档后门禁
 
-- [ ] 2.1 codex-target delta 合入 `openspec/specs/codex-workflow-target-installation/spec.md`（MODIFIED Requirement 整块替换：原条款＋上报极简性句＋新 Scenario「用户索取冲突正文」）
-- [ ] 2.2 risk-tiered delta 合入 `openspec/specs/risk-tiered-ai-workflow/spec.md`（场景 I 一致性条款⑥短语行为化＋对应 Scenario 增补 AND 行）
-- [ ] 2.3 状态`已归档`、目录移入 `openspec/archive/`、plan 移为 `plan.md`、README 索引行
-- [ ] 2.4 归档后验证：`bash scripts/validate-workflow.sh --require-openspec` FAIL=0；`openspec validate --all --strict` 全过；`git diff --check` 干净
+- [x] 2.1 codex-target delta 合入 `openspec/specs/codex-workflow-target-installation/spec.md`（MODIFIED Requirement 整块替换：原条款＋上报极简性句＋新 Scenario「用户索取冲突正文」）
+- [x] 2.2 risk-tiered delta 合入 `openspec/specs/risk-tiered-ai-workflow/spec.md`（场景 I 一致性条款⑥短语行为化＋对应 Scenario 增补 AND 行）
+- [x] 2.3 状态`已归档`、目录移入 `openspec/archive/`、plan 移为 `plan.md`、README 索引行
+- [x] 2.4 归档后验证：`bash scripts/validate-workflow.sh --require-openspec` FAIL=0；`openspec validate --all --strict` 全过；`git diff --check` 干净
 
 ## 3. 可达性闭合重跑（主规格合并后状态）
 

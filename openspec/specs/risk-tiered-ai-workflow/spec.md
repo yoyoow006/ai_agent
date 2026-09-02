@@ -223,7 +223,7 @@ Open SHALL 先从代码、OpenSpec、共享知识层和用户输入核对权威�
 
 ### Requirement: 高风险流程路径必须有施压场景
 
-工作流行为契约 SHALL 以施压场景覆盖以下高风险路径，场景使用与其他场景相同的结构（共同要求＋逐字场景文本＋可判通过条件）：严格实现前的分支与 worktree 原子顺序、归档的 delta 合并与用户取消处置、审查中途 manifest 陈旧的处理。场景文件 SHALL 与镜像资产副本保持一致，结构校验 SHALL 守护这些场景的存在与关键通过条件。安装目标已有助手入口的冲突处置场景（场景 I）SHALL 与 `codex-workflow-target-installation` 规格的冲突入口条款语义一致：通过条件要求先 dry-run 或等价完整预检，差异入口按保留再替换处置（重命名 `AGENTS.pre-codex-workflow.md`＋SHA-256 校验一致＋安装器显式清单创建新入口），不得要求盲覆盖、输出既有正文或建议 `--force`；临时空目录模板人工整合保留为替代方案。场景契约与安装规格任一侧修改冲突处置语义时，SHALL 以独立变更同步另一侧，不得单方面漂移。工作流技能正文变更的 Verify 终验 SHALL 重跑 `scripts/workflow-pressure-scenarios.md` 中与该技能行为契约相关的场景，相关性无法判定时重跑全部场景；重跑结果 SHALL 记录于该变更的 OpenSpec 目录。
+工作流行为契约 SHALL 以施压场景覆盖以下高风险路径，场景使用与其他场景相同的结构（共同要求＋逐字场景文本＋可判通过条件）：严格实现前的分支与 worktree 原子顺序、归档的 delta 合并与用户取消处置、审查中途 manifest 陈旧的处理。场景文件 SHALL 与镜像资产副本保持一致，结构校验 SHALL 守护这些场景的存在与关键通过条件。安装目标已有助手入口的冲突处置场景（场景 I）SHALL 与 `codex-workflow-target-installation` 规格的冲突入口条款语义一致：通过条件要求先 dry-run 或等价完整预检，差异入口按保留再替换处置（重命名 `AGENTS.pre-codex-workflow.md`＋SHA-256 校验一致＋安装器显式清单创建新入口），不得要求盲覆盖、输出既有正文或建议 `--force`；通过条件 SHALL 要求说明可由维护者选择在临时空目录生成模板人工整合（替代方案），其措辞 SHALL 为行为性（可按是否主动说明判定）。场景契约与安装规格任一侧修改冲突处置语义时，SHALL 以独立变更同步另一侧，不得单方面漂移。工作流技能正文变更的 Verify 终验 SHALL 重跑 `scripts/workflow-pressure-scenarios.md` 中与该技能行为契约相关的场景，相关性无法判定时重跑全部场景；重跑结果 SHALL 记录于该变更的 OpenSpec 目录。
 
 #### Scenario: 新增高风险场景
 
@@ -237,6 +237,7 @@ Open SHALL 先从代码、OpenSpec、共享知识层和用户输入核对权威�
 - **WHEN** 维护者对照场景 I 通过条件与 `codex-workflow-target-installation` 规格的冲突入口条款
 - **THEN** 两者对差异入口的处置同为保留再替换（备份＋SHA-256 校验＋安装器显式清单）
 - **AND** 场景 I 不含冲突关闭零写入要求，且保留预检、不输出既有正文、不建议 `--force` 的条件
+- **AND** 场景 I 的替代方案条款为行为性措辞，与安装规格的上报极简性条款同向
 
 #### Scenario: 场景 I 关键条件被守护
 

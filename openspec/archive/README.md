@@ -25,3 +25,4 @@
 - `add-installer-legacy-archive-selfcheck-test` — 安装器 legacy 归档自检回归用例：精确单一信号与补救路径锁定(标准)
 - `slim-workflow-skills` — 工作流技能正文瘦身与本土化：三技能 SKILL.md 压缩＋示例换本仓库栈＋字符口径验证命令＋技能编辑↔场景重跑绑定＋校验器迁移注记 absence 与 writing-skills 双树锚串三守卫(严格)
 - `harmonize-scenario-i-codex-target` — 场景 I 冲突处置与 codex-target 规格调和对齐：保留再替换语义落地＋I 压力契约锚串守卫＋双样本绿测重跑（④可达性缺口另立变更）(严格)
+- `close-scenario-i-report-reachability-gap` — 场景 I ④上报极简性写入 codex-target 规格闭合决策链可达性＋⑥条款行为化＋合并态双样本重跑(严格)
