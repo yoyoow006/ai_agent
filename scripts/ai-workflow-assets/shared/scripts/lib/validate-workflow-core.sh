@@ -668,6 +668,9 @@ check "W/A/M 压力契约" contains_all scripts/workflow-pressure-scenarios.md \
   'W：严格实现前的 worktree 原子顺序' '已检出的分支' '只暂存本变更明确文件' \
   'A：归档合并与用户取消' '第二真源' '取消原因' '不得自行取消' \
   'M：审查中途 manifest STALE' '不沿用旧结论' '重新 freeze'
+check "I 压力契约" contains_all scripts/workflow-pressure-scenarios.md \
+  'I：目标已有助手入口' 'AGENTS.pre-codex-workflow.md' 'SHA-256' \
+  '不输出既有正文' '--force' '临时空目录'
 
 if assistant_required codex; then
   check "SDD 草稿区已忽略" workflow_path_ignored .codex/sdd/validation-probe

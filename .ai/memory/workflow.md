@@ -138,3 +138,7 @@
 ## 2026-09-01 · 来源变更 harden-gate-honesty-and-coverage（存量目标命中归档索引检查）
 **坑**：新增"归档索引与目录 1:1"在存量安装目标上报 FAIL——目标里有历史归档目录但从未建 README 索引（旧技能版归档时无此步骤，安装器也不分发 README）；fresh 目标 vacuous PASS（套件已验证），但升级/重装到有历史归档的目标时装后自检 --fast 变红，用户易误判为安装损坏
 **解**：属预期数据契约信号而非缺陷——一次性 back-fill README 索引（按各归档 proposal 的标题/模式生成行）即永久消除；已加回归用例锁定（add-installer-legacy-archive-selfcheck-test，2026-09-01 归档）：精确单一 [FAIL] 信号 + back-fill 后复跑 --fast 转绿，双断言入 LegacyLayoutTests
+
+## 2026-09-02 · 来源变更 harmonize-scenario-i-codex-target（场景 I 调和的可达性与守卫边界）
+**坑**：①「不输出既有正文」条款只存在于行为契约文件、不在任何决策链文档（CLAUDE/AGENTS/技能/.ai rules/规格全量 grep 零命中）——绿测探针未读契约文件时该规则不可达，双样本 1 过 1 挂，归类规则缺失非压力合理化；②场景 I ⑥「仍是替代方案」为描述性措辞，严格/宽松两种读法判定相反（样本 B ⑥ 双读法自证）；③「I 压力契约」锚串互钉是单向机械：锚串只读场景文件，规格侧单改备份路径门禁不红，仅靠主规格「任一侧修改冲突处置语义 SHALL 独立变更同步」条款在 Verify 流程拦截
+**解**：①②按用户裁定路由另立独立变更（届时重审 ④ 是否应为硬条款、⑥ 改行为动词措辞）；③规格侧改动后 Verify 必须人工对照场景 I 条款，不可依赖门禁绿；本变更已重跑记录在 openspec/archive/harmonize-scenario-i-codex-target/scenario-rerun.md
