@@ -19,4 +19,4 @@
   - 阶段2（代码质量）：F-Q1（Important，open→已修复待 delta 复审）——bash ≤4.3 在 `set -u` 下空数组展开 `"${arr[@]}"` 视为未绑定变量致 core 中止；空归档/仅 README 归档（安装目标空白基线）命中。最小修复：两处循环改仓库既有习语 `${arr[@]+"${arr[@]}"}`（与 wrapper 同款）+ `$?` 捕获行加锚定注释。验证：自编译 bash 3.2.0 三态驱动（空/仅 README/有目录）全部产出 INTERNAL_RESULT；宿主 150/150 全绿；`--fast` 199/0/0；镜像一致；坑已沉淀 `.ai/memory/workflow.md`（含 meta 库原件仍带此潜伏缺陷的回流提示）。
   - delta 复审（manifest `94282fbc…`，base 08293a2）：F-Q1 判定 **resolved**（习语等价性、三态端到端、宿主回归、锚定注释、镜像五项独立复现）；F1 维持 Minor open 不阻断。
   - 主会话终验（2026-09-02 现跑）：`bash scripts/validate-workflow.sh --require-openspec` → 0 个 FAIL 行，`PASS=200 FAIL=0 SKIP=0`，exit 0（OpenSpec 必检执行未 SKIP）；`git diff --check` 干净；工作区干净。
-- [ ] 1.11 Archive：合并 delta 到 `shared-ai-workflow-infrastructure` 主规格、更新归档索引、回流结论沉淀 `.ai/memory/workflow.md`。
+- [x] 1.11 Archive：合并 delta 到 `shared-ai-workflow-infrastructure` 主规格、更新归档索引、回流结论沉淀 `.ai/memory/workflow.md`（bash 空数组坑已在修复时沉淀，本步补 rules 路由关键词）。
