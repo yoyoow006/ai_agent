@@ -12,6 +12,7 @@
   - 红灯基线：7 测试 × 3 profile 变体类 = 21 红，既有 129 测试全绿。
 - [x] 1.8 资产模板同步：`scripts/ai-workflow-assets/shared/scripts/` 下 core、wrapper、tests 三份镜像与运行副本逐字节一致（三个 `diff -q` 无输出）。
   - 实施偏差：umask-002 会话下 `cp` 覆盖使资产树带组写位（664/775），`PortableAssetManifestTests` 断言 436!=420；按 `.ai/memory/installer.md` 2026-09-02 权威配方归因（`git ls-files -s` 索引模式位正常、blob 一致，纯磁盘工件），按 manifest 三组 chmod 归一 70/70（exec 仅两脚本 0755、其余 0644），git 零模式差异，定点重跑 2/2 绿。
-- [x] 1.9 全量验证：`python3 -B -m unittest scripts.tests.test_validate_workflow` 150/150 全绿（2026-09-02）；`bash scripts/validate-workflow.sh` 全量门禁 PASS=200 FAIL=0 SKIP=0；legacy 安装器套件 8/8 绿；便携安装器套件 82/83 绿 + 唯一失败为上述 umask 磁盘工件（归一后定点 2/2 绿），归一后全量重跑见 Verify 证据。
+- [x] 1.9 全量验证：`python3 -B -m unittest scripts.tests.test_validate_workflow` 150/150 全绿（2026-09-02）；`bash scripts/validate-workflow.sh` 全量门禁 PASS=200 FAIL=0 SKIP=0；legacy 安装器套件 8/8 绿；便携安装器套件归一后全量重跑 83/83 OK（1495s）。
+- [x] 1.9a 任务级审查（Build 纪律）：独立 reviewer 按 `.ai/rules/review.md` 完成，manifest `b68c8a81…` 两次 verify VALID，五关注面通过，红灯基线独立复现。finding 台账：F1-awk-cmp-injection-gap（Minor，open）——delta spec「底层命令错误不得假绿」Scenario 中 awk/cmp 两条 WHEN 无自动化注入测试，仅有同构路径证据；处置为后续小变更补注入测试或随 meta 上游补齐后回流，不扩大本变更范围，不阻断。无 Critical/Important。
 - [ ] 1.10 Verify 双阶段独立审查（manifest freeze + `review_manifest.py verify`）。
 - [ ] 1.11 Archive：合并 delta 到 `shared-ai-workflow-infrastructure` 主规格、更新归档索引、回流结论沉淀 `.ai/memory/workflow.md`。
