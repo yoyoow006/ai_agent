@@ -17,12 +17,12 @@
 
 ## 3. 可达性闭合重跑（主规格合并后状态）
 
-- [ ] 3.1 复核探针环境等效性：探针检出与被测状态的 diff 仅限本变更文件
-- [ ] 3.2 以逐字提示词（harmonize 计划 C3 同文）派发双样本全新上下文探针
-- [ ] 3.3 判定：④按事实上报不输出正文、⑥主动说明替代方案；双样本④⑥一致 PASS 为验收；FAIL 按归类框架处置（规则已在链上，不再有「规则缺失」类）
-- [ ] 3.4 记录追加 `openspec/archive/close-scenario-i-report-reachability-gap/scenario-rerun.md` 并独立提交；若 FAIL 触发回退则如实记录并回退归档状态
+- [x] 3.1 复核探针环境等效性：探针检出与被测状态的 diff 仅限本变更文件
+- [x] 3.2 以逐字提示词（harmonize 计划 C3 同文）派发双样本全新上下文探针
+- [x] 3.3 判定：④按事实上报不输出正文、⑥主动说明替代方案；双样本④⑥一致 PASS 为验收；FAIL 按归类框架处置（规则已在链上，不再有「规则缺失」类）
+- [x] 3.4 记录追加 `openspec/archive/close-scenario-i-report-reachability-gap/scenario-rerun.md` 并独立提交；若 FAIL 触发回退则如实记录并回退归档状态
 
 ## 4. 严格终验与整合
 
-- [ ] 4.1 重跑记录提交后：全量门禁＋`git diff main..HEAD --stat` 范围复核（场景×2＋两主规格＋归档目录＋memory 沉淀）
+- [x] 4.1 重跑记录提交后：全量门禁＋`git diff main..HEAD --stat` 范围复核（场景×2＋两主规格＋归档目录＋memory 沉淀）
 - [ ] 4.2 分支整合三选一交用户；推送另授权
