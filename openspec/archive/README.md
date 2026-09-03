@@ -26,3 +26,4 @@
 - `slim-workflow-skills` — 工作流技能正文瘦身与本土化：三技能 SKILL.md 压缩＋示例换本仓库栈＋字符口径验证命令＋技能编辑↔场景重跑绑定＋校验器迁移注记 absence 与 writing-skills 双树锚串三守卫(严格)
 - `harmonize-scenario-i-codex-target` — 场景 I 冲突处置与 codex-target 规格调和对齐：保留再替换语义落地＋I 压力契约锚串守卫＋双样本绿测重跑（④可达性缺口另立变更）(严格)
 - `close-scenario-i-report-reachability-gap` — 场景 I ④上报极简性写入 codex-target 规格闭合决策链可达性＋⑥条款行为化＋合并态双样本重跑(严格)
+- `validator-fail-closed-backport` — 校验器 fail-closed 加固回流自 meta 库：跳过计数/明细渲染/废弃名扫描/归档索引退出码与可移植性五坑闭合＋归档符号链接拒绝＋bash≤4.3 空数组守卫(严格)

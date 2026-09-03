@@ -1003,6 +1003,25 @@ class ValidateWorkflowContractTest(unittest.TestCase):
                 finally:
                     target.write_text(original, encoding="utf-8")
 
+    def test_retired_tool_scan_errors_fail_closed(self) -> None:
+        real_grep = (self.stub_bin / "grep").resolve()
+        (self.stub_bin / "grep").unlink()
+        self._write_executable(
+            "grep",
+            "#!/bin/sh\n"
+            "for argument in \"$@\"; do\n"
+            "  if test \"$argument\" = \"multi_agent_v1__spawn_agent\"; then\n"
+            "    exit 64\n"
+            "  fi\n"
+            "done\n"
+            f"exec \"{real_grep}\" \"$@\"\n",
+        )
+
+        result = self._run_validator()
+
+        self.assertNotEqual(result.returncode, 0, msg=result.stdout)
+        self.assertIn("[FAIL] 废弃工具名零残留", result.stdout)
+
     def test_rejects_parallel_agents_note_without_current_tool_names(self) -> None:
         relative_path = ".codex/skills/parallel-agents/SKILL.md"
         if not (self.fixture / relative_path).is_file():
@@ -1157,7 +1176,131 @@ class ValidateWorkflowContractTest(unittest.TestCase):
                 str(Path(backup.name) / "archive"), str(archive.parent)
             )
 
-    def test_public_entry_surfaces_contract_suite_internal_skips(self) -> None:
+    def test_archive_index_does_not_require_gnu_find_printf(self) -> None:
+        marker = self.stub_bin.parent / "gnu-find-argument-used"
+        real_find = (self.stub_bin / "find").resolve()
+        (self.stub_bin / "find").unlink()
+        self._write_executable(
+            "find",
+            "#!/bin/sh\n"
+            "for argument in \"$@\"; do\n"
+            "  if test \"$argument\" = \"-printf\"; then\n"
+            f"    : > \"{marker}\"\n"
+            "    exit 64\n"
+            "  fi\n"
+            "done\n"
+            f"exec \"{real_find}\" \"$@\"\n",
+        )
+
+        archive = self.fixture / "openspec/archive"
+        backup = tempfile.TemporaryDirectory()
+        self.addCleanup(backup.cleanup)
+        shutil.move(str(archive), backup.name)
+        archive.mkdir()
+        readme = archive / "README.md"
+        try:
+            empty_result = self._run_validator()
+            empty_used_gnu_find = marker.exists()
+            marker.unlink(missing_ok=True)
+
+            (archive / ".hidden-change").mkdir()
+            readme.write_text(
+                "# 归档变更索引\n\n- `.hidden-change` — 隐藏归档(严格)\n",
+                encoding="utf-8",
+            )
+            populated_result = self._run_validator()
+            populated_used_gnu_find = marker.exists()
+
+            self.assertEqual(
+                (0, False, 0, False),
+                (
+                    empty_result.returncode,
+                    empty_used_gnu_find,
+                    populated_result.returncode,
+                    populated_used_gnu_find,
+                ),
+                msg=(
+                    f"empty:\n{empty_result.stdout}\n"
+                    f"populated:\n{populated_result.stdout}"
+                ),
+            )
+        finally:
+            shutil.rmtree(archive, ignore_errors=True)
+            shutil.move(
+                str(Path(backup.name) / "archive"), str(archive.parent)
+            )
+
+    def test_archive_index_rejects_all_directory_symlinks(self) -> None:
+        archive = self.fixture / "openspec/archive"
+        backup = tempfile.TemporaryDirectory()
+        self.addCleanup(backup.cleanup)
+        shutil.move(str(archive), backup.name)
+        archive.mkdir()
+        readme = archive / "README.md"
+        outside = Path(self.temporary_directory.name) / "outside-archive"
+        outside.mkdir()
+
+        def write_index(*names: str) -> None:
+            lines = "".join(f"- `{name}` — 受控归档(严格)\n" for name in names)
+            readme.write_text(f"# 归档变更索引\n\n{lines}", encoding="utf-8")
+
+        try:
+            (archive / "real-change").mkdir()
+            (archive / ".hidden-change").mkdir()
+            base_names = ("real-change", ".hidden-change")
+            write_index(*base_names)
+            baseline = self._run_validator()
+
+            internal_link = archive / "internal-link"
+            internal_link.symlink_to("real-change", target_is_directory=True)
+            write_index(*base_names, "internal-link")
+            internal = self._run_validator()
+            internal_link.unlink()
+
+            external_link = archive / "external-link"
+            external_link.symlink_to(outside, target_is_directory=True)
+            write_index(*base_names, "external-link")
+            external = self._run_validator()
+            external_link.unlink()
+
+            dangling_link = archive / "dangling-link"
+            dangling_link.symlink_to("missing-change", target_is_directory=True)
+            write_index(*base_names)
+            dangling = self._run_validator()
+
+            self.assertEqual(
+                (0, True, True, True),
+                (
+                    baseline.returncode,
+                    internal.returncode != 0,
+                    external.returncode != 0,
+                    dangling.returncode != 0,
+                ),
+                msg=(
+                    f"baseline:\n{baseline.stdout}\n"
+                    f"internal:\n{internal.stdout}\n"
+                    f"external:\n{external.stdout}\n"
+                    f"dangling:\n{dangling.stdout}"
+                ),
+            )
+        finally:
+            shutil.rmtree(archive, ignore_errors=True)
+            shutil.move(
+                str(Path(backup.name) / "archive"), str(archive.parent)
+            )
+
+    def test_archive_index_sort_errors_fail_closed(self) -> None:
+        (self.stub_bin / "sort").unlink()
+        self._write_executable("sort", "#!/bin/sh\nexit 64\n")
+
+        result = self._run_validator()
+
+        self.assertNotEqual(result.returncode, 0, msg=result.stdout)
+        self.assertIn("[FAIL] 归档索引与目录 1:1", result.stdout)
+
+    def _run_public_entry_with_contract_skip(
+        self, *arguments: str
+    ) -> subprocess.CompletedProcess[str]:
         contract_test = self.fixture / "scripts/tests/test_validate_workflow.py"
         contract_test.write_text(
             "import unittest\n\n"
@@ -1182,8 +1325,8 @@ class ValidateWorkflowContractTest(unittest.TestCase):
             "exit 0\n",
         )
         environment = {"LC_ALL": "C.UTF-8", "PATH": str(self.stub_bin)}
-        result = subprocess.run(
-            ["/usr/bin/bash", "scripts/validate-workflow.sh"],
+        return subprocess.run(
+            ["/usr/bin/bash", "scripts/validate-workflow.sh", *arguments],
             cwd=self.fixture,
             env=environment,
             stdout=subprocess.PIPE,
@@ -1192,11 +1335,69 @@ class ValidateWorkflowContractTest(unittest.TestCase):
             check=False,
             timeout=120,
         )
+
+    def test_public_entry_surfaces_contract_suite_internal_skips(self) -> None:
+        result = self._run_public_entry_with_contract_skip()
+
         self.assertEqual(result.returncode, 0, msg=result.stdout)
         self.assertIn("契约套件内部设计性跳过 1 项", result.stdout)
         self.assertIn("source-repository only", result.stdout)
         # 汇总行保持末行，SKIP 字段不含套件内部跳过（openspec stub 仍为 1）。
         self.assertRegex(result.stdout, r"PASS=\d+ FAIL=0 SKIP=1\s*\Z")
+
+    def test_public_entry_fails_closed_when_skip_count_grep_errors(self) -> None:
+        real_grep = (self.stub_bin / "grep").resolve()
+        (self.stub_bin / "grep").unlink()
+        self._write_executable(
+            "grep",
+            "#!/bin/sh\n"
+            "if test \"$1\" = \"-c\" && test \"$2\" = '\\.\\.\\. skipped'; then\n"
+            "  exit 64\n"
+            "fi\n"
+            f"exec \"{real_grep}\" \"$@\"\n",
+        )
+
+        result = self._run_public_entry_with_contract_skip()
+
+        self.assertNotEqual(result.returncode, 0, msg=result.stdout)
+        self.assertIn("[FAIL] 契约套件内部跳过计数解析失败", result.stdout)
+
+    def test_public_entry_fails_closed_when_skip_count_is_not_an_integer(self) -> None:
+        real_grep = (self.stub_bin / "grep").resolve()
+        (self.stub_bin / "grep").unlink()
+        self._write_executable(
+            "grep",
+            "#!/bin/sh\n"
+            "if test \"$1\" = \"-c\" && test \"$2\" = '\\.\\.\\. skipped'; then\n"
+            "  printf 'x\\n'\n"
+            "  exit 0\n"
+            "fi\n"
+            f"exec \"{real_grep}\" \"$@\"\n",
+        )
+
+        result = self._run_public_entry_with_contract_skip()
+
+        self.assertNotEqual(result.returncode, 0, msg=result.stdout)
+        self.assertIn("[FAIL] 契约套件内部跳过计数解析失败", result.stdout)
+
+    def test_public_entry_fails_closed_when_skip_render_sed_errors(self) -> None:
+        real_sed = (self.stub_bin / "sed").resolve()
+        (self.stub_bin / "sed").unlink()
+        self._write_executable(
+            "sed",
+            "#!/bin/sh\n"
+            "for argument in \"$@\"; do\n"
+            "  case \"$argument\" in\n"
+            "    *'s/^/  - /'*) exit 64 ;;\n"
+            "  esac\n"
+            "done\n"
+            f"exec \"{real_sed}\" \"$@\"\n",
+        )
+
+        result = self._run_public_entry_with_contract_skip()
+
+        self.assertNotEqual(result.returncode, 0, msg=result.stdout)
+        self.assertIn("[FAIL] 契约套件内部跳过明细渲染失败", result.stdout)
 
 
 class WorkflowInstalledPortabilityRegressionTests:

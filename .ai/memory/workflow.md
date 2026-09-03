@@ -146,3 +146,7 @@
 ## 2026-09-02 · 来源变更 close-scenario-i-report-reachability-gap（决策链可达性闭合先例＋审查排程序验）
 **坑**：①行为契约（压力场景通过条件）里独有的规则对探针不可达——只读根入口＋技能的会话永远看不到，「不输出既有正文」双样本 1 过 1 挂即此；②可达性修复若落在规格 delta 里，验收探针在归档合并前读不到——重跑必须后置到主规格合并之后；③review_manifest 冻结记录文件权限位字段：freeze 之后做 umask 归一 chmod（664→644）会使 manifest STALE，reviewer 在结论前正确停止
 **解**：①规则要可达就写进决策链路由终点（本例 codex-target 规格冲突条款，探针路由终点已实证），不要只放契约文件；②可达性验收探针在归档合并态跑，记录追加归档目录独立提交，FAIL 时回退归档状态重走；③**模式归一必须在 freeze 之前**（新 worktree 建好先 chmod 再冻结审查范围）；判定口径类条款必须行为化（动词领起）并写明缺省判法（未提及＝FAIL），否则严格/宽松双读法重现
+
+## 2026-09-02 · 来源变更 validator-fail-closed-backport（bash≤4.3 set -u 空数组致命中止＋移植回归实证法）
+**坑**：`set -u` 下 bash ≤4.3 把空数组展开 `"${a[@]}"` 当未绑定变量直接中止（rc=127，bash 4.4 才修复）；从 meta 库回流 `archive_index_ok` 时两个 `for path in "${arr[@]}"` 在空归档/仅 README 归档（恰是安装目标空白基线）会让整个 core 在 `check` 的静默重定向下中途崩死——无 FAIL 行、无 INTERNAL_RESULT，方向 fail-closed 不假绿但 macOS /bin/bash 3.2 目标整体不可用，且测试宿主 /usr/bin/bash 5.1 结构性无法捕获。
+**解**：空数组循环一律用仓库既有习语 `${arr[@]+"${arr[@]}"}`（wrapper 早有同款）；验证用 ftp.gnu.org 源码自编译 bash 3.2.0 驱动真实函数三态（空/仅 README/有目录）+ `git archive` 导出骨架端到端核对 INTERNAL_RESULT 出现；**回流移植即使逐字来自已过门禁的上游，仍须按本仓声明的兼容下限独立实证**——meta 库原件至今仍带此潜伏缺陷（其宿主 bash 5.x 永不触发），下次升级目标侧时应一并修复。
