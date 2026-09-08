@@ -82,6 +82,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# 顶层契约套件只在此函数内出现一次,便于静态检查与 mutation 测试。
+run_contract_suite() {
+  python3 -B -m unittest -v scripts.tests.test_validate_workflow >"$contract_output" 2>&1
+}
+
 core_status=0
 bash scripts/lib/validate-workflow-core.sh ${forwarded_arguments[@]+"${forwarded_arguments[@]}"} >"$core_output" 2>&1 || core_status=$?
 internal_result="$(sed -n "s/^INTERNAL_RESULT PASS=[0-9][0-9]* FAIL=[0-9][0-9]* SKIP=[0-9][0-9]*$/&/p" "$core_output" | tail -1)"
@@ -138,7 +143,7 @@ EOF
   fi
   if test "$promoted" -eq 1; then
     # 改跑契约套件（与正常路径同一段）
-    if python3 -B -m unittest -v scripts.tests.test_validate_workflow >"$contract_output" 2>&1; then
+    if run_contract_suite; then
       printf "[PASS] 工作流顶层契约测试（promoted）\n"
       pass_count=$((pass_count + 1))
     else
@@ -154,7 +159,7 @@ EOF
   exit 0
 fi
 
-if python3 -B -m unittest -v scripts.tests.test_validate_workflow >"$contract_output" 2>&1; then
+if run_contract_suite; then
   printf "[PASS] 工作流顶层契约测试\n"
   pass_count=$((pass_count + 1))
   # 透明化：套件整体计 1 个门禁检查，但内部设计性跳过（如源仓专属的
