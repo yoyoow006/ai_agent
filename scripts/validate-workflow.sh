@@ -6,11 +6,38 @@ cd "$(dirname "$0")/.."
 export PYTHONDONTWRITEBYTECODE=1
 
 fast_mode=0
+archive_light=0
+require_openspec_user=0
+archive_files=()
 forwarded_arguments=()
-for argument in "$@"; do
+while test "$#" -gt 0; do
+  argument="$1"
   case "$argument" in
     --fast)
       fast_mode=1
+      shift
+      ;;
+    --archive-light)
+      archive_light=1
+      shift
+      ;;
+    --archive-files)
+      shift
+      while test "$#" -gt 0; do
+        case "$1" in
+          --*)
+            break
+            ;;
+          *)
+            archive_files+=("$1")
+            shift
+            ;;
+        esac
+      done
+      ;;
+    --require-openspec)
+      require_openspec_user=1
+      shift
       ;;
     --print-external-commands)
       # 诊断模式直接透传 core(只读、无汇总语义),不进入门禁流程。
@@ -18,9 +45,19 @@ for argument in "$@"; do
       ;;
     *)
       forwarded_arguments+=("$argument")
+      shift
       ;;
   esac
 done
+
+# --archive-light 与 --require-openspec 互斥（语义冲突：前者跳过契约套件、后者强制契约套件）
+if test "$archive_light" -eq 1 && test "$require_openspec_user" -eq 1; then
+  printf "[FAIL] --archive-light 与 --require-openspec 冲突（conflict）：归档轻量门禁与强制完整门禁不能同时启用\n" >&2
+  exit 2
+fi
+
+# --archive-light 单独使用 = 纯轻量（仅跑 core，不做 diff 分类）
+#   配合 --archive-files + WORKFLOW_ARCHIVE_GATE=1 才做 diff 分类自动升级
 
 # 串行化同一工作树的并发校验：契约套件含 mutation,并发实例会互踩产生假失败。
 if command -v flock >/dev/null 2>&1; then
@@ -73,6 +110,43 @@ if test "$core_status" -eq 2; then
 fi
 
 if test "$fast_mode" -eq 1; then
+  printf "PASS=%d FAIL=%d SKIP=%d\n" "$pass_count" "$fail_count" "$skip_count"
+  if test "$fail_count" -gt 0 || test "$core_status" -ne 0; then
+    exit 1
+  fi
+  exit 0
+fi
+
+# 归档轻量门禁：跳过顶层契约套件，core 结果已足；diff 分类自动升级如下。
+# 1) WORKFLOW_ARCHIVE_GATE=1 + --archive-files 非空 + git diff --name-only <base> -- <files> 非空 → 改跑契约套件
+if test "$archive_light" -eq 1; then
+  printf "[INFO] archive-light gate engaged (files=%d, core_status=%d)\n" "${#archive_files[@]}" "$core_status"
+  promoted=0
+  if test "${WORKFLOW_ARCHIVE_GATE:-0}" = "1" && test "${#archive_files[@]}" -gt 0; then
+    diff_base="${WORKFLOW_ARCHIVE_BASE:-HEAD}"
+    if command -v git >/dev/null 2>&1; then
+      diff_output="$(git diff --name-only "$diff_base" -- ${archive_files[@]+"${archive_files[@]}"} 2>/dev/null || true)"
+      if test -n "$diff_output"; then
+        while IFS= read -r diff_file; do
+          test -n "$diff_file" && printf "[INFO] archive gate promoted to --require-openspec: %s\n" "$diff_file"
+        done <<EOF
+$diff_output
+EOF
+        promoted=1
+      fi
+    fi
+  fi
+  if test "$promoted" -eq 1; then
+    # 改跑契约套件（与正常路径同一段）
+    if python3 -B -m unittest -v scripts.tests.test_validate_workflow >"$contract_output" 2>&1; then
+      printf "[PASS] 工作流顶层契约测试（promoted）\n"
+      pass_count=$((pass_count + 1))
+    else
+      printf "[FAIL] 工作流顶层契约测试（promoted）\n"
+      fail_count=$((fail_count + 1))
+      sed "s/^/  /" "$contract_output"
+    fi
+  fi
   printf "PASS=%d FAIL=%d SKIP=%d\n" "$pass_count" "$fail_count" "$skip_count"
   if test "$fail_count" -gt 0 || test "$core_status" -ne 0; then
     exit 1

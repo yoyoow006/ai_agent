@@ -1964,5 +1964,257 @@ class WorkflowFixtureCopyTests(unittest.TestCase):
             self.assertEqual(sentinel.read_text(encoding="utf-8"), "DO_NOT_COPY")
 
 
+
+
+class MutationStandardThreePieceSuiteTest(unittest.TestCase):
+    """mutation: AGENTS.md 必须明确"标准模式三件套+条件 design"，注入旧四件套契约必须被检出。"""
+
+    AGENTS_MD = REPOSITORY_ROOT / "AGENTS.md"
+    OPEN_SKILL = REPOSITORY_ROOT / ".codex" / "skills" / "open" / "SKILL.md"
+
+    def test_agents_md_states_three_piece_suite(self) -> None:
+        text = self.AGENTS_MD.read_text(encoding="utf-8")
+        self.assertIn("三件套", text, "AGENTS.md 必须明确三件套")
+        # 旧四件套契约不应再存在
+        self.assertNotIn("Open 一次创建 `proposal.md`、delta `spec.md`、`design.md`、含精确步骤和命令的 `tasks.md`", text,
+                         "AGENTS.md 不应再保留旧四件套契约")
+
+    def test_open_skill_states_three_piece_suite(self) -> None:
+        text = self.OPEN_SKILL.read_text(encoding="utf-8")
+        self.assertIn("三件套", text, ".codex/skills/open/SKILL.md 必须明确三件套")
+        self.assertNotIn("一次产出可执行四件套", text,
+                         ".codex/skills/open/SKILL.md 不应再保留旧四件套契约")
+
+    def test_design_skill_states_risk_triggered_second_confirm(self) -> None:
+        design_skill = REPOSITORY_ROOT / ".codex" / "skills" / "design" / "SKILL.md"
+        text = design_skill.read_text(encoding="utf-8")
+        self.assertIn("不可逆风险触发", text,
+                      ".codex/skills/design/SKILL.md 必须含'不可逆风险触发'段")
+        for keyword in ["权限认证", "资金账务", "数据库 Schema", "数据删除", "破坏性动作", "外部副作用"]:
+            self.assertIn(keyword, text, f"design SKILL.md 必须含硬风险关键词: {keyword}")
+
+
+class StrictSecondConfirmHardSetTest(unittest.TestCase):
+    """mutation: AGENTS.md 严格模式节必须含硬风险集合 + 连续 Build 句。"""
+
+    AGENTS_MD = REPOSITORY_ROOT / "AGENTS.md"
+
+    def test_strict_hard_risk_set_listed(self) -> None:
+        text = self.AGENTS_MD.read_text(encoding="utf-8")
+        for keyword in ["权限认证", "资金账务", "数据库 Schema", "数据删除", "破坏性动作", "外部副作用"]:
+            self.assertIn(keyword, text, f"AGENTS.md 严格模式节必须含硬风险关键词: {keyword}")
+
+    def test_strict_continuous_build_clause(self) -> None:
+        text = self.AGENTS_MD.read_text(encoding="utf-8")
+        self.assertIn("不命中上述硬风险集合且未引入新选择的严格计划", text,
+                      "AGENTS.md 严格模式节必须含'连续 Build'句")
+
+    def test_old_double_confirm_clause_removed(self) -> None:
+        """mutation 注入: 旧"保留两次实施前确认"句应被移除"""
+        text = self.AGENTS_MD.read_text(encoding="utf-8")
+        self.assertNotIn("保留两次实施前确认", text,
+                         "AGENTS.md 不应再保留旧双确认句")
+
+
+class ReviewRuleHighRiskInvariantTest(unittest.TestCase):
+    """mutation: review.md 必须含高风险不变量 + manifest 清理约束。"""
+
+    REVIEW_MD = REPOSITORY_ROOT / ".ai" / "rules" / "review.md"
+
+    def test_review_md_has_high_risk_invariant(self) -> None:
+        text = self.REVIEW_MD.read_text(encoding="utf-8")
+        self.assertIn("高风险不变量", text, "review.md 必须含高风险不变量定义")
+        self.assertIn("合并为一次审查", text, "review.md 必须含合并审查条款")
+
+    def test_review_md_has_manifest_cleanup_constraint(self) -> None:
+        text = self.REVIEW_MD.read_text(encoding="utf-8")
+        self.assertIn("不得递归删除整个 `.ai-local`", text,
+                      "review.md 必须禁止递归删除 .ai-local")
+        # mutation 注入：禁止 .ai-local reviews/<change>/ 以外的形式
+        self.assertNotIn("rm -rf .ai-local", text,
+                         "review.md 不应含 rm -rf .ai-local 字面（无子路径）")
+
+
+class ArchiveLightPromotionMutationTest(unittest.TestCase):
+    """mutation: 注入违反 diff 分类升级规则必须被检出。"""
+
+    WRAPPER = REPOSITORY_ROOT / "scripts" / "validate-workflow.sh"
+
+    def test_wrapper_recognizes_archive_light_flag(self) -> None:
+        text = self.WRAPPER.read_text(encoding="utf-8")
+        self.assertIn("--archive-light", text, "wrapper 必须识别 --archive-light")
+        self.assertIn("WORKFLOW_ARCHIVE_GATE", text, "wrapper 必须支持 WORKFLOW_ARCHIVE_GATE env")
+
+    def test_wrapper_rejects_conflict(self) -> None:
+        text = self.WRAPPER.read_text(encoding="utf-8")
+        self.assertTrue("conflict" in text.lower(),
+                        "wrapper 必须检测 --archive-light 与 --require-openspec 冲突")
+
+
+class ArchiveLightGateTest(unittest.TestCase):
+    """归档轻量门禁：--archive-light 跳过顶层契约套件；diff 分类自动升级。"""
+
+    STUB_CORE = (
+        "#!/usr/bin/env bash\n"
+        "printf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\n"
+        "exit 0\n"
+    )
+
+
+    def _stage_wrapper_tree(self, root: Path) -> None:
+        """在临时目录里布置 wrapper + stub core + stub unittest + .ai-local"""
+        scripts_dir = root / "scripts" / "lib"
+        (root / "scripts").mkdir(parents=True)
+        scripts_dir.mkdir(parents=True)
+        (scripts_dir / "validate-workflow-core.sh").write_text(
+            "#!/usr/bin/env bash\nprintf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\nexit 0\n",
+            encoding="utf-8",
+        )
+        wrapper_text = (REPOSITORY_ROOT / "scripts" / "validate-workflow.sh").read_text(
+            encoding="utf-8"
+        )
+        (scripts_dir.parent / "validate-workflow.sh").write_text(wrapper_text, encoding="utf-8")
+        (root / "scripts" / "tests").mkdir()
+        (root / "scripts" / "tests" / "test_validate_workflow.py").write_text(
+            'import unittest\n'
+            'class SentinelTest(unittest.TestCase):\n'
+            '    def test_placeholder(self) -> None: self.assertTrue(True)\n',
+            encoding="utf-8",
+        )
+        (root / ".ai-local").mkdir()
+
+    def _run_wrapper(self, *arguments: str, core_status: int = 0,
+                     stub_core: str | None = None) -> subprocess.CompletedProcess:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            scripts_dir = root / "scripts" / "lib"
+            (root / "scripts").mkdir(parents=True)
+            scripts_dir.mkdir(parents=True)
+            (scripts_dir / "validate-workflow-core.sh").write_text(
+                stub_core or self.STUB_CORE, encoding="utf-8"
+            )
+            wrapper = (REPOSITORY_ROOT / "scripts" / "validate-workflow.sh").read_text(
+                encoding="utf-8"
+            )
+            wrapper_path = scripts_dir.parent / "validate-workflow.sh"
+            wrapper_path.write_text(wrapper, encoding="utf-8")
+            (root / "scripts" / "tests").mkdir()
+            (root / "scripts" / "tests" / "test_validate_workflow.py").write_text(
+                'import unittest\n'
+                'class SentinelTest(unittest.TestCase):\n'
+                '    def test_placeholder(self) -> None: self.assertTrue(True)\n',
+                encoding="utf-8",
+            )
+            (root / ".ai-local").mkdir()
+            cmd = ["/usr/bin/bash", str(wrapper_path), *arguments]
+            return subprocess.run(
+                cmd, cwd=root, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, check=False, timeout=60,
+            )
+
+    def test_archive_light_skips_contract_suite_when_no_semantic_diff(self) -> None:
+        result = self._run_wrapper("--archive-light")
+        self.assertEqual(0, result.returncode, msg=result.stdout + result.stderr)
+        # 顶层契约套件应被跳过：unittest 失败/不存在
+        self.assertNotIn("[PASS] 工作流顶层契约测试", result.stdout)
+        self.assertIn("PASS=1 FAIL=0 SKIP=0", result.stdout)
+
+    def test_archive_light_runs_pure_core_when_no_archive_files(self) -> None:
+        # --archive-light 单独使用 = 纯轻量门禁（仅 core，无 diff 分类升级）
+        result = self._run_wrapper("--archive-light")
+        self.assertEqual(0, result.returncode, msg=result.stdout + result.stderr)
+        self.assertIn("archive-light gate engaged", result.stdout)
+        self.assertIn("files=0", result.stdout)
+        self.assertNotIn("[PASS] 工作流顶层契约测试", result.stdout)
+
+    def test_archive_light_rejects_conflict_with_require_openspec(self) -> None:
+        result = self._run_wrapper("--archive-light", "--require-openspec")
+        self.assertEqual(2, result.returncode, msg=result.stdout + result.stderr)
+        combined = result.stdout + result.stderr
+        self.assertIn("conflict", combined.lower())
+
+
+    def test_archive_light_promotes_to_require_openspec_on_workflow_diff(self) -> None:
+        """diff 分类自动升级：WORKFLOW_ARCHIVE_GATE=1 + --archive-files + git diff 非空 → 改跑契约套件"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_wrapper_tree(root)
+            fake_bin = root / "fakebin"
+            fake_bin.mkdir()
+            stub_path = root / "git_stub.sh"
+            stub_path.write_text(
+                "#!/usr/bin/env bash\n"
+                "if [ \"$1\" = \"diff\" ] && [ \"$2\" = \"--name-only\" ]; then\n"
+                "  echo scripts/validate-workflow.sh\n"
+                "  exit 0\n"
+                "fi\n"
+                "exit 1\n",
+                encoding="utf-8",
+            )
+            (fake_bin / "git").write_text(
+                f'#!/usr/bin/env bash\nbash {stub_path} "$@"\n',
+                encoding="utf-8",
+            )
+            (fake_bin / "git").chmod(0o755)
+            import os
+            env = os.environ.copy()
+            env["PATH"] = str(fake_bin) + ":" + env.get("PATH", "")
+            env["WORKFLOW_ARCHIVE_GATE"] = "1"
+            env["WORKFLOW_ARCHIVE_BASE"] = "HEAD"
+            result = subprocess.run(
+                ["/usr/bin/bash", str(root / "scripts" / "validate-workflow.sh"),
+                 "--archive-light", "--archive-files", "scripts/validate-workflow.sh"],
+                cwd=root, env=env, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, check=False, timeout=60,
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout + result.stderr)
+            combined = result.stdout + result.stderr
+            self.assertIn("promoted to --require-openspec", combined)
+            self.assertTrue(
+                "[PASS] 工作流顶层契约测试" in result.stdout
+                or "SentinelTest" in result.stdout
+                or "test_placeholder" in result.stdout,
+                msg=result.stdout + result.stderr,
+            )
+
+    def test_archive_light_no_promotion_when_git_diff_empty(self) -> None:
+        """diff 分类无变化时不升级，保持轻量"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_wrapper_tree(root)
+            fake_bin = root / "fakebin"
+            fake_bin.mkdir()
+            stub_path = root / "git_stub.sh"
+            stub_path.write_text(
+                "#!/usr/bin/env bash\nexit 0\n",  # diff 输出空
+                encoding="utf-8",
+            )
+            (fake_bin / "git").write_text(
+                f'#!/usr/bin/env bash\nbash {stub_path} "$@"\n',
+                encoding="utf-8",
+            )
+            (fake_bin / "git").chmod(0o755)
+            import os
+            env = os.environ.copy()
+            env["PATH"] = str(fake_bin) + ":" + env.get("PATH", "")
+            env["WORKFLOW_ARCHIVE_GATE"] = "1"
+            env["WORKFLOW_ARCHIVE_BASE"] = "HEAD"
+            result = subprocess.run(
+                ["/usr/bin/bash", str(root / "scripts" / "validate-workflow.sh"),
+                 "--archive-light", "--archive-files", "scripts/validate-workflow.sh"],
+                cwd=root, env=env, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, check=False, timeout=60,
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout + result.stderr)
+            self.assertNotIn("promoted to --require-openspec", result.stdout + result.stderr)
+            self.assertNotIn("[PASS] 工作流顶层契约测试", result.stdout)
+
+    def test_archive_light_propagates_core_failure_exit(self) -> None:
+        bad_stub = "#!/usr/bin/env bash\nexit 1\n"
+        result = self._run_wrapper("--archive-light", stub_core=bad_stub)
+        self.assertNotEqual(0, result.returncode, msg=result.stdout + result.stderr)
+        self.assertNotIn("[PASS] 工作流顶层契约测试", result.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
