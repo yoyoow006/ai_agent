@@ -150,3 +150,18 @@
 ## 2026-09-02 · 来源变更 validator-fail-closed-backport（bash≤4.3 set -u 空数组致命中止＋移植回归实证法）
 **坑**：`set -u` 下 bash ≤4.3 把空数组展开 `"${a[@]}"` 当未绑定变量直接中止（rc=127，bash 4.4 才修复）；从 meta 库回流 `archive_index_ok` 时两个 `for path in "${arr[@]}"` 在空归档/仅 README 归档（恰是安装目标空白基线）会让整个 core 在 `check` 的静默重定向下中途崩死——无 FAIL 行、无 INTERNAL_RESULT，方向 fail-closed 不假绿但 macOS /bin/bash 3.2 目标整体不可用，且测试宿主 /usr/bin/bash 5.1 结构性无法捕获。
 **解**：空数组循环一律用仓库既有习语 `${arr[@]+"${arr[@]}"}`（wrapper 早有同款）；验证用 ftp.gnu.org 源码自编译 bash 3.2.0 驱动真实函数三态（空/仅 README/有目录）+ `git archive` 导出骨架端到端核对 INTERNAL_RESULT 出现；**回流移植即使逐字来自已过门禁的上游，仍须按本仓声明的兼容下限独立实证**——meta 库原件至今仍带此潜伏缺陷（其宿主 bash 5.x 永不触发），下次升级目标侧时应一并修复。
+## 2026-09-08 · 来源变更 streamline-ai-workflow-overhead
+**坑**：本仓库主工作区 `.git`、`/codex`、`/agents` 是 ro 挂载，`.worktrees/`、`/ai/`、`/scripts/`、`/openspec/` 是 rw；这导致严格模式 plan 中"git checkout -b → commit → worktree add → 本地合回 master"在 ro `.git` 下物理不可行，5 SKILL.md 同步任务（plan 任务 2）也因 `.codex` ro 全部阻塞。
+**解**：(1) 在 rw 路径上完成"能落盘"的任务（AGENTS.md、review.md、wrapper、tests）并各自跑 plan 自带验证；(2) 对 ro 路径加 skipTest 注记"environment: path is read-only in current mount"，让契约套件保留红灯位作为 finding、不污染主套件绿；(3) `task 7/8`（worktree + commit + 合回 master）作为后续在可写环境（用户开发机或外部克隆）执行的"半成品"，本次不进 goal。(4) 落地后用 tasks.md 显式标 `[x]`/`[BLOCKED-ENV]`/`[PHYSICAL-IMPOSSIBLE]`，与 plan 字段一一对应、可在用户环境回溯。
+## 2026-09-08 · 来源变更 streamline-ai-workflow-overhead（标准三件套条件生成）
+**坑**：标准模式无差别强制四件套（含 design.md + 独立 plan）会让"补一个字段映射"这种职责清晰的小变更承担架构决策、第二次确认、独立 plan 三重成本；用户体感是 OpenSpec 永远重型化，违反风险分级初衷。
+**解**：标准 design 改为"跨模块取舍 / 新依赖 / 状态模型 / 重要替代方案 / 架构决策无法在 proposal/tasks 清晰表达"五项正向触发；其余情况只产 proposal + delta spec + tasks，禁止空壳 design；同步 5 SKILL.md 双套镜像并跑 `mirror_equal` byte-identical 验证。AGENTS.md / open SKILL.md 措辞必须显式"不得制造空壳 design"。
+## 2026-09-08 · 来源变更 streamline-ai-workflow-overhead（严格风险触发二次确认）
+**坑**：严格模式无差别要求四件套确认后第二次确认独立计划，会让"治理规则文档化（不动业务运行时代码 / 数据 / Schema）"这种工作也吃 plan 确认成本；治理语义变化的 plan 风险与"按已确认规范展开"的风险本不在同一量级。
+**解**：第二次确认改为不可逆风险硬触发（权限认证、资金账务、数据库 Schema/迁移、数据删除、破坏性动作、外部副作用，或计划引入规范未覆盖的选择/假设/依赖/范围）；硬集合显式列出关键词；未命中且未引入新选择时 plan 自审后连续 Build，用户明确要求查看计划时仍置`待确认计划`。design SKILL.md / AGENTS.md 双写硬集合 6 项。
+## 2026-09-08 · 来源变更 streamline-ai-workflow-overhead（归档轻量门禁与 diff 分类自动升级）
+**坑**：Archive 阶段永远跑顶层契约套件（耗时 400s+）会把"机械归档（移目录 + 改索引 + memory 沉淀）"的轻量动作拖成重量级，且机械归档产生的 `openspec/specs/` / `openspec/archive/` 新状态本身已超 Verify 阶段范围——必须重跑校验但不必重跑契约套件。手工口头跳过会埋下治理漂移。
+**解**：`scripts/validate-workflow.sh` 新增 `--archive-light` / `--archive-files` 入口 + `WORKFLOW_ARCHIVE_GATE=1` 环境变量；Verify 后仅 `git diff --name-only <base> -- <list>` 非空（工作流可执行文件、助手入口、技能、契约测试、治理规格变更）才改跑契约套件，否则纯轻量门禁；与 `--require-openspec` 互斥（exit 2）。契约套件调用收敛到 `run_contract_suite` 函数（mutation 测试只删一处即可检出）；skip 透明化块抽为 `render_contract_suite_skips`（promoted 与默认路径都调用）；git 不可用且 gate 开启时 fail-closed（[FAIL] + 非零）。
+## 2026-09-08 · 来源变更 streamline-ai-workflow-overhead（`.ai-local` 精确清理 + 已归档缓存）
+**坑**：`.ai-local` 既是运行时锁（`.validate.lock`）又是 review manifest 缓存；`rm -rf .ai-local` 会清掉活跃锁使并发校验失守；反之永不清理会让 `.ai-local/reviews/` 永远膨胀掩盖活跃 review。
+**解**：Archive 阶段在 OpenSpec 归档文件持久最终证据（最终 manifest ID / comparison base / finding 状态 / 未验证范围 / 残余风险）后，仅删 `.ai-local/reviews/<change>/`（精确子路径，不得无子路径）；活跃 review、STALE manifest、未持久化最终证据的目录不得清理；不得把缓存清理当作关闭 finding 的手段。archive SKILL.md + .ai/rules/review.md 双写禁止性条款 + shell 片段。
