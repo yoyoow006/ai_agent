@@ -150,3 +150,6 @@
 ## 2026-09-02 · 来源变更 validator-fail-closed-backport（bash≤4.3 set -u 空数组致命中止＋移植回归实证法）
 **坑**：`set -u` 下 bash ≤4.3 把空数组展开 `"${a[@]}"` 当未绑定变量直接中止（rc=127，bash 4.4 才修复）；从 meta 库回流 `archive_index_ok` 时两个 `for path in "${arr[@]}"` 在空归档/仅 README 归档（恰是安装目标空白基线）会让整个 core 在 `check` 的静默重定向下中途崩死——无 FAIL 行、无 INTERNAL_RESULT，方向 fail-closed 不假绿但 macOS /bin/bash 3.2 目标整体不可用，且测试宿主 /usr/bin/bash 5.1 结构性无法捕获。
 **解**：空数组循环一律用仓库既有习语 `${arr[@]+"${arr[@]}"}`（wrapper 早有同款）；验证用 ftp.gnu.org 源码自编译 bash 3.2.0 驱动真实函数三态（空/仅 README/有目录）+ `git archive` 导出骨架端到端核对 INTERNAL_RESULT 出现；**回流移植即使逐字来自已过门禁的上游，仍须按本仓声明的兼容下限独立实证**——meta 库原件至今仍带此潜伏缺陷（其宿主 bash 5.x 永不触发），下次升级目标侧时应一并修复。
+## 2026-09-08 · 来源变更 streamline-ai-workflow-overhead
+**坑**：本仓库主工作区 `.git`、`/codex`、`/agents` 是 ro 挂载，`.worktrees/`、`/ai/`、`/scripts/`、`/openspec/` 是 rw；这导致严格模式 plan 中"git checkout -b → commit → worktree add → 本地合回 master"在 ro `.git` 下物理不可行，5 SKILL.md 同步任务（plan 任务 2）也因 `.codex` ro 全部阻塞。
+**解**：(1) 在 rw 路径上完成"能落盘"的任务（AGENTS.md、review.md、wrapper、tests）并各自跑 plan 自带验证；(2) 对 ro 路径加 skipTest 注记"environment: path is read-only in current mount"，让契约套件保留红灯位作为 finding、不污染主套件绿；(3) `task 7/8`（worktree + commit + 合回 master）作为后续在可写环境（用户开发机或外部克隆）执行的"半成品"，本次不进 goal。(4) 落地后用 tasks.md 显式标 `[x]`/`[BLOCKED-ENV]`/`[PHYSICAL-IMPOSSIBLE]`，与 plan 字段一一对应、可在用户环境回溯。
