@@ -2215,6 +2215,80 @@ class ArchiveLightGateTest(unittest.TestCase):
         self.assertNotEqual(0, result.returncode, msg=result.stdout + result.stderr)
         self.assertNotIn("[PASS] 工作流顶层契约测试", result.stdout)
 
+    def test_archive_light_promoted_path_renders_internal_skips(self) -> None:
+        """F-Q1 regression：promoted 路径必须复用 render_contract_suite_skips；
+        若契约套件内部出现 ... skipped 行，必须在汇总前可见（与默认路径同语义）。"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_wrapper_tree(root)
+            # 让 stub unittest 输出 ... skipped 行（触发现实仓库 PrePushHookTest 等）
+            (root / "scripts" / "tests" / "test_validate_workflow.py").write_text(
+                'import unittest\n'
+                'class SentinelTest(unittest.TestCase):\n'
+                '    def test_pass(self) -> None: self.assertTrue(True)\n'
+                '    def test_skipped(self) -> None: self.skipTest("source-only stub")\n',
+                encoding="utf-8",
+            )
+            fake_bin = root / "fakebin"
+            fake_bin.mkdir()
+            stub_path = root / "git_stub.sh"
+            stub_path.write_text(
+                "#!/usr/bin/env bash\n"
+                "if [ \"$1\" = \"diff\" ] && [ \"$2\" = \"--name-only\" ]; then\n"
+                "  echo scripts/validate-workflow.sh\n"
+                "  exit 0\n"
+                "fi\n"
+                "exit 1\n",
+                encoding="utf-8",
+            )
+            (fake_bin / "git").write_text(
+                f'#!/usr/bin/env bash\nbash {stub_path} "$@"\n',
+                encoding="utf-8",
+            )
+            (fake_bin / "git").chmod(0o755)
+            import os
+            env = os.environ.copy()
+            env["PATH"] = str(fake_bin) + ":" + env.get("PATH", "")
+            env["WORKFLOW_ARCHIVE_GATE"] = "1"
+            env["WORKFLOW_ARCHIVE_BASE"] = "HEAD"
+            result = subprocess.run(
+                ["/usr/bin/bash", str(root / "scripts" / "validate-workflow.sh"),
+                 "--archive-light", "--archive-files", "scripts/validate-workflow.sh"],
+                cwd=root, env=env, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, check=False, timeout=60,
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout + result.stderr)
+            # 关键断言：promoted 路径必须包含"内部设计性跳过"渲染段
+            self.assertIn("内部设计性跳过", result.stdout,
+                          msg=result.stdout + result.stderr)
+
+    def test_archive_light_fails_closed_when_git_missing(self) -> None:
+        """F-Q2 regression：WORKFLOW_ARCHIVE_GATE=1 + --archive-files 非空时，
+        若 git 不可用必须 fail-closed（stderr 提示 + 非零退出码）。"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_wrapper_tree(root)
+            # 构造一个没有 git 的 PATH（指向空目录）
+            empty_bin = root / "emptybin"
+            empty_bin.mkdir()
+            import os
+            env = os.environ.copy()
+            env["PATH"] = str(empty_bin)  # 仅含空目录，无 git
+            env["WORKFLOW_ARCHIVE_GATE"] = "1"
+            env["WORKFLOW_ARCHIVE_BASE"] = "HEAD"
+            result = subprocess.run(
+                ["/usr/bin/bash", str(root / "scripts" / "validate-workflow.sh"),
+                 "--archive-light", "--archive-files", "scripts/validate-workflow.sh"],
+                cwd=root, env=env, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, check=False, timeout=60,
+            )
+            self.assertNotEqual(0, result.returncode,
+                                msg="git 缺失时 WORKFLOW_ARCHIVE_GATE=1 必须非零退出: "
+                                + result.stdout + result.stderr)
+            combined = result.stdout + result.stderr
+            self.assertIn("git 不可用", combined,
+                          msg=combined)
+
 
 if __name__ == "__main__":
     unittest.main()

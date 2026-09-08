@@ -87,6 +87,39 @@ run_contract_suite() {
   python3 -B -m unittest -v scripts.tests.test_validate_workflow >"$contract_output" 2>&1
 }
 
+# 契约套件内部设计性跳过（源仓专属能力，如 CI / pre-push 钩子）必须
+# 在汇总前逐条可见；不计入顶层 SKIP 字段。失败/解析错误直接 fail-closed。
+render_contract_suite_skips() {
+  contract_skip_status=0
+  contract_skips="$(grep -c '\.\.\. skipped' "$contract_output")" || contract_skip_status=$?
+  case "$contract_skip_status" in
+    0|1)
+      case "$contract_skips" in
+        ""|*[!0-9]*)
+          printf "[FAIL] 契约套件内部跳过计数解析失败（结果必须为非负整数）\n"
+          fail_count=$((fail_count + 1))
+          contract_skips=0
+          ;;
+      esac
+      ;;
+    *)
+      printf "[FAIL] 契约套件内部跳过计数解析失败（grep exit %d）\n" "$contract_skip_status"
+      fail_count=$((fail_count + 1))
+      contract_skips=0
+      ;;
+  esac
+  if test "$contract_skips" -gt 0; then
+    printf "  契约套件内部设计性跳过 %d 项（源仓专属能力；不影响门禁计数）:\n" "$contract_skips"
+    sed -n '/\.\.\. skipped/{s/^/  - /;p;}' "$contract_output"
+    # $? 必须紧跟 sed 捕获其退出码；本行与 sed 之间不得插入任何命令。
+    contract_skip_render_status=$?
+    if test "$contract_skip_render_status" -ne 0; then
+      printf "[FAIL] 契约套件内部跳过明细渲染失败（sed exit %d）\n" "$contract_skip_render_status"
+      fail_count=$((fail_count + 1))
+    fi
+  fi
+}
+
 core_status=0
 bash scripts/lib/validate-workflow-core.sh ${forwarded_arguments[@]+"${forwarded_arguments[@]}"} >"$core_output" 2>&1 || core_status=$?
 internal_result="$(sed -n "s/^INTERNAL_RESULT PASS=[0-9][0-9]* FAIL=[0-9][0-9]* SKIP=[0-9][0-9]*$/&/p" "$core_output" | tail -1)"
@@ -129,7 +162,10 @@ if test "$archive_light" -eq 1; then
   promoted=0
   if test "${WORKFLOW_ARCHIVE_GATE:-0}" = "1" && test "${#archive_files[@]}" -gt 0; then
     diff_base="${WORKFLOW_ARCHIVE_BASE:-HEAD}"
-    if command -v git >/dev/null 2>&1; then
+    if ! command -v git >/dev/null 2>&1; then
+      printf "[FAIL] WORKFLOW_ARCHIVE_GATE=1 但 git 不可用；无法执行 diff 分类自动升级。请安装 git 或撤销 WORKFLOW_ARCHIVE_GATE。\n" >&2
+      fail_count=$((fail_count + 1))
+    else
       diff_output="$(git diff --name-only "$diff_base" -- ${archive_files[@]+"${archive_files[@]}"} 2>/dev/null || true)"
       if test -n "$diff_output"; then
         while IFS= read -r diff_file; do
@@ -146,6 +182,7 @@ EOF
     if run_contract_suite; then
       printf "[PASS] 工作流顶层契约测试（promoted）\n"
       pass_count=$((pass_count + 1))
+      render_contract_suite_skips
     else
       printf "[FAIL] 工作流顶层契约测试（promoted）\n"
       fail_count=$((fail_count + 1))
@@ -162,36 +199,7 @@ fi
 if run_contract_suite; then
   printf "[PASS] 工作流顶层契约测试\n"
   pass_count=$((pass_count + 1))
-  # 透明化：套件整体计 1 个门禁检查，但内部设计性跳过（如源仓专属的
-  # CI/pre-push 检查）必须在汇总前逐条可见；不计入顶层 SKIP 字段。
-  contract_skip_status=0
-  contract_skips="$(grep -c '\.\.\. skipped' "$contract_output")" || contract_skip_status=$?
-  case "$contract_skip_status" in
-    0|1)
-      case "$contract_skips" in
-        ""|*[!0-9]*)
-          printf "[FAIL] 契约套件内部跳过计数解析失败（结果必须为非负整数）\n"
-          fail_count=$((fail_count + 1))
-          contract_skips=0
-          ;;
-      esac
-      ;;
-    *)
-      printf "[FAIL] 契约套件内部跳过计数解析失败（grep exit %d）\n" "$contract_skip_status"
-      fail_count=$((fail_count + 1))
-      contract_skips=0
-      ;;
-  esac
-  if test "$contract_skips" -gt 0; then
-    printf "  契约套件内部设计性跳过 %d 项（源仓专属能力；不影响门禁计数）:\n" "$contract_skips"
-    sed -n '/\.\.\. skipped/{s/^/  - /;p;}' "$contract_output"
-    # $? 必须紧跟 sed 捕获其退出码；本行与 sed 之间不得插入任何命令。
-    contract_skip_render_status=$?
-    if test "$contract_skip_render_status" -ne 0; then
-      printf "[FAIL] 契约套件内部跳过明细渲染失败（sed exit %d）\n" "$contract_skip_render_status"
-      fail_count=$((fail_count + 1))
-    fi
-  fi
+  render_contract_suite_skips
 else
   printf "[FAIL] 工作流顶层契约测试\n"
   fail_count=$((fail_count + 1))
