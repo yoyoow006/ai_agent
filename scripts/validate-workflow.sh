@@ -84,7 +84,11 @@ trap cleanup EXIT
 
 # 顶层契约套件只在此函数内出现一次,便于静态检查与 mutation 测试。
 run_contract_suite() {
-  python3 -B -m unittest -v scripts.tests.test_validate_workflow >"$contract_output" 2>&1
+  if test "${WORKFLOW_TEST_JOBS:-0}" = "1"; then
+    python3 -B -m unittest -v scripts.tests.test_validate_workflow >"$contract_output" 2>&1
+  else
+    python3 -B scripts/tests/run_validate_workflow_parallel.py --module scripts.tests.test_validate_workflow >"$contract_output" 2>&1
+  fi
 }
 
 # 契约套件内部设计性跳过（源仓专属能力，如 CI / pre-push 钩子）必须

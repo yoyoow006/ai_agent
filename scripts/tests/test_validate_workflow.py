@@ -288,7 +288,13 @@ def copy_workflow_fixture(
             os.close(source_fd)
 
 
-class ValidateWorkflowContractTest(unittest.TestCase):
+class ContractFixtureTest(unittest.TestCase):
+    """仅提供契约夹具与 stub 基建，不携带基类契约用例。
+
+    需要复用夹具但不需要逐条重跑 ValidateWorkflowContractTest 的测试
+    （如 fast 缓存契约）应继承本类，避免整模块执行时重复放大套件耗时。
+    """
+
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary_directory.cleanup)
@@ -344,6 +350,10 @@ class ValidateWorkflowContractTest(unittest.TestCase):
             "fi\n"
             "exit 0\n",
         )
+
+
+class ValidateWorkflowContractTest(ContractFixtureTest):
+    pass
 
     def _recording_python_script(self, marker: Path) -> str:
         return (
@@ -1319,6 +1329,9 @@ class ValidateWorkflowContractTest(unittest.TestCase):
             "if test \"$1\" = \"-B\" && test \"$2\" = \"-c\"; then\n"
             f"  exec {sys.executable} \"$@\"\n"
             "fi\n"
+            "if test \"$1\" = \"-B\" && test \"$2\" = \"scripts/tests/run_validate_workflow_parallel.py\"; then\n"
+            f"  exec {sys.executable} \"$@\"\n"
+            "fi\n"
             "if test \"$1\" = \"-B\" && test \"$2\" = \"-m\" && test \"$4\" != \"discover\"; then\n"
             f"  exec {sys.executable} \"$@\"\n"
             "fi\n"
@@ -1788,7 +1801,7 @@ class WorkflowProfileMutationTests(ValidateWorkflowContractTest):
                 self.assertNotIn("replacement-profile.json", result.stdout)
 
 
-class FastValidationCacheTest(ValidateWorkflowContractTest):
+class FastValidationCacheTest(ContractFixtureTest):
     """--fast 输入指纹缓存：命中沿用、变化重跑、FAIL 不缓存、异常按未命中。"""
 
     CACHE_DIR = Path(".ai-local") / "validation-cache"
@@ -1983,6 +1996,158 @@ class WrapperFastCacheSwitchTest(unittest.TestCase):
         result = self._run_wrapper()
         self.assertEqual(0, result.returncode, msg=result.stdout)
         self.assertIn("WORKFLOW_FAST_CACHE=0", result.stdout)
+        self.assertIn("[PASS] 工作流顶层契约测试", result.stdout)
+
+
+class ParallelContractRunnerTest(unittest.TestCase):
+    """契约套件并行执行器：结果聚合、失败传播、跳过兼容与 worker 崩溃隔离。"""
+
+    RUNNER = REPOSITORY_ROOT / "scripts" / "tests" / "run_validate_workflow_parallel.py"
+
+    def _write_module(self, root: Path, body: str) -> None:
+        (root / "sample_tests.py").write_text(body, encoding="utf-8")
+
+    def _run_runner(self, root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
+        self.assertTrue(self.RUNNER.is_file(), msg="parallel runner asset is missing")
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(root)
+        return subprocess.run(
+            [sys.executable, "-B", str(self.RUNNER), *arguments],
+            cwd=root,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+
+    def _stage_wrapper_tree(self, root: Path, *, stub_runner: bool) -> Path:
+        (root / "scripts" / "lib").mkdir(parents=True)
+        (root / "scripts" / "lib" / "validate-workflow-core.sh").write_text(
+            "#!/usr/bin/env bash\nprintf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\nexit 0\n",
+            encoding="utf-8",
+        )
+        (root / "scripts" / "validate-workflow.sh").write_text(
+            (REPOSITORY_ROOT / "scripts" / "validate-workflow.sh").read_text(
+                encoding="utf-8"
+            ),
+            encoding="utf-8",
+        )
+        tests = root / "scripts" / "tests"
+        tests.mkdir()
+        (tests / "test_validate_workflow.py").write_text(
+            "import unittest\n"
+            "class SentinelTest(unittest.TestCase):\n"
+            "    def test_sentinel(self) -> None: self.assertTrue(True)\n",
+            encoding="utf-8",
+        )
+        marker = root / "runner-called"
+        if stub_runner:
+            (tests / "run_validate_workflow_parallel.py").write_text(
+                "#!/usr/bin/env python3\n"
+                "from pathlib import Path\n"
+                "Path(__file__).resolve().parents[2].joinpath('runner-called').write_text('1')\n",
+                encoding="utf-8",
+            )
+        else:
+            (tests / "run_validate_workflow_parallel.py").write_text(
+                self.RUNNER.read_text(encoding="utf-8"), encoding="utf-8"
+            )
+        (root / ".ai-local").mkdir()
+        return marker
+
+    def _run_staged_wrapper(
+        self, *, stub_runner: bool, environment_extras: dict[str, str] | None = None
+    ) -> tuple[subprocess.CompletedProcess[str], bool]:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            marker = self._stage_wrapper_tree(root, stub_runner=stub_runner)
+            environment = os.environ.copy()
+            environment.update(environment_extras or {})
+            result = subprocess.run(
+                [
+                    "/usr/bin/bash",
+                    str(root / "scripts" / "validate-workflow.sh"),
+                ],
+                cwd=root,
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+                timeout=60,
+            )
+            return result, marker.is_file()
+
+    def test_mixed_results_propagate(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._write_module(
+                root,
+                "import unittest\n"
+                "class SampleTests(unittest.TestCase):\n"
+                "    def test_ok(self) -> None: self.assertTrue(True)\n"
+                "    def test_fail(self) -> None: self.fail('intentional failure')\n"
+                "    @unittest.skip('planned skip')\n"
+                "    def test_skipped(self) -> None: self.assertTrue(False)\n",
+            )
+            result = self._run_runner(root, "--module", "sample_tests", "--jobs", "2")
+            self.assertNotEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("test_ok ... ok", result.stdout)
+            self.assertIn("test_fail ... FAIL", result.stdout)
+            self.assertIn("test_skipped ... skipped", result.stdout)
+            self.assertIn("Ran 3 tests", result.stdout)
+            self.assertIn("FAILED (failures=1, skipped=1)", result.stdout)
+            self.assertIn("AssertionError", result.stdout)
+
+    def test_skip_output_remains_parseable(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._write_module(
+                root,
+                "import unittest\n"
+                "class SampleTests(unittest.TestCase):\n"
+                "    def test_ok(self) -> None: self.assertTrue(True)\n"
+                "    @unittest.skip('planned skip')\n"
+                "    def test_skipped(self) -> None: self.assertTrue(False)\n",
+            )
+            result = self._run_runner(root, "--module", "sample_tests", "--jobs", "2")
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn(" ... skipped", result.stdout)
+            self.assertIn("Ran 2 tests", result.stdout)
+            self.assertIn("OK (skipped=1)", result.stdout)
+
+    def test_worker_crash_becomes_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._write_module(
+                root,
+                "import os\n"
+                "import unittest\n"
+                "class CrashTests(unittest.TestCase):\n"
+                "    def test_ok(self) -> None: self.assertTrue(True)\n"
+                "    def test_crash(self) -> None: os._exit(3)\n",
+            )
+            result = self._run_runner(root, "--module", "sample_tests", "--jobs", "2")
+            self.assertNotEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("test_crash ... ERROR", result.stdout)
+            self.assertIn("test_ok ... ok", result.stdout)
+            self.assertIn("Ran 2 tests", result.stdout)
+            self.assertIn("errors=1", result.stdout)
+
+    def test_wrapper_uses_runner_by_default(self) -> None:
+        result, runner_called = self._run_staged_wrapper(stub_runner=True)
+        self.assertEqual(0, result.returncode, msg=result.stdout)
+        self.assertTrue(runner_called, msg=result.stdout)
+        self.assertIn("[PASS] 工作流顶层契约测试", result.stdout)
+
+    def test_wrapper_jobs_one_falls_back_to_unittest(self) -> None:
+        result, runner_called = self._run_staged_wrapper(
+            stub_runner=True, environment_extras={"WORKFLOW_TEST_JOBS": "1"}
+        )
+        self.assertEqual(0, result.returncode, msg=result.stdout)
+        self.assertFalse(runner_called, msg=result.stdout)
         self.assertIn("[PASS] 工作流顶层契约测试", result.stdout)
 
 
@@ -2279,6 +2444,14 @@ class ArchiveLightGateTest(unittest.TestCase):
             '    def test_placeholder(self) -> None: self.assertTrue(True)\n',
             encoding="utf-8",
         )
+        (root / "scripts" / "tests" / "run_validate_workflow_parallel.py").write_text(
+            (REPOSITORY_ROOT / "scripts" / "tests" / "run_validate_workflow_parallel.py")
+            .read_text(encoding="utf-8")
+            if (REPOSITORY_ROOT / "scripts" / "tests" / "run_validate_workflow_parallel.py")
+            .is_file()
+            else "import unittest\n",
+            encoding="utf-8",
+        )
         (root / ".ai-local").mkdir()
 
     def _run_wrapper(self, *arguments: str, core_status: int = 0,
@@ -2301,6 +2474,14 @@ class ArchiveLightGateTest(unittest.TestCase):
                 'import unittest\n'
                 'class SentinelTest(unittest.TestCase):\n'
                 '    def test_placeholder(self) -> None: self.assertTrue(True)\n',
+                encoding="utf-8",
+            )
+            (root / "scripts" / "tests" / "run_validate_workflow_parallel.py").write_text(
+                (REPOSITORY_ROOT / "scripts" / "tests" / "run_validate_workflow_parallel.py")
+                .read_text(encoding="utf-8")
+                if (REPOSITORY_ROOT / "scripts" / "tests" / "run_validate_workflow_parallel.py")
+                .is_file()
+                else "import unittest\n",
                 encoding="utf-8",
             )
             (root / ".ai-local").mkdir()

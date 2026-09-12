@@ -50,8 +50,8 @@ print_external_commands() {
     git \
     grep \
     head \
-    mktemp \
     mkdir \
+    mktemp \
     rm \
     rmdir \
     sed \
