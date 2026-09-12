@@ -165,3 +165,7 @@
 ## 2026-09-08 · 来源变更 streamline-ai-workflow-overhead（`.ai-local` 精确清理 + 已归档缓存）
 **坑**：`.ai-local` 既是运行时锁（`.validate.lock`）又是 review manifest 缓存；`rm -rf .ai-local` 会清掉活跃锁使并发校验失守；反之永不清理会让 `.ai-local/reviews/` 永远膨胀掩盖活跃 review。
 **解**：Archive 阶段在 OpenSpec 归档文件持久最终证据（最终 manifest ID / comparison base / finding 状态 / 未验证范围 / 残余风险）后，仅删 `.ai-local/reviews/<change>/`（精确子路径，不得无子路径）；活跃 review、STALE manifest、未持久化最终证据的目录不得清理；不得把缓存清理当作关闭 finding 的手段。archive SKILL.md + .ai/rules/review.md 双写禁止性条款 + shell 片段。
+
+## 2026-09-12 · 来源变更 speed-up-workflow-gates（--fast 指纹缓存与契约套件并行）
+**坑**：`--fast` 23 秒里 21.4 秒来自三组输入未变也重复实际执行的检查（review manifest 14.6s / OpenSpec validate 3.8s / 事实工具 3.0s）；契约套件 200+ 用例每例复制整仓夹具后串行，单模块 >8 分钟。阶段审查还抓到四个缓存边界坑：OpenSpec 指纹漏了 `openspec/changes/**`（`validate --all` 也校验活跃变更）；外部导出的 `WORKFLOW_FAST_CACHE=1` 会被非 fast 门禁继承；实际执行 FAIL 后旧指纹缓存残留，输入回退可掩盖失败；输入缺失被编码成稳定 `<missing>` 指纹仍可命中。阶段 2 另抓到 `--fast` 与 required/archive-light 组合不拦截、并行 runner 把 unexpected success 判绿两个坑。
+**解**：缓存只进 `--fast`（wrapper 注入 `WORKFLOW_FAST_CACHE=1`；非 fast 显式置 0；`--fast` 与 `--require-openspec`/`--archive-light` 组合一律 exit 2）。指纹 = 检查命令 + core 自身 + 声明输入文件内容；任一输入缺失 → 无指纹 → 只实际执行不读写；实际执行 FAIL/SKIP → 删除该检查缓存；只缓存 PASS，命中时在检查行内透明标注`指纹/沿用`来源，仍计 PASS 不新增状态。契约套件用 `scripts/tests/run_validate_workflow_parallel.py` fork-per-test 有界并行（默认 `min(CPU,8)`，`WORKFLOW_TEST_JOBS=1` 回退原 unittest 命令），unexpected success 与 unittest 同判非零。实测：fast 暖缓存 1.83s、契约套件 188 用例 146s、required 门禁 170.8s 全绿。测试夹具类不要无上下文继承 `ValidateWorkflowContractTest`——会让 40 个基类用例被整模块重复执行，需复用基建时继承 `ContractFixtureTest`。

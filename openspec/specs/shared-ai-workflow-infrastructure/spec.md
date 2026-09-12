@@ -149,7 +149,7 @@
 
 ### Requirement: 工作流验证必须显式区分通过、失败和未运行
 
-工作流校验 SHALL 对每项检查输出 PASS、FAIL 或 SKIP；依赖不可用时不得静默省略。默认本地校验可以显式 SKIP 可选工具，但严格 Verify/Archive 使用的门禁 SHALL 能要求 OpenSpec CLI 和全部必需测试实际执行。共享知识结构、旧路径双真源、项目 registry、工具单测、查询边界、manifest stale 检测、助手适配与风险分级 mutation SHALL 进入自动化回归。行为回退注入 SHALL 额外覆盖：快速模式被要求自动提交或合并、标准模式被允许跳过唯一实施前确认直接实现、归档被允许跳过校验直接移动目录。镜像归一化豁免 SHALL 受登记数守卫：以受豁免前缀开头的适配注记行全仓数量 SHALL 等于显式登记值，超出即校验失败。适配注记及两套技能树（含安装器资产树，存在时）SHALL NOT 含已废弃工具名；Codex 侧 parallel-agents 技能 SHALL 含现行派发工具名。归档索引 SHALL 与归档目录严格一致：每个已归档变更目录在 `openspec/archive/README.md` 恰好一行索引，缺失、悬空或重复即校验失败。公共门禁 SHALL 在最终汇总行之前逐条列明契约套件内部的设计性跳过（测试与原因）并给出计数注解；该注解 SHALL NOT 改变顶层 PASS/FAIL/SKIP 字段语义，汇总行 SHALL 保持输出末行。CI 的动作引用 SHALL 以 commit SHA 固定并注明对应版本。
+工作流校验 SHALL 对每项检查输出 PASS、FAIL 或 SKIP；依赖不可用时不得静默省略。默认本地校验可以显式 SKIP 可选工具，但严格 Verify/Archive 使用的门禁 SHALL 能要求 OpenSpec CLI 和全部必需测试实际执行。`--fast` 的输入指纹等价缓存 SHALL 仅作为 PASS 的透明来源标注出现，SHALL NOT 新增第四种检查状态或改变顶层 PASS/FAIL/SKIP 字段口径；缓存记录解析失败、指纹输入缺失或命令漂移均 SHALL 按未命中处理并实际执行，不得假绿也不得假红；非 PASS 结果 SHALL NOT 写入缓存。共享知识结构、旧路径双真源、项目 registry、工具单测、查询边界、manifest stale 检测、助手适配与风险分级 mutation SHALL 进入自动化回归。行为回退注入 SHALL 额外覆盖：快速模式被要求自动提交或合并、标准模式被允许跳过唯一实施前确认直接实现、归档被允许跳过校验直接移动目录。镜像归一化豁免 SHALL 受登记数守卫：以受豁免前缀开头的适配注记行全仓数量 SHALL 等于显式登记值，超出即校验失败。适配注记及两套技能树（含安装器资产树，存在时）SHALL NOT 含已废弃工具名；Codex 侧 parallel-agents 技能 SHALL 含现行派发工具名。归档索引 SHALL 与归档目录严格一致：每个已归档变更目录在 `openspec/archive/README.md` 恰好一行索引，缺失、悬空或重复即校验失败。公共门禁 SHALL 在最终汇总行之前逐条列明契约套件内部的设计性跳过（测试与原因）并给出计数注解；该注解 SHALL NOT 改变顶层 PASS/FAIL/SKIP 字段语义，汇总行 SHALL 保持输出末行。CI 的动作引用 SHALL 以 commit SHA 固定并注明对应版本。
 
 校验器自身实现 SHALL fail-closed：契约套件跳过计数解析、跳过明细渲染、归档目录枚举与索引解析排序、废弃工具名扫描所依赖的外部命令（grep、sed、sort、awk 等）返回非预期退出码时 SHALL 判 FAIL 并计入失败数，不得当作无匹配、空集合或无跳过继续；跳过计数注解 SHALL 由经校验的非负整数解析产生，解析失败即 FAIL。归档目录枚举 SHALL NOT 依赖 GNU 专有 find 扩展（如 `-printf`）；在非 GNU 环境 SHALL 保持「空归档 vacuous 通过、非空归档必检」语义。`openspec/archive/` 直接子项中的任何符号链接 SHALL 使校验失败，不得以链接方式绕过 1:1 索引约束。
 
@@ -164,14 +164,27 @@
 - **WHEN** 严格 Verify 或 Archive 以 required 模式运行校验且 OpenSpec CLI 不可用
 - **THEN** 校验返回非零并阻止完成声明
 
+#### Scenario: fast 缓存来源透明
+
+- **WHEN** `--fast` 模式某重检查命中指纹缓存
+- **THEN** 输出仍为 PASS，并在该检查行标注指纹、上次实际执行时间与沿用来源
+- **AND** 顶层 PASS/FAIL/SKIP 汇总口径保持不变
+
+#### Scenario: 缓存损坏按未命中处理
+
+- **WHEN** 缓存文件缺失、格式非法、哈希不匹配或记录的历史结果非 PASS
+- **THEN** 该检查重新实际执行
+- **AND** 不因缓存异常出现假绿或假红
+
 #### Scenario: 事实工具发生回归
 
 - **WHEN** registry 解析、查询边界、分页、敏感内容过滤或 manifest stale 检测测试失败
 - **THEN** 主校验返回非零并指出失败测试
+- **AND** 失败结果不会被后续缓存命中掩盖
 
 #### Scenario: 新类行为回退被注入
 
-- **WHEN** 向入口或阶段技能注入"快速模式必须自动提交合并""标准模式无需用户确认即可实现"或"归档前无需校验直接移动目录"类规则
+- **WHEN** 向入口或阶段技能注入“快速模式必须自动提交合并”“标准模式无需用户确认即可实现”或“归档前无需校验直接移动目录”类规则
 - **THEN** 结构校验返回非零并指出该注入
 
 #### Scenario: 未登记的适配注记出现
@@ -181,7 +194,7 @@
 
 #### Scenario: 适配注记回退已废弃工具名
 
-- **WHEN** 任一技能、`.codex/README.md` 或安装器资产树中出现已废弃工具名，或 Codex 侧 parallel-agents 技能缺失现行派发工具名
+- **WHEN** 任一技能、`.codex/README.md` 或安装资产树中出现已废弃工具名，或 Codex 侧 parallel-agents 技能缺失现行派发工具名
 - **THEN** 结构校验返回非零并指出位置
 
 #### Scenario: 归档目录缺索引行
@@ -314,3 +327,31 @@
 - **WHEN** 已启用钩子的工作树在 main 门禁为红时执行 git push
 - **THEN** pre-push 运行 core 校验失败并阻断 push
 - **AND** 未启用钩子的环境不发生任何行为变化
+
+### Requirement: 契约套件必须支持有界并行执行
+
+顶层契约套件 SHALL 通过仓库自带的零第三方依赖执行器并行运行相互独立的用例。默认并行度 SHALL 为 `min(CPU 核数, 8)`；环境变量 `WORKFLOW_TEST_JOBS=1` SHALL 完整回退为原串行 unittest 执行语义。执行器 SHALL 聚合每个用例的通过、失败、错误与跳过结果，任一用例失败或错误 SHALL 使套件退出码非零，失败明细 SHALL 完整保留且不得被并行输出吞没。执行器输出 SHALL 保持 wrapper 对 `... skipped` 行的统计与解析兼容。wrapper 的契约套件调用 SHALL 保持单一调用点，行为回退注入守卫 SHALL 继续可检出。并行执行 SHALL NOT 引入共享可变状态或使多个用例写同一路径。
+
+#### Scenario: 默认并行且失败传播
+
+- **WHEN** 契约套件在默认并行度下运行且任一用例失败或错误
+- **THEN** 套件以非零退出，失败用例名与错误明细完整可见
+- **AND** 其余用例的结果仍被完整聚合
+
+#### Scenario: 串行回退
+
+- **WHEN** 设置 `WORKFLOW_TEST_JOBS=1`
+- **THEN** 契约套件按原串行 unittest 命令执行
+- **AND** 输出、退出码与跳过统计行为与回退前一致
+
+#### Scenario: 跳过统计保持兼容
+
+- **WHEN** 契约套件内部存在设计性跳过
+- **THEN** wrapper 仍能从执行器输出统计 `... skipped` 行并在汇总前逐条列明
+- **AND** 顶层 PASS/FAIL/SKIP 口径不变
+
+#### Scenario: 并行用例相互隔离
+
+- **WHEN** 多个契约用例并行运行
+- **THEN** 各用例使用独立临时目录与夹具，不发生交叉污染
+- **AND** 不因并行引入非确定性失败
