@@ -2131,6 +2131,52 @@ class WrapperFastCacheSwitchTest(unittest.TestCase):
                 self.assertIn("conflict", result.stdout.lower())
 
 
+class WrapperRequiredForwardingTest(unittest.TestCase):
+    def test_wrapper_forwards_required_openspec_to_core(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            scripts = root / "scripts"
+            core = scripts / "lib" / "validate-workflow-core.sh"
+            core.parent.mkdir(parents=True)
+            core.write_text(
+                "#!/usr/bin/env bash\n"
+                "case \" $* \" in\n"
+                "  *' --require-openspec '*)"
+                " printf 'CORE_RECEIVED_REQUIRED=1\\n' ;;\n"
+                "  *) printf 'CORE_RECEIVED_REQUIRED=0\\n' ;;\n"
+                "esac\n"
+                "printf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\n",
+                encoding="utf-8",
+            )
+            (scripts / "validate-workflow.sh").write_text(
+                (REPOSITORY_ROOT / "scripts" / "validate-workflow.sh").read_text(
+                    encoding="utf-8"
+                ),
+                encoding="utf-8",
+            )
+            tests = scripts / "tests"
+            tests.mkdir()
+            (tests / "run_validate_workflow_parallel.py").write_text(
+                "print('Ran 1 tests\\n\\nOK')\n",
+                encoding="utf-8",
+            )
+            environment = {"LC_ALL": "C.UTF-8", "PATH": os.environ.get("PATH", "")}
+            result = subprocess.run(
+                ["/usr/bin/bash", "scripts/validate-workflow.sh", "--require-openspec"],
+                cwd=root,
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("CORE_RECEIVED_REQUIRED=1", result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+
+
 class ParallelContractRunnerTest(unittest.TestCase):
     """契约套件并行执行器：结果聚合、失败传播、跳过兼容与 worker 崩溃隔离。"""
 

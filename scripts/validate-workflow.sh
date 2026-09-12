@@ -37,6 +37,7 @@ while test "$#" -gt 0; do
       ;;
     --require-openspec)
       require_openspec_user=1
+      forwarded_arguments+=("$argument")
       shift
       ;;
     --print-external-commands)
