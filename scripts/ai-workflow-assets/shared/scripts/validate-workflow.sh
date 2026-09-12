@@ -6,11 +6,38 @@ cd "$(dirname "$0")/.."
 export PYTHONDONTWRITEBYTECODE=1
 
 fast_mode=0
+archive_light=0
+require_openspec_user=0
+archive_files=()
 forwarded_arguments=()
-for argument in "$@"; do
+while test "$#" -gt 0; do
+  argument="$1"
   case "$argument" in
     --fast)
       fast_mode=1
+      shift
+      ;;
+    --archive-light)
+      archive_light=1
+      shift
+      ;;
+    --archive-files)
+      shift
+      while test "$#" -gt 0; do
+        case "$1" in
+          --*)
+            break
+            ;;
+          *)
+            archive_files+=("$1")
+            shift
+            ;;
+        esac
+      done
+      ;;
+    --require-openspec)
+      require_openspec_user=1
+      shift
       ;;
     --print-external-commands)
       # 诊断模式直接透传 core(只读、无汇总语义),不进入门禁流程。
@@ -18,9 +45,27 @@ for argument in "$@"; do
       ;;
     *)
       forwarded_arguments+=("$argument")
+      shift
       ;;
   esac
 done
+
+# --archive-light 与 --require-openspec 互斥（语义冲突：前者跳过契约套件、后者强制契约套件）
+if test "$archive_light" -eq 1 && test "$require_openspec_user" -eq 1; then
+  printf "[FAIL] --archive-light 与 --require-openspec 冲突（conflict）：归档轻量门禁与强制完整门禁不能同时启用\n" >&2
+  exit 2
+fi
+if test "$fast_mode" -eq 1 && test "$require_openspec_user" -eq 1; then
+  printf "[FAIL] --fast 与 --require-openspec 冲突（conflict）：快速分层不能替代强制完整门禁\n" >&2
+  exit 2
+fi
+if test "$fast_mode" -eq 1 && test "$archive_light" -eq 1; then
+  printf "[FAIL] --fast 与 --archive-light 冲突（conflict）：两种轻量入口语义不能叠加\n" >&2
+  exit 2
+fi
+
+# --archive-light 单独使用 = 纯轻量（仅跑 core，不做 diff 分类）
+#   配合 --archive-files + WORKFLOW_ARCHIVE_GATE=1 才做 diff 分类自动升级
 
 # 串行化同一工作树的并发校验：契约套件含 mutation,并发实例会互踩产生假失败。
 if command -v flock >/dev/null 2>&1; then
@@ -45,8 +90,55 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# 顶层契约套件只在此函数内出现一次,便于静态检查与 mutation 测试。
+run_contract_suite() {
+  if test "${WORKFLOW_TEST_JOBS:-0}" = "1"; then
+    python3 -B -m unittest -v scripts.tests.test_validate_workflow >"$contract_output" 2>&1
+  else
+    python3 -B scripts/tests/run_validate_workflow_parallel.py --module scripts.tests.test_validate_workflow >"$contract_output" 2>&1
+  fi
+}
+
+# 契约套件内部设计性跳过（源仓专属能力，如 CI / pre-push 钩子）必须
+# 在汇总前逐条可见；不计入顶层 SKIP 字段。失败/解析错误直接 fail-closed。
+render_contract_suite_skips() {
+  contract_skip_status=0
+  contract_skips="$(grep -c '\.\.\. skipped' "$contract_output")" || contract_skip_status=$?
+  case "$contract_skip_status" in
+    0|1)
+      case "$contract_skips" in
+        ""|*[!0-9]*)
+          printf "[FAIL] 契约套件内部跳过计数解析失败（结果必须为非负整数）\n"
+          fail_count=$((fail_count + 1))
+          contract_skips=0
+          ;;
+      esac
+      ;;
+    *)
+      printf "[FAIL] 契约套件内部跳过计数解析失败（grep exit %d）\n" "$contract_skip_status"
+      fail_count=$((fail_count + 1))
+      contract_skips=0
+      ;;
+  esac
+  if test "$contract_skips" -gt 0; then
+    printf "  契约套件内部设计性跳过 %d 项（源仓专属能力；不影响门禁计数）:\n" "$contract_skips"
+    sed -n '/\.\.\. skipped/{s/^/  - /;p;}' "$contract_output"
+    # $? 必须紧跟 sed 捕获其退出码；本行与 sed 之间不得插入任何命令。
+    contract_skip_render_status=$?
+    if test "$contract_skip_render_status" -ne 0; then
+      printf "[FAIL] 契约套件内部跳过明细渲染失败（sed exit %d）\n" "$contract_skip_render_status"
+      fail_count=$((fail_count + 1))
+    fi
+  fi
+}
+
 core_status=0
-bash scripts/lib/validate-workflow-core.sh ${forwarded_arguments[@]+"${forwarded_arguments[@]}"} >"$core_output" 2>&1 || core_status=$?
+if test "$fast_mode" -eq 1; then
+  WORKFLOW_FAST_CACHE=1 bash scripts/lib/validate-workflow-core.sh ${forwarded_arguments[@]+"${forwarded_arguments[@]}"} >"$core_output" 2>&1 || core_status=$?
+else
+  # 非 fast 门禁必须实际执行：显式关闭外部可能继承的缓存开关。
+  WORKFLOW_FAST_CACHE=0 bash scripts/lib/validate-workflow-core.sh ${forwarded_arguments[@]+"${forwarded_arguments[@]}"} >"$core_output" 2>&1 || core_status=$?
+fi
 internal_result="$(sed -n "s/^INTERNAL_RESULT PASS=[0-9][0-9]* FAIL=[0-9][0-9]* SKIP=[0-9][0-9]*$/&/p" "$core_output" | tail -1)"
 sed "/^INTERNAL_RESULT PASS=[0-9][0-9]* FAIL=[0-9][0-9]* SKIP=[0-9][0-9]*$/d" "$core_output"
 
@@ -80,39 +172,51 @@ if test "$fast_mode" -eq 1; then
   exit 0
 fi
 
-if python3 -B -m unittest -v scripts.tests.test_validate_workflow >"$contract_output" 2>&1; then
-  printf "[PASS] 工作流顶层契约测试\n"
-  pass_count=$((pass_count + 1))
-  # 透明化：套件整体计 1 个门禁检查，但内部设计性跳过（如源仓专属的
-  # CI/pre-push 检查）必须在汇总前逐条可见；不计入顶层 SKIP 字段。
-  contract_skip_status=0
-  contract_skips="$(grep -c '\.\.\. skipped' "$contract_output")" || contract_skip_status=$?
-  case "$contract_skip_status" in
-    0|1)
-      case "$contract_skips" in
-        ""|*[!0-9]*)
-          printf "[FAIL] 契约套件内部跳过计数解析失败（结果必须为非负整数）\n"
-          fail_count=$((fail_count + 1))
-          contract_skips=0
-          ;;
-      esac
-      ;;
-    *)
-      printf "[FAIL] 契约套件内部跳过计数解析失败（grep exit %d）\n" "$contract_skip_status"
+# 归档轻量门禁：跳过顶层契约套件，core 结果已足；diff 分类自动升级如下。
+# 1) WORKFLOW_ARCHIVE_GATE=1 + --archive-files 非空 + git diff --name-only <base> -- <files> 非空 → 改跑契约套件
+if test "$archive_light" -eq 1; then
+  printf "[INFO] archive-light gate engaged (files=%d, core_status=%d)\n" "${#archive_files[@]}" "$core_status"
+  promoted=0
+  if test "${WORKFLOW_ARCHIVE_GATE:-0}" = "1" && test "${#archive_files[@]}" -gt 0; then
+    diff_base="${WORKFLOW_ARCHIVE_BASE:-HEAD}"
+    if ! command -v git >/dev/null 2>&1; then
+      printf "[FAIL] WORKFLOW_ARCHIVE_GATE=1 但 git 不可用；无法执行 diff 分类自动升级。请安装 git 或撤销 WORKFLOW_ARCHIVE_GATE。\n" >&2
       fail_count=$((fail_count + 1))
-      contract_skips=0
-      ;;
-  esac
-  if test "$contract_skips" -gt 0; then
-    printf "  契约套件内部设计性跳过 %d 项（源仓专属能力；不影响门禁计数）:\n" "$contract_skips"
-    sed -n '/\.\.\. skipped/{s/^/  - /;p;}' "$contract_output"
-    # $? 必须紧跟 sed 捕获其退出码；本行与 sed 之间不得插入任何命令。
-    contract_skip_render_status=$?
-    if test "$contract_skip_render_status" -ne 0; then
-      printf "[FAIL] 契约套件内部跳过明细渲染失败（sed exit %d）\n" "$contract_skip_render_status"
-      fail_count=$((fail_count + 1))
+    else
+      diff_output="$(git diff --name-only "$diff_base" -- ${archive_files[@]+"${archive_files[@]}"} 2>/dev/null || true)"
+      if test -n "$diff_output"; then
+        while IFS= read -r diff_file; do
+          test -n "$diff_file" && printf "[INFO] archive gate promoted to --require-openspec: %s\n" "$diff_file"
+        done <<EOF
+$diff_output
+EOF
+        promoted=1
+      fi
     fi
   fi
+  if test "$promoted" -eq 1; then
+    # 改跑契约套件（与正常路径同一段）
+    if run_contract_suite; then
+      printf "[PASS] 工作流顶层契约测试（promoted）\n"
+      pass_count=$((pass_count + 1))
+      render_contract_suite_skips
+    else
+      printf "[FAIL] 工作流顶层契约测试（promoted）\n"
+      fail_count=$((fail_count + 1))
+      sed "s/^/  /" "$contract_output"
+    fi
+  fi
+  printf "PASS=%d FAIL=%d SKIP=%d\n" "$pass_count" "$fail_count" "$skip_count"
+  if test "$fail_count" -gt 0 || test "$core_status" -ne 0; then
+    exit 1
+  fi
+  exit 0
+fi
+
+if run_contract_suite; then
+  printf "[PASS] 工作流顶层契约测试\n"
+  pass_count=$((pass_count + 1))
+  render_contract_suite_skips
 else
   printf "[FAIL] 工作流顶层契约测试\n"
   fail_count=$((fail_count + 1))
