@@ -2581,6 +2581,11 @@ class MutationStandardThreePieceSuiteTest(unittest.TestCase):
         if not self.AGENTS_MD.is_file():
             self.skipTest("codex assistant is not present in this fixture")
 
+    def _require_codex_skill(self, path: Path) -> Path:
+        if not path.is_file():
+            self.skipTest("codex assistant is not present in this fixture")
+        return path
+
     def test_agents_md_states_three_piece_suite(self) -> None:
         self._require_agents_md()
         text = self.AGENTS_MD.read_text(encoding="utf-8")
@@ -2590,13 +2595,15 @@ class MutationStandardThreePieceSuiteTest(unittest.TestCase):
                          "AGENTS.md 不应再保留旧四件套契约")
 
     def test_open_skill_states_three_piece_suite(self) -> None:
-        text = self.OPEN_SKILL.read_text(encoding="utf-8")
+        open_skill = self._require_codex_skill(self.OPEN_SKILL)
+        text = open_skill.read_text(encoding="utf-8")
         self.assertIn("三件套", text, ".codex/skills/open/SKILL.md 必须明确三件套")
         self.assertNotIn("一次产出可执行四件套", text,
                          ".codex/skills/open/SKILL.md 不应再保留旧四件套契约")
 
     def test_design_skill_states_risk_triggered_second_confirm(self) -> None:
         design_skill = REPOSITORY_ROOT / ".codex" / "skills" / "design" / "SKILL.md"
+        design_skill = self._require_codex_skill(design_skill)
         text = design_skill.read_text(encoding="utf-8")
         self.assertIn("不可逆风险触发", text,
                       ".codex/skills/design/SKILL.md 必须含'不可逆风险触发'段")
