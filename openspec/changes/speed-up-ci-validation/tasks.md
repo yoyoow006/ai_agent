@@ -16,12 +16,20 @@
 - 实现：`73757ec` 增加 wrapper 成功计数 fail-closed 解析、打包零依赖并行执行器并同步资产。
 - 绿灯：`ParallelContractRunnerTest` 8/8 OK；资产字节同步 OK；因 worktree 挂载虚假显示 `0777`，主会话从提交索引导出并按 manifest 恢复权限后复跑 `PortableAssetManifestTests` 3/3 OK。
 - 任务级审查：manifest `4ebc6d3e7d630e74eb587a7d63d6b09082f30e41b043b51f1449cf9a7881a41a`，comparison base `7e372dd`，结论通过，无 Critical/Important/Minor finding；未验证范围不含单元 A 冻结文件。
-- [ ] 3. 重构安装器集成测试
+- [x] 3. 重构安装器集成测试
   - 修改：`scripts/tests/test_install_ai_workflow.py`
   - 每个 assistant 保留一次真实完整公共门禁；删除重复的直接串行契约冒烟与 required 真实套件重复执行。
   - 用复制目标＋sentinel 契约用例验证 required 缺 CLI 时 core 失败、契约调用发生且退出非零。
   - 保留资产清单、幂等安装、Git identity、工具测试和允许 skip 原因断言。
   - 验证：先运行安装器 targeted 用例，确认结构与输出断言通过。
+
+**任务 3 执行记录**
+
+- 前置修复：`ec12e28` 同步 Codex 入口资产并适配随包 runner stub；`379794e` 修复 `--require-openspec` 未转发 core 的真实 fail-closed 缺陷；`a28148b` 适配 Claude-only 目标中的 Codex 专属 mutation guard。
+- 主实现：`86cdf92` 移除直接串行契约套件，改为每个 assistant 一次真实完整公共门禁 + 独立 copied target 一用例 required sentinel。
+- 审查修复：`94bda09` 响应 `UNIT-B-001`，动态要求两个关键 shipped test ID 存在且不得 skipped，并以 AST 证明集成方法调用该守卫。
+- 主会话复验：目标结构/required 转发 2/2 OK；完整选择集成路径 `Ran 2 tests in 296.923s`，`ELAPSED=297.09 EXIT=0`。审查修复后 targeted 6/6 OK；代理完整集成 `Ran 3 tests in 285.157s`，OK。
+- 任务级审查：原 manifest `c92295c0...` 发现 Important `UNIT-B-001`；修复后 manifest `1b59bdbd...` 差异复审确认 finding resolved、无新 Critical/Important。
 - [ ] 4. 全量本地回归与耗时证据
   - 运行：`openspec validate speed-up-ci-validation --strict --no-interactive`
   - 运行：`bash scripts/validate-workflow.sh --require-openspec`
