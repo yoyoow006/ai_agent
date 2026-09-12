@@ -55,6 +55,14 @@ if test "$archive_light" -eq 1 && test "$require_openspec_user" -eq 1; then
   printf "[FAIL] --archive-light 与 --require-openspec 冲突（conflict）：归档轻量门禁与强制完整门禁不能同时启用\n" >&2
   exit 2
 fi
+if test "$fast_mode" -eq 1 && test "$require_openspec_user" -eq 1; then
+  printf "[FAIL] --fast 与 --require-openspec 冲突（conflict）：快速分层不能替代强制完整门禁\n" >&2
+  exit 2
+fi
+if test "$fast_mode" -eq 1 && test "$archive_light" -eq 1; then
+  printf "[FAIL] --fast 与 --archive-light 冲突（conflict）：两种轻量入口语义不能叠加\n" >&2
+  exit 2
+fi
 
 # --archive-light 单独使用 = 纯轻量（仅跑 core，不做 diff 分类）
 #   配合 --archive-files + WORKFLOW_ARCHIVE_GATE=1 才做 diff 分类自动升级
@@ -84,7 +92,11 @@ trap cleanup EXIT
 
 # 顶层契约套件只在此函数内出现一次,便于静态检查与 mutation 测试。
 run_contract_suite() {
-  python3 -B -m unittest -v scripts.tests.test_validate_workflow >"$contract_output" 2>&1
+  if test "${WORKFLOW_TEST_JOBS:-0}" = "1"; then
+    python3 -B -m unittest -v scripts.tests.test_validate_workflow >"$contract_output" 2>&1
+  else
+    python3 -B scripts/tests/run_validate_workflow_parallel.py --module scripts.tests.test_validate_workflow >"$contract_output" 2>&1
+  fi
 }
 
 # 契约套件内部设计性跳过（源仓专属能力，如 CI / pre-push 钩子）必须
@@ -121,7 +133,12 @@ render_contract_suite_skips() {
 }
 
 core_status=0
-bash scripts/lib/validate-workflow-core.sh ${forwarded_arguments[@]+"${forwarded_arguments[@]}"} >"$core_output" 2>&1 || core_status=$?
+if test "$fast_mode" -eq 1; then
+  WORKFLOW_FAST_CACHE=1 bash scripts/lib/validate-workflow-core.sh ${forwarded_arguments[@]+"${forwarded_arguments[@]}"} >"$core_output" 2>&1 || core_status=$?
+else
+  # 非 fast 门禁必须实际执行：显式关闭外部可能继承的缓存开关。
+  WORKFLOW_FAST_CACHE=0 bash scripts/lib/validate-workflow-core.sh ${forwarded_arguments[@]+"${forwarded_arguments[@]}"} >"$core_output" 2>&1 || core_status=$?
+fi
 internal_result="$(sed -n "s/^INTERNAL_RESULT PASS=[0-9][0-9]* FAIL=[0-9][0-9]* SKIP=[0-9][0-9]*$/&/p" "$core_output" | tail -1)"
 sed "/^INTERNAL_RESULT PASS=[0-9][0-9]* FAIL=[0-9][0-9]* SKIP=[0-9][0-9]*$/d" "$core_output"
 
