@@ -29,3 +29,4 @@
 - `validator-fail-closed-backport` — 校验器 fail-closed 加固回流自 meta 库：跳过计数/明细渲染/废弃名扫描/归档索引退出码与可移植性五坑闭合＋归档符号链接拒绝＋bash≤4.3 空数组守卫(严格)
 - `streamline-ai-workflow-overhead` — 进一步精简 AI 助手工作流开销：标准三件套条件 + 严格风险触发二次确认 + 归档轻量门禁 + .ai-local 精确清理(严格)
 - `speed-up-workflow-gates` — 校验门禁提速：--fast 三重检查输入指纹缓存（透明沿用/失效/FAIL 清除/严格模式隔离）＋契约套件零依赖有界并行执行器＋冲突模式 fail-closed(严格)
+- `speed-up-ci-validation` — GitHub Actions validate 提速：随包并行契约执行器＋required 参数转发＋安装器集成去重＋sentinel fail-closed 探针(严格)

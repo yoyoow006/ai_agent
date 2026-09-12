@@ -275,6 +275,10 @@
       },
       {
          "mode" : "0644",
+         "path" : "scripts/tests/run_validate_workflow_parallel.py"
+      },
+      {
+         "mode" : "0644",
          "path" : "scripts/tests/test_validate_workflow.py"
       },
       {

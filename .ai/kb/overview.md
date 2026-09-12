@@ -8,7 +8,7 @@
 - `.ai/`：助手共享的 kb（稳定事实）、memory（踩坑）、rules（路由）、prompts 与只读 tools。
 - `.codex/sdd/` / `.claude/sdd/`：仅在确需子代理时使用的本地草稿区，Git 忽略。
 - `openspec/`：标准/严格变更的数据层，与 Claude 共享。
-- `scripts/validate-workflow.sh`：结构、镜像、禁止规则和 mutation 回归校验；`--fast` 仅跑秒级 core（标准 Verify 分层），默认全量，严格恒 `--require-openspec`；`--fast` 对三组重检查（事实工具/review manifest/OpenSpec validate）使用输入指纹等价缓存——命中时透明标注`指纹/沿用`仍计 PASS，任一输入/core/命令变化、缺失、损坏或最近执行非 PASS 一律实际重跑，FAIL/SKIP 清缓存，全量与 required 模式完全不读写缓存，冲突模式组合 fail-closed。默认契约套件经 `scripts/tests/run_validate_workflow_parallel.py` 有界并行（`min(CPU,8)`；`WORKFLOW_TEST_JOBS=1` 回退原 unittest 命令）；flock 串行化并发，`scripts/hooks/pre-push` 提供自愿启用的本地推送防护。core 另守卫：废弃工具名零残留（技能树/`.codex/README.md`/资产树 `*.md`/`*.toml`）、parallel-agents 注记现行工具名、归档索引与目录 1:1；wrapper 在汇总行前透传契约套件内部设计性跳过明细（不改顶层计数）。
+- `scripts/validate-workflow.sh`：结构、镜像、禁止规则和 mutation 回归校验；`--fast` 仅跑秒级 core（标准 Verify 分层），默认全量，严格恒 `--require-openspec` 且该参数必须转发 core（CLI 缺失即 FAIL，不得降为 SKIP/成功）；`--fast` 对三组重检查（事实工具/review manifest/OpenSpec validate）使用输入指纹等价缓存——命中时透明标注`指纹/沿用`仍计 PASS，任一输入/core/命令变化、缺失、损坏或最近执行非 PASS 一律实际重跑，FAIL/SKIP 清缓存，全量与 required 模式完全不读写缓存，冲突模式组合 fail-closed。默认契约套件经 `scripts/tests/run_validate_workflow_parallel.py` 有界并行（`min(CPU,8)`；`WORKFLOW_TEST_JOBS=1` 回退原 unittest 命令），执行器随安装资产分发并在成功行透出真实用例数；flock 串行化并发，`scripts/hooks/pre-push` 提供自愿启用的本地推送防护。core 另守卫：废弃工具名零残留（技能树/`.codex/README.md`/资产树 `*.md`/`*.toml`）、parallel-agents 注记现行工具名、归档索引与目录 1:1；wrapper 在汇总行前透传契约套件内部设计性跳过明细（不改顶层计数）。安装器集成回归对每个 assistant 仅执行一份真实完整公共门禁，required 缺 CLI 用独立一用例 sentinel 目标证明契约调用与失败传播。
 - `projects/test-login/`：离线 Python 标准库登录与随机验证演示，不承载共享业务项目事实。
 
 本总览合并了原 Claude 风险摘要与 Codex 模块/底线信息；助手特有工具行为仍留在各自适配目录。

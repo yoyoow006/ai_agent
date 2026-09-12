@@ -37,6 +37,7 @@ while test "$#" -gt 0; do
       ;;
     --require-openspec)
       require_openspec_user=1
+      forwarded_arguments+=("$argument")
       shift
       ;;
     --print-external-commands)
@@ -132,6 +133,17 @@ render_contract_suite_skips() {
   fi
 }
 
+report_contract_suite_success() {
+  contract_count="$(sed -n 's/^Ran \([1-9][0-9]*\) tests\{0,1\}\( in .*\)\{0,1\}$/\1/p' "$contract_output" | tail -1)"
+  if test -n "$contract_count"; then
+    printf "[PASS] 工作流顶层契约测试（%s tests）\n" "$contract_count"
+    return 0
+  fi
+  printf "[FAIL] 契约套件用例计数解析失败\n"
+  sed "s/^/  /" "$contract_output"
+  return 1
+}
+
 core_status=0
 if test "$fast_mode" -eq 1; then
   WORKFLOW_FAST_CACHE=1 bash scripts/lib/validate-workflow-core.sh ${forwarded_arguments[@]+"${forwarded_arguments[@]}"} >"$core_output" 2>&1 || core_status=$?
@@ -197,14 +209,17 @@ EOF
   if test "$promoted" -eq 1; then
     # 改跑契约套件（与正常路径同一段）
     if run_contract_suite; then
-      printf "[PASS] 工作流顶层契约测试（promoted）\n"
-      pass_count=$((pass_count + 1))
-      render_contract_suite_skips
+      if report_contract_suite_success; then
+        pass_count=$((pass_count + 1))
+      else
+        fail_count=$((fail_count + 1))
+      fi
     else
       printf "[FAIL] 工作流顶层契约测试（promoted）\n"
       fail_count=$((fail_count + 1))
       sed "s/^/  /" "$contract_output"
     fi
+    render_contract_suite_skips
   fi
   printf "PASS=%d FAIL=%d SKIP=%d\n" "$pass_count" "$fail_count" "$skip_count"
   if test "$fail_count" -gt 0 || test "$core_status" -ne 0; then
@@ -214,14 +229,17 @@ EOF
 fi
 
 if run_contract_suite; then
-  printf "[PASS] 工作流顶层契约测试\n"
-  pass_count=$((pass_count + 1))
-  render_contract_suite_skips
+  if report_contract_suite_success; then
+    pass_count=$((pass_count + 1))
+  else
+    fail_count=$((fail_count + 1))
+  fi
 else
   printf "[FAIL] 工作流顶层契约测试\n"
   fail_count=$((fail_count + 1))
   sed "s/^/  /" "$contract_output"
 fi
+render_contract_suite_skips
 
 printf "PASS=%d FAIL=%d SKIP=%d\n" "$pass_count" "$fail_count" "$skip_count"
 if test "$fail_count" -gt 0 || test "$core_status" -ne 0; then

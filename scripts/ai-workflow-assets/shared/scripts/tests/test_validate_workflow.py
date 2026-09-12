@@ -288,7 +288,13 @@ def copy_workflow_fixture(
             os.close(source_fd)
 
 
-class ValidateWorkflowContractTest(unittest.TestCase):
+class ContractFixtureTest(unittest.TestCase):
+    """仅提供契约夹具与 stub 基建，不携带基类契约用例。
+
+    需要复用夹具但不需要逐条重跑 ValidateWorkflowContractTest 的测试
+    （如 fast 缓存契约）应继承本类，避免整模块执行时重复放大套件耗时。
+    """
+
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary_directory.cleanup)
@@ -342,8 +348,13 @@ class ValidateWorkflowContractTest(unittest.TestCase):
             "if test \"$1\" = \"-B\" && test \"$2\" = \"-c\"; then\n"
             f"  exec {sys.executable} \"$@\"\n"
             "fi\n"
+            "printf 'Ran 1 tests\\n\\nOK\\n'\n"
             "exit 0\n",
         )
+
+
+class ValidateWorkflowContractTest(ContractFixtureTest):
+    pass
 
     def _recording_python_script(self, marker: Path) -> str:
         return (
@@ -352,6 +363,7 @@ class ValidateWorkflowContractTest(unittest.TestCase):
             f"  exec {sys.executable} \"$@\"\n"
             "fi\n"
             f"printf '%s\\n' \"$*\" >> {marker}\n"
+            "printf 'Ran 1 tests\\n\\nOK\\n'\n"
             "exit 0\n"
         )
 
@@ -1319,6 +1331,9 @@ class ValidateWorkflowContractTest(unittest.TestCase):
             "if test \"$1\" = \"-B\" && test \"$2\" = \"-c\"; then\n"
             f"  exec {sys.executable} \"$@\"\n"
             "fi\n"
+            "if test \"$1\" = \"-B\" && test \"$2\" = \"scripts/tests/run_validate_workflow_parallel.py\"; then\n"
+            f"  exec {sys.executable} \"$@\"\n"
+            "fi\n"
             "if test \"$1\" = \"-B\" && test \"$2\" = \"-m\" && test \"$4\" != \"discover\"; then\n"
             f"  exec {sys.executable} \"$@\"\n"
             "fi\n"
@@ -1788,6 +1803,596 @@ class WorkflowProfileMutationTests(ValidateWorkflowContractTest):
                 self.assertNotIn("replacement-profile.json", result.stdout)
 
 
+class FastValidationCacheTest(ContractFixtureTest):
+    """--fast 输入指纹缓存：命中沿用、变化重跑、FAIL 不缓存、异常按未命中。"""
+
+    CACHE_DIR = Path(".ai-local") / "validation-cache"
+    PROJECT_FACTS_LABEL = "事实工具必需测试（registry/边界/分页/ignore）"
+    REVIEW_MANIFEST_LABEL = "Review manifest 必需测试（freeze/STALE/delta）"
+    OPENSPEC_LABEL = "OpenSpec validate --all --no-interactive"
+
+    def _run_core(self, *, cache_enabled: bool) -> subprocess.CompletedProcess[str]:
+        environment = {
+            "LC_ALL": "C.UTF-8",
+            "PATH": str(self.stub_bin),
+        }
+        if cache_enabled:
+            environment["WORKFLOW_FAST_CACHE"] = "1"
+        return subprocess.run(
+            ["/usr/bin/bash", "scripts/lib/validate-workflow-core.sh"],
+            cwd=self.fixture,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+
+    def _cache_file(self, check_id: str) -> Path:
+        return self.fixture / self.CACHE_DIR / f"{check_id}.cache"
+
+    def _cache_files(self) -> list[Path]:
+        directory = self.fixture / self.CACHE_DIR
+        if not directory.is_dir():
+            return []
+        return sorted(path for path in directory.iterdir() if path.is_file())
+
+    def test_cache_hit_annotates_and_reuses(self) -> None:
+        first = self._run_core(cache_enabled=True)
+        self.assertEqual(0, first.returncode, msg=first.stdout)
+        self.assertIn(f"[PASS] {self.PROJECT_FACTS_LABEL}", first.stdout)
+        self.assertIn(f"[PASS] {self.REVIEW_MANIFEST_LABEL}", first.stdout)
+        self.assertNotIn("沿用", first.stdout)
+        self.assertTrue(self._cache_file("project-facts-required-tests").is_file())
+        self.assertTrue(self._cache_file("review-manifest-required-tests").is_file())
+
+        second = self._run_core(cache_enabled=True)
+        self.assertEqual(0, second.returncode, msg=second.stdout)
+        self.assertIn(f"[PASS] {self.PROJECT_FACTS_LABEL}（指纹", second.stdout)
+        self.assertIn("未变，沿用", second.stdout)
+        self.assertIn("实际执行结果）", second.stdout)
+        self.assertIn(f"[PASS] {self.REVIEW_MANIFEST_LABEL}（指纹", second.stdout)
+
+    def test_input_change_invalidates_only_affected_check(self) -> None:
+        first = self._run_core(cache_enabled=True)
+        self.assertEqual(0, first.returncode, msg=first.stdout)
+        facts_tool = self.fixture / ".ai" / "tools" / "project_facts.py"
+        facts_tool.write_text(
+            facts_tool.read_text(encoding="utf-8") + "\n# cache invalidation probe\n",
+            encoding="utf-8",
+        )
+
+        second = self._run_core(cache_enabled=True)
+        self.assertEqual(0, second.returncode, msg=second.stdout)
+        self.assertIn(f"[PASS] {self.PROJECT_FACTS_LABEL}\n", second.stdout)
+        self.assertNotIn(f"{self.PROJECT_FACTS_LABEL}（指纹", second.stdout)
+        self.assertIn(f"[PASS] {self.REVIEW_MANIFEST_LABEL}（指纹", second.stdout)
+
+    def test_failed_check_never_writes_cache(self) -> None:
+        self._write_executable(
+            "python3",
+            "#!/bin/sh\n"
+            "if test \"$1\" = \"-B\" && test \"$2\" = \"-c\"; then\n"
+            f"  exec {sys.executable} \"$@\"\n"
+            "fi\n"
+            "exit 1\n",
+        )
+        result = self._run_core(cache_enabled=True)
+        self.assertNotEqual(0, result.returncode, msg=result.stdout)
+        self.assertIn(f"[FAIL] {self.PROJECT_FACTS_LABEL}", result.stdout)
+        self.assertIn(f"[FAIL] {self.REVIEW_MANIFEST_LABEL}", result.stdout)
+        self.assertEqual([], self._cache_files())
+
+    def test_failed_execution_clears_existing_cache(self) -> None:
+        first = self._run_core(cache_enabled=True)
+        self.assertEqual(0, first.returncode, msg=first.stdout)
+        facts_cache = self._cache_file("project-facts-required-tests")
+        review_cache = self._cache_file("review-manifest-required-tests")
+        self.assertTrue(facts_cache.is_file())
+        self.assertTrue(review_cache.is_file())
+
+        facts_tool = self.fixture / ".ai" / "tools" / "project_facts.py"
+        original_facts = facts_tool.read_bytes()
+        facts_tool.write_text(
+            original_facts.decode("utf-8") + "\n# failing input probe\n",
+            encoding="utf-8",
+        )
+        review_tool = self.fixture / ".ai" / "tools" / "review_manifest.py"
+        original_review = review_tool.read_bytes()
+        review_tool.write_text(
+            original_review.decode("utf-8") + "\n# failing input probe\n",
+            encoding="utf-8",
+        )
+        self._write_executable(
+            "python3",
+            "#!/bin/sh\n"
+            "if test \"$1\" = \"-B\" && test \"$2\" = \"-c\"; then\n"
+            f"  exec {sys.executable} \"$@\"\n"
+            "fi\n"
+            "exit 1\n",
+        )
+        failed = self._run_core(cache_enabled=True)
+        self.assertNotEqual(0, failed.returncode, msg=failed.stdout)
+        self.assertFalse(facts_cache.exists())
+        self.assertFalse(review_cache.exists())
+
+        facts_tool.write_bytes(original_facts)
+        review_tool.write_bytes(original_review)
+        self._enable_profile_parser()
+        restored = self._run_core(cache_enabled=True)
+        self.assertEqual(0, restored.returncode, msg=restored.stdout)
+        self.assertIn(f"[PASS] {self.PROJECT_FACTS_LABEL}\n", restored.stdout)
+        self.assertNotIn(f"{self.PROJECT_FACTS_LABEL}（指纹", restored.stdout)
+        self.assertNotIn(f"{self.REVIEW_MANIFEST_LABEL}（指纹", restored.stdout)
+        self.assertTrue(facts_cache.is_file())
+        self.assertTrue(review_cache.is_file())
+
+    def test_missing_input_disables_cache_entry(self) -> None:
+        kb_readme = self.fixture / ".ai" / "kb" / "projects" / "README.md"
+        kb_readme.unlink()
+        for run in ("first", "second"):
+            with self.subTest(run=run):
+                result = self._run_core(cache_enabled=True)
+                self.assertEqual(0, result.returncode, msg=result.stdout)
+                self.assertIn(f"[PASS] {self.PROJECT_FACTS_LABEL}\n", result.stdout)
+                self.assertNotIn(f"{self.PROJECT_FACTS_LABEL}（指纹", result.stdout)
+        self.assertFalse(self._cache_file("project-facts-required-tests").exists())
+        self.assertTrue(self._cache_file("review-manifest-required-tests").is_file())
+
+    def test_corrupt_cache_reruns_execution(self) -> None:
+        first = self._run_core(cache_enabled=True)
+        self.assertEqual(0, first.returncode, msg=first.stdout)
+        facts_cache = self._cache_file("project-facts-required-tests")
+        facts_cache.write_text("garbage-without-valid-format", encoding="utf-8")
+
+        second = self._run_core(cache_enabled=True)
+        self.assertEqual(0, second.returncode, msg=second.stdout)
+        self.assertIn(f"[PASS] {self.PROJECT_FACTS_LABEL}\n", second.stdout)
+        self.assertNotIn(f"{self.PROJECT_FACTS_LABEL}（指纹", second.stdout)
+        self.assertIn(f"[PASS] {self.REVIEW_MANIFEST_LABEL}（指纹", second.stdout)
+        lines = facts_cache.read_text(encoding="utf-8").splitlines()
+        self.assertEqual(2, len(lines))
+        self.assertRegex(lines[0], r"^[0-9a-f]{64}$")
+        self.assertRegex(lines[1], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+
+    def test_cache_ignored_without_fast_env(self) -> None:
+        first = self._run_core(cache_enabled=True)
+        self.assertEqual(0, first.returncode, msg=first.stdout)
+        facts_cache = self._cache_file("project-facts-required-tests")
+        before = facts_cache.read_bytes()
+
+        second = self._run_core(cache_enabled=False)
+        self.assertEqual(0, second.returncode, msg=second.stdout)
+        self.assertIn(f"[PASS] {self.PROJECT_FACTS_LABEL}", second.stdout)
+        self.assertNotIn("沿用", second.stdout)
+        self.assertNotIn("指纹", second.stdout)
+        self.assertEqual(before, facts_cache.read_bytes())
+
+    def test_openspec_check_cached_when_cli_present(self) -> None:
+        self._write_executable("openspec", "#!/bin/sh\nexit 0\n")
+        first = self._run_core(cache_enabled=True)
+        self.assertEqual(0, first.returncode, msg=first.stdout)
+        self.assertIn(f"[PASS] {self.OPENSPEC_LABEL}", first.stdout)
+        self.assertNotIn(f"{self.OPENSPEC_LABEL}（指纹", first.stdout)
+        openspec_cache = self._cache_file("openspec-validate")
+        self.assertTrue(openspec_cache.is_file())
+
+        second = self._run_core(cache_enabled=True)
+        self.assertEqual(0, second.returncode, msg=second.stdout)
+        self.assertIn(f"[PASS] {self.OPENSPEC_LABEL}（指纹", second.stdout)
+
+        self._write_executable("openspec", "#!/bin/sh\nexit 1\n")
+        for cache_file in self._cache_files():
+            cache_file.unlink()
+        third = self._run_core(cache_enabled=True)
+        self.assertNotEqual(0, third.returncode, msg=third.stdout)
+        self.assertIn(f"[FAIL] {self.OPENSPEC_LABEL}", third.stdout)
+        self.assertFalse(openspec_cache.is_file())
+
+    def test_openspec_change_file_invalidates_cache(self) -> None:
+        self._write_executable("openspec", "#!/bin/sh\nexit 0\n")
+        active_change = self._prepare_active_change_probe()
+        first = self._run_core(cache_enabled=True)
+        self.assertEqual(0, first.returncode, msg=first.stdout)
+        active_change.write_text(
+            active_change.read_text(encoding="utf-8") + "\n# cache probe\n",
+            encoding="utf-8",
+        )
+
+        second = self._run_core(cache_enabled=True)
+        self.assertEqual(0, second.returncode, msg=second.stdout)
+        self.assertIn(f"[PASS] {self.OPENSPEC_LABEL}\n", second.stdout)
+        self.assertNotIn(f"{self.OPENSPEC_LABEL}（指纹", second.stdout)
+
+    def _prepare_active_change_probe(self) -> Path:
+        """返回夹具内一个活跃 change 的 proposal；无活跃变更时自建合法最小变更。
+
+        测试不得依赖源仓某个特定变更仍处于 openspec/changes/（归档后会漂移）。
+        """
+        changes = self.fixture / "openspec" / "changes"
+        for candidate in sorted(changes.glob("*/proposal.md")):
+            return candidate
+        probe = changes / "cache-fixture-change"
+        probe.mkdir(parents=True)
+        proposal = probe / "proposal.md"
+        proposal.write_text(
+            "# 变更：缓存夹具探针\n\n模式: 标准\n状态: 待确认计划\n",
+            encoding="utf-8",
+        )
+        return proposal
+
+    def test_core_change_invalidates_cache(self) -> None:
+        first = self._run_core(cache_enabled=True)
+        self.assertEqual(0, first.returncode, msg=first.stdout)
+        core_script = self.fixture / "scripts" / "lib" / "validate-workflow-core.sh"
+        core_script.write_text(
+            core_script.read_text(encoding="utf-8") + "\n# cache probe\n",
+            encoding="utf-8",
+        )
+
+        second = self._run_core(cache_enabled=True)
+        self.assertEqual(0, second.returncode, msg=second.stdout)
+        self.assertIn(f"[PASS] {self.PROJECT_FACTS_LABEL}\n", second.stdout)
+        self.assertNotIn(f"{self.PROJECT_FACTS_LABEL}（指纹", second.stdout)
+        self.assertNotIn(f"{self.REVIEW_MANIFEST_LABEL}（指纹", second.stdout)
+        self.assertTrue(self._cache_file("project-facts-required-tests").is_file())
+        self.assertTrue(self._cache_file("review-manifest-required-tests").is_file())
+
+
+class WrapperFastCacheSwitchTest(unittest.TestCase):
+    """wrapper 只在 --fast 路径向 core 注入 WORKFLOW_FAST_CACHE=1。"""
+
+    STUB_CORE = (
+        "#!/usr/bin/env bash\n"
+        "printf 'WORKFLOW_FAST_CACHE=%s\\n' \"${WORKFLOW_FAST_CACHE:-0}\"\n"
+        "printf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\n"
+        "exit 0\n"
+    )
+
+    def _stage_tree(self, root: Path) -> None:
+        (root / "scripts" / "lib").mkdir(parents=True)
+        (root / "scripts" / "lib" / "validate-workflow-core.sh").write_text(
+            self.STUB_CORE, encoding="utf-8"
+        )
+        (root / "scripts" / "validate-workflow.sh").write_text(
+            (REPOSITORY_ROOT / "scripts" / "validate-workflow.sh").read_text(
+                encoding="utf-8"
+            ),
+            encoding="utf-8",
+        )
+        tests = root / "scripts" / "tests"
+        tests.mkdir()
+        (tests / "test_validate_workflow.py").write_text(
+            "import unittest\n"
+            "class SentinelTest(unittest.TestCase):\n"
+            "    def test_sentinel(self) -> None: self.assertTrue(True)\n",
+            encoding="utf-8",
+        )
+        runner_source = (
+            REPOSITORY_ROOT / "scripts" / "tests" / "run_validate_workflow_parallel.py"
+        )
+        (tests / "run_validate_workflow_parallel.py").write_text(
+            runner_source.read_text(encoding="utf-8")
+            if runner_source.is_file()
+            else "import unittest\n",
+            encoding="utf-8",
+        )
+        (root / ".ai-local").mkdir()
+
+    def _run_wrapper(
+        self,
+        *arguments: str,
+        environment_extras: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root)
+            environment = os.environ.copy()
+            environment.update(environment_extras or {})
+            return subprocess.run(
+                ["/usr/bin/bash", str(root / "scripts" / "validate-workflow.sh"), *arguments],
+                cwd=root,
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+                timeout=60,
+            )
+
+    def test_fast_mode_enables_cache_env(self) -> None:
+        result = self._run_wrapper("--fast")
+        self.assertEqual(0, result.returncode, msg=result.stdout)
+        self.assertIn("WORKFLOW_FAST_CACHE=1", result.stdout)
+
+    def test_default_mode_does_not_enable_cache_env(self) -> None:
+        result = self._run_wrapper()
+        self.assertEqual(0, result.returncode, msg=result.stdout)
+        self.assertIn("WORKFLOW_FAST_CACHE=0", result.stdout)
+        self.assertIn("[PASS] 工作流顶层契约测试", result.stdout)
+
+    def test_inherited_cache_env_is_neutralized_outside_fast(self) -> None:
+        inherited = {"WORKFLOW_FAST_CACHE": "1"}
+        for arguments in ((), ("--require-openspec",), ("--archive-light",)):
+            with self.subTest(arguments=arguments or ("default",)):
+                result = self._run_wrapper(*arguments, environment_extras=inherited)
+                self.assertEqual(0, result.returncode, msg=result.stdout)
+                self.assertIn("WORKFLOW_FAST_CACHE=0", result.stdout)
+
+    def test_conflicting_mode_combinations_fail_closed(self) -> None:
+        for arguments in (
+            ("--fast", "--require-openspec"),
+            ("--fast", "--archive-light"),
+        ):
+            with self.subTest(arguments=arguments):
+                result = self._run_wrapper(*arguments)
+                self.assertEqual(2, result.returncode, msg=result.stdout)
+                self.assertIn("conflict", result.stdout.lower())
+
+
+class WrapperRequiredForwardingTest(unittest.TestCase):
+    def test_wrapper_forwards_required_openspec_to_core(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            scripts = root / "scripts"
+            core = scripts / "lib" / "validate-workflow-core.sh"
+            core.parent.mkdir(parents=True)
+            core.write_text(
+                "#!/usr/bin/env bash\n"
+                "case \" $* \" in\n"
+                "  *' --require-openspec '*)"
+                " printf 'CORE_RECEIVED_REQUIRED=1\\n' ;;\n"
+                "  *) printf 'CORE_RECEIVED_REQUIRED=0\\n' ;;\n"
+                "esac\n"
+                "printf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\n",
+                encoding="utf-8",
+            )
+            (scripts / "validate-workflow.sh").write_text(
+                (REPOSITORY_ROOT / "scripts" / "validate-workflow.sh").read_text(
+                    encoding="utf-8"
+                ),
+                encoding="utf-8",
+            )
+            tests = scripts / "tests"
+            tests.mkdir()
+            (tests / "run_validate_workflow_parallel.py").write_text(
+                "print('Ran 1 tests\\n\\nOK')\n",
+                encoding="utf-8",
+            )
+            environment = {"LC_ALL": "C.UTF-8", "PATH": os.environ.get("PATH", "")}
+            result = subprocess.run(
+                ["/usr/bin/bash", "scripts/validate-workflow.sh", "--require-openspec"],
+                cwd=root,
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("CORE_RECEIVED_REQUIRED=1", result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+
+
+class ParallelContractRunnerTest(unittest.TestCase):
+    """契约套件并行执行器：结果聚合、失败传播、跳过兼容与 worker 崩溃隔离。"""
+
+    RUNNER = REPOSITORY_ROOT / "scripts" / "tests" / "run_validate_workflow_parallel.py"
+
+    def _write_module(self, root: Path, body: str) -> None:
+        (root / "sample_tests.py").write_text(body, encoding="utf-8")
+
+    def _run_runner(self, root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
+        self.assertTrue(self.RUNNER.is_file(), msg="parallel runner asset is missing")
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(root)
+        return subprocess.run(
+            [sys.executable, "-B", str(self.RUNNER), *arguments],
+            cwd=root,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+
+    def _stage_wrapper_tree(
+        self,
+        root: Path,
+        *,
+        stub_runner: bool,
+        contract_summary: str = "Ran 1 tests\n",
+    ) -> Path:
+        (root / "scripts" / "lib").mkdir(parents=True)
+        (root / "scripts" / "lib" / "validate-workflow-core.sh").write_text(
+            "#!/usr/bin/env bash\nprintf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\nexit 0\n",
+            encoding="utf-8",
+        )
+        (root / "scripts" / "validate-workflow.sh").write_text(
+            (REPOSITORY_ROOT / "scripts" / "validate-workflow.sh").read_text(
+                encoding="utf-8"
+            ),
+            encoding="utf-8",
+        )
+        tests = root / "scripts" / "tests"
+        tests.mkdir()
+        (tests / "test_validate_workflow.py").write_text(
+            "import unittest\n"
+            "class SentinelTest(unittest.TestCase):\n"
+            "    def test_sentinel(self) -> None: self.assertTrue(True)\n",
+            encoding="utf-8",
+        )
+        marker = root / "runner-called"
+        if stub_runner:
+            (tests / "run_validate_workflow_parallel.py").write_text(
+                "#!/usr/bin/env python3\n"
+                "from pathlib import Path\n"
+                "Path(__file__).resolve().parents[2].joinpath('runner-called').write_text('1')\n"
+                f"print({contract_summary!r}, end='')\n",
+                encoding="utf-8",
+            )
+        else:
+            (tests / "run_validate_workflow_parallel.py").write_text(
+                self.RUNNER.read_text(encoding="utf-8"), encoding="utf-8"
+            )
+        (root / ".ai-local").mkdir()
+        return marker
+
+    def _run_staged_wrapper(
+        self,
+        *,
+        stub_runner: bool,
+        contract_summary: str = "Ran 1 tests\n",
+        environment_extras: dict[str, str] | None = None,
+    ) -> tuple[subprocess.CompletedProcess[str], bool]:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            marker = self._stage_wrapper_tree(
+                root,
+                stub_runner=stub_runner,
+                contract_summary=contract_summary,
+            )
+            environment = os.environ.copy()
+            environment.update(environment_extras or {})
+            result = subprocess.run(
+                [
+                    "/usr/bin/bash",
+                    str(root / "scripts" / "validate-workflow.sh"),
+                ],
+                cwd=root,
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+                timeout=60,
+            )
+            return result, marker.is_file()
+
+    def test_mixed_results_propagate(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._write_module(
+                root,
+                "import unittest\n"
+                "class SampleTests(unittest.TestCase):\n"
+                "    def test_ok(self) -> None: self.assertTrue(True)\n"
+                "    def test_fail(self) -> None: self.fail('intentional failure')\n"
+                "    @unittest.skip('planned skip')\n"
+                "    def test_skipped(self) -> None: self.assertTrue(False)\n",
+            )
+            result = self._run_runner(root, "--module", "sample_tests", "--jobs", "2")
+            self.assertNotEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("test_ok ... ok", result.stdout)
+            self.assertIn("test_fail ... FAIL", result.stdout)
+            self.assertIn("test_skipped ... skipped", result.stdout)
+            self.assertIn("Ran 3 tests", result.stdout)
+            self.assertIn("FAILED (failures=1, skipped=1)", result.stdout)
+            self.assertIn("AssertionError", result.stdout)
+
+    def test_skip_output_remains_parseable(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._write_module(
+                root,
+                "import unittest\n"
+                "class SampleTests(unittest.TestCase):\n"
+                "    def test_ok(self) -> None: self.assertTrue(True)\n"
+                "    @unittest.skip('planned skip')\n"
+                "    def test_skipped(self) -> None: self.assertTrue(False)\n",
+            )
+            result = self._run_runner(root, "--module", "sample_tests", "--jobs", "2")
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn(" ... skipped", result.stdout)
+            self.assertIn("Ran 2 tests", result.stdout)
+            self.assertIn("OK (skipped=1)", result.stdout)
+
+    def test_worker_crash_becomes_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._write_module(
+                root,
+                "import os\n"
+                "import unittest\n"
+                "class CrashTests(unittest.TestCase):\n"
+                "    def test_ok(self) -> None: self.assertTrue(True)\n"
+                "    def test_crash(self) -> None: os._exit(3)\n",
+            )
+            result = self._run_runner(root, "--module", "sample_tests", "--jobs", "2")
+            self.assertNotEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("test_crash ... ERROR", result.stdout)
+            self.assertIn("test_ok ... ok", result.stdout)
+            self.assertIn("Ran 2 tests", result.stdout)
+            self.assertIn("errors=1", result.stdout)
+
+    def test_expected_failure_semantics_match_unittest(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._write_module(
+                root,
+                "import unittest\n"
+                "class SampleTests(unittest.TestCase):\n"
+                "    def test_ok(self) -> None: self.assertTrue(True)\n"
+                "    @unittest.expectedFailure\n"
+                "    def test_expected_fail(self) -> None: self.fail('planned')\n"
+                "    @unittest.expectedFailure\n"
+                "    def test_unexpected_pass(self) -> None: self.assertTrue(True)\n",
+            )
+            reference = subprocess.run(
+                [sys.executable, "-B", "-m", "unittest", "-v", "sample_tests"],
+                cwd=root,
+                env={**os.environ, "PYTHONPATH": str(root)},
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+                timeout=60,
+            )
+            self.assertNotEqual(0, reference.returncode, msg=reference.stdout)
+
+            result = self._run_runner(root, "--module", "sample_tests", "--jobs", "2")
+            self.assertNotEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("Ran 3 tests", result.stdout)
+            self.assertIn("UNEXPECTEDLY SUCCEEDED", result.stdout)
+            self.assertIn("EXPECTED FAILURE", result.stdout)
+            self.assertIn("expected failures=1", result.stdout)
+            self.assertIn("unexpected successes=1", result.stdout)
+
+    def test_wrapper_uses_runner_by_default(self) -> None:
+        result, runner_called = self._run_staged_wrapper(stub_runner=True)
+        self.assertEqual(0, result.returncode, msg=result.stdout)
+        self.assertTrue(runner_called, msg=result.stdout)
+        self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+
+    def test_wrapper_reports_contract_test_count_by_default(self) -> None:
+        result, _ = self._run_staged_wrapper(stub_runner=True)
+        self.assertEqual(0, result.returncode, msg=result.stdout)
+        self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+        self.assertIn("PASS=2 FAIL=0 SKIP=0", result.stdout)
+
+    def test_wrapper_jobs_one_falls_back_to_unittest(self) -> None:
+        result, runner_called = self._run_staged_wrapper(
+            stub_runner=True, environment_extras={"WORKFLOW_TEST_JOBS": "1"}
+        )
+        self.assertEqual(0, result.returncode, msg=result.stdout)
+        self.assertFalse(runner_called, msg=result.stdout)
+        self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+
+    def test_wrapper_fails_closed_when_contract_success_count_is_missing(self) -> None:
+        result, runner_called = self._run_staged_wrapper(
+            stub_runner=True, contract_summary=""
+        )
+        self.assertNotEqual(0, result.returncode, msg=result.stdout)
+        self.assertTrue(runner_called, msg=result.stdout)
+        self.assertIn("[FAIL] 契约套件用例计数解析失败", result.stdout)
+        self.assertNotIn("[PASS] 工作流顶层契约测试", result.stdout)
+        self.assertIn("PASS=1 FAIL=1 SKIP=0", result.stdout)
+
+
 class WorkflowFixtureCopyTests(unittest.TestCase):
     def _single_assistant_source(
         self, temporary_root: Path, assistant: str = "codex"
@@ -1962,6 +2567,367 @@ class WorkflowFixtureCopyTests(unittest.TestCase):
             )
 
             self.assertEqual(sentinel.read_text(encoding="utf-8"), "DO_NOT_COPY")
+
+
+
+
+class MutationStandardThreePieceSuiteTest(unittest.TestCase):
+    """mutation: AGENTS.md 必须明确"标准模式三件套+条件 design"，注入旧四件套契约必须被检出。"""
+
+    AGENTS_MD = REPOSITORY_ROOT / "AGENTS.md"
+    OPEN_SKILL = REPOSITORY_ROOT / ".codex" / "skills" / "open" / "SKILL.md"
+
+    def _require_agents_md(self) -> None:
+        if not self.AGENTS_MD.is_file():
+            self.skipTest("codex assistant is not present in this fixture")
+
+    def _require_codex_skill(self, path: Path) -> Path:
+        if not path.is_file():
+            self.skipTest("codex assistant is not present in this fixture")
+        return path
+
+    def test_agents_md_states_three_piece_suite(self) -> None:
+        self._require_agents_md()
+        text = self.AGENTS_MD.read_text(encoding="utf-8")
+        self.assertIn("三件套", text, "AGENTS.md 必须明确三件套")
+        # 旧四件套契约不应再存在
+        self.assertNotIn("Open 一次创建 `proposal.md`、delta `spec.md`、`design.md`、含精确步骤和命令的 `tasks.md`", text,
+                         "AGENTS.md 不应再保留旧四件套契约")
+
+    def test_open_skill_states_three_piece_suite(self) -> None:
+        open_skill = self._require_codex_skill(self.OPEN_SKILL)
+        text = open_skill.read_text(encoding="utf-8")
+        self.assertIn("三件套", text, ".codex/skills/open/SKILL.md 必须明确三件套")
+        self.assertNotIn("一次产出可执行四件套", text,
+                         ".codex/skills/open/SKILL.md 不应再保留旧四件套契约")
+
+    def test_design_skill_states_risk_triggered_second_confirm(self) -> None:
+        design_skill = REPOSITORY_ROOT / ".codex" / "skills" / "design" / "SKILL.md"
+        design_skill = self._require_codex_skill(design_skill)
+        text = design_skill.read_text(encoding="utf-8")
+        self.assertIn("不可逆风险触发", text,
+                      ".codex/skills/design/SKILL.md 必须含'不可逆风险触发'段")
+        for keyword in ["权限认证", "资金账务", "数据库 Schema", "数据删除", "破坏性动作", "外部副作用"]:
+            self.assertIn(keyword, text, f"design SKILL.md 必须含硬风险关键词: {keyword}")
+
+
+class StrictSecondConfirmHardSetTest(unittest.TestCase):
+    """mutation: AGENTS.md 严格模式节必须含硬风险集合 + 连续 Build 句。"""
+
+    AGENTS_MD = REPOSITORY_ROOT / "AGENTS.md"
+
+    def _require_agents_md(self) -> None:
+        if not self.AGENTS_MD.is_file():
+            self.skipTest("codex assistant is not present in this fixture")
+
+    def test_strict_hard_risk_set_listed(self) -> None:
+        self._require_agents_md()
+        text = self.AGENTS_MD.read_text(encoding="utf-8")
+        for keyword in ["权限认证", "资金账务", "数据库 Schema", "数据删除", "破坏性动作", "外部副作用"]:
+            self.assertIn(keyword, text, f"AGENTS.md 严格模式节必须含硬风险关键词: {keyword}")
+
+    def test_strict_continuous_build_clause(self) -> None:
+        self._require_agents_md()
+        text = self.AGENTS_MD.read_text(encoding="utf-8")
+        self.assertIn("不命中上述硬风险集合且未引入新选择的严格计划", text,
+                      "AGENTS.md 严格模式节必须含'连续 Build'句")
+
+    def test_old_double_confirm_clause_removed(self) -> None:
+        """mutation 注入: 旧"保留两次实施前确认"句应被移除"""
+        self._require_agents_md()
+        text = self.AGENTS_MD.read_text(encoding="utf-8")
+        self.assertNotIn("保留两次实施前确认", text,
+                         "AGENTS.md 不应再保留旧双确认句")
+
+
+class ReviewRuleHighRiskInvariantTest(unittest.TestCase):
+    """mutation: review.md 必须含高风险不变量 + manifest 清理约束。"""
+
+    REVIEW_MD = REPOSITORY_ROOT / ".ai" / "rules" / "review.md"
+
+    def test_review_md_has_high_risk_invariant(self) -> None:
+        text = self.REVIEW_MD.read_text(encoding="utf-8")
+        self.assertIn("高风险不变量", text, "review.md 必须含高风险不变量定义")
+        self.assertIn("合并为一次审查", text, "review.md 必须含合并审查条款")
+
+    def test_review_md_has_manifest_cleanup_constraint(self) -> None:
+        text = self.REVIEW_MD.read_text(encoding="utf-8")
+        self.assertIn("不得递归删除整个 `.ai-local`", text,
+                      "review.md 必须禁止递归删除 .ai-local")
+        # mutation 注入：禁止 .ai-local reviews/<change>/ 以外的形式
+        self.assertNotIn("rm -rf .ai-local", text,
+                         "review.md 不应含 rm -rf .ai-local 字面（无子路径）")
+
+
+class ArchiveLightPromotionMutationTest(unittest.TestCase):
+    """mutation: 注入违反 diff 分类升级规则必须被检出。"""
+
+    WRAPPER = REPOSITORY_ROOT / "scripts" / "validate-workflow.sh"
+
+    def test_wrapper_recognizes_archive_light_flag(self) -> None:
+        text = self.WRAPPER.read_text(encoding="utf-8")
+        self.assertIn("--archive-light", text, "wrapper 必须识别 --archive-light")
+        self.assertIn("WORKFLOW_ARCHIVE_GATE", text, "wrapper 必须支持 WORKFLOW_ARCHIVE_GATE env")
+
+    def test_wrapper_rejects_conflict(self) -> None:
+        text = self.WRAPPER.read_text(encoding="utf-8")
+        self.assertTrue("conflict" in text.lower(),
+                        "wrapper 必须检测 --archive-light 与 --require-openspec 冲突")
+
+
+class ArchiveLightGateTest(unittest.TestCase):
+    """归档轻量门禁：--archive-light 跳过顶层契约套件；diff 分类自动升级。"""
+
+    STUB_CORE = (
+        "#!/usr/bin/env bash\n"
+        "printf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\n"
+        "exit 0\n"
+    )
+
+
+    def _stage_wrapper_tree(self, root: Path) -> None:
+        """在临时目录里布置 wrapper + stub core + stub unittest + .ai-local"""
+        scripts_dir = root / "scripts" / "lib"
+        (root / "scripts").mkdir(parents=True)
+        scripts_dir.mkdir(parents=True)
+        (scripts_dir / "validate-workflow-core.sh").write_text(
+            "#!/usr/bin/env bash\nprintf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\nexit 0\n",
+            encoding="utf-8",
+        )
+        wrapper_text = (REPOSITORY_ROOT / "scripts" / "validate-workflow.sh").read_text(
+            encoding="utf-8"
+        )
+        (scripts_dir.parent / "validate-workflow.sh").write_text(wrapper_text, encoding="utf-8")
+        (root / "scripts" / "tests").mkdir()
+        (root / "scripts" / "tests" / "test_validate_workflow.py").write_text(
+            'import unittest\n'
+            'class SentinelTest(unittest.TestCase):\n'
+            '    def test_placeholder(self) -> None: self.assertTrue(True)\n',
+            encoding="utf-8",
+        )
+        (root / "scripts" / "tests" / "run_validate_workflow_parallel.py").write_text(
+            (REPOSITORY_ROOT / "scripts" / "tests" / "run_validate_workflow_parallel.py")
+            .read_text(encoding="utf-8")
+            if (REPOSITORY_ROOT / "scripts" / "tests" / "run_validate_workflow_parallel.py")
+            .is_file()
+            else "import unittest\n",
+            encoding="utf-8",
+        )
+        (root / ".ai-local").mkdir()
+
+    def _run_wrapper(self, *arguments: str, core_status: int = 0,
+                     stub_core: str | None = None) -> subprocess.CompletedProcess:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            scripts_dir = root / "scripts" / "lib"
+            (root / "scripts").mkdir(parents=True)
+            scripts_dir.mkdir(parents=True)
+            (scripts_dir / "validate-workflow-core.sh").write_text(
+                stub_core or self.STUB_CORE, encoding="utf-8"
+            )
+            wrapper = (REPOSITORY_ROOT / "scripts" / "validate-workflow.sh").read_text(
+                encoding="utf-8"
+            )
+            wrapper_path = scripts_dir.parent / "validate-workflow.sh"
+            wrapper_path.write_text(wrapper, encoding="utf-8")
+            (root / "scripts" / "tests").mkdir()
+            (root / "scripts" / "tests" / "test_validate_workflow.py").write_text(
+                'import unittest\n'
+                'class SentinelTest(unittest.TestCase):\n'
+                '    def test_placeholder(self) -> None: self.assertTrue(True)\n',
+                encoding="utf-8",
+            )
+            (root / "scripts" / "tests" / "run_validate_workflow_parallel.py").write_text(
+                (REPOSITORY_ROOT / "scripts" / "tests" / "run_validate_workflow_parallel.py")
+                .read_text(encoding="utf-8")
+                if (REPOSITORY_ROOT / "scripts" / "tests" / "run_validate_workflow_parallel.py")
+                .is_file()
+                else "import unittest\n",
+                encoding="utf-8",
+            )
+            (root / ".ai-local").mkdir()
+            cmd = ["/usr/bin/bash", str(wrapper_path), *arguments]
+            return subprocess.run(
+                cmd, cwd=root, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, check=False, timeout=60,
+            )
+
+    def test_archive_light_skips_contract_suite_when_no_semantic_diff(self) -> None:
+        result = self._run_wrapper("--archive-light")
+        self.assertEqual(0, result.returncode, msg=result.stdout + result.stderr)
+        # 顶层契约套件应被跳过：unittest 失败/不存在
+        self.assertNotIn("[PASS] 工作流顶层契约测试", result.stdout)
+        self.assertIn("PASS=1 FAIL=0 SKIP=0", result.stdout)
+
+    def test_archive_light_runs_pure_core_when_no_archive_files(self) -> None:
+        # --archive-light 单独使用 = 纯轻量门禁（仅 core，无 diff 分类升级）
+        result = self._run_wrapper("--archive-light")
+        self.assertEqual(0, result.returncode, msg=result.stdout + result.stderr)
+        self.assertIn("archive-light gate engaged", result.stdout)
+        self.assertIn("files=0", result.stdout)
+        self.assertNotIn("[PASS] 工作流顶层契约测试", result.stdout)
+
+    def test_archive_light_rejects_conflict_with_require_openspec(self) -> None:
+        result = self._run_wrapper("--archive-light", "--require-openspec")
+        self.assertEqual(2, result.returncode, msg=result.stdout + result.stderr)
+        combined = result.stdout + result.stderr
+        self.assertIn("conflict", combined.lower())
+
+
+    def test_archive_light_promotes_to_require_openspec_on_workflow_diff(self) -> None:
+        """diff 分类自动升级：WORKFLOW_ARCHIVE_GATE=1 + --archive-files + git diff 非空 → 改跑契约套件"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_wrapper_tree(root)
+            fake_bin = root / "fakebin"
+            fake_bin.mkdir()
+            stub_path = root / "git_stub.sh"
+            stub_path.write_text(
+                "#!/usr/bin/env bash\n"
+                "if [ \"$1\" = \"diff\" ] && [ \"$2\" = \"--name-only\" ]; then\n"
+                "  echo scripts/validate-workflow.sh\n"
+                "  exit 0\n"
+                "fi\n"
+                "exit 1\n",
+                encoding="utf-8",
+            )
+            (fake_bin / "git").write_text(
+                f'#!/usr/bin/env bash\nbash {stub_path} "$@"\n',
+                encoding="utf-8",
+            )
+            (fake_bin / "git").chmod(0o755)
+            import os
+            env = os.environ.copy()
+            env["PATH"] = str(fake_bin) + ":" + env.get("PATH", "")
+            env["WORKFLOW_ARCHIVE_GATE"] = "1"
+            env["WORKFLOW_ARCHIVE_BASE"] = "HEAD"
+            result = subprocess.run(
+                ["/usr/bin/bash", str(root / "scripts" / "validate-workflow.sh"),
+                 "--archive-light", "--archive-files", "scripts/validate-workflow.sh"],
+                cwd=root, env=env, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, check=False, timeout=60,
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout + result.stderr)
+            combined = result.stdout + result.stderr
+            self.assertIn("promoted to --require-openspec", combined)
+            self.assertTrue(
+                "[PASS] 工作流顶层契约测试" in result.stdout
+                or "SentinelTest" in result.stdout
+                or "test_placeholder" in result.stdout,
+                msg=result.stdout + result.stderr,
+            )
+
+    def test_archive_light_no_promotion_when_git_diff_empty(self) -> None:
+        """diff 分类无变化时不升级，保持轻量"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_wrapper_tree(root)
+            fake_bin = root / "fakebin"
+            fake_bin.mkdir()
+            stub_path = root / "git_stub.sh"
+            stub_path.write_text(
+                "#!/usr/bin/env bash\nexit 0\n",  # diff 输出空
+                encoding="utf-8",
+            )
+            (fake_bin / "git").write_text(
+                f'#!/usr/bin/env bash\nbash {stub_path} "$@"\n',
+                encoding="utf-8",
+            )
+            (fake_bin / "git").chmod(0o755)
+            import os
+            env = os.environ.copy()
+            env["PATH"] = str(fake_bin) + ":" + env.get("PATH", "")
+            env["WORKFLOW_ARCHIVE_GATE"] = "1"
+            env["WORKFLOW_ARCHIVE_BASE"] = "HEAD"
+            result = subprocess.run(
+                ["/usr/bin/bash", str(root / "scripts" / "validate-workflow.sh"),
+                 "--archive-light", "--archive-files", "scripts/validate-workflow.sh"],
+                cwd=root, env=env, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, check=False, timeout=60,
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout + result.stderr)
+            self.assertNotIn("promoted to --require-openspec", result.stdout + result.stderr)
+            self.assertNotIn("[PASS] 工作流顶层契约测试", result.stdout)
+
+    def test_archive_light_propagates_core_failure_exit(self) -> None:
+        bad_stub = "#!/usr/bin/env bash\nexit 1\n"
+        result = self._run_wrapper("--archive-light", stub_core=bad_stub)
+        self.assertNotEqual(0, result.returncode, msg=result.stdout + result.stderr)
+        self.assertNotIn("[PASS] 工作流顶层契约测试", result.stdout)
+
+    def test_archive_light_promoted_path_renders_internal_skips(self) -> None:
+        """F-Q1 regression：promoted 路径必须复用 render_contract_suite_skips；
+        若契约套件内部出现 ... skipped 行，必须在汇总前可见（与默认路径同语义）。"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_wrapper_tree(root)
+            # 让 stub unittest 输出 ... skipped 行（触发现实仓库 PrePushHookTest 等）
+            (root / "scripts" / "tests" / "test_validate_workflow.py").write_text(
+                'import unittest\n'
+                'class SentinelTest(unittest.TestCase):\n'
+                '    def test_pass(self) -> None: self.assertTrue(True)\n'
+                '    def test_skipped(self) -> None: self.skipTest("source-only stub")\n',
+                encoding="utf-8",
+            )
+            fake_bin = root / "fakebin"
+            fake_bin.mkdir()
+            stub_path = root / "git_stub.sh"
+            stub_path.write_text(
+                "#!/usr/bin/env bash\n"
+                "if [ \"$1\" = \"diff\" ] && [ \"$2\" = \"--name-only\" ]; then\n"
+                "  echo scripts/validate-workflow.sh\n"
+                "  exit 0\n"
+                "fi\n"
+                "exit 1\n",
+                encoding="utf-8",
+            )
+            (fake_bin / "git").write_text(
+                f'#!/usr/bin/env bash\nbash {stub_path} "$@"\n',
+                encoding="utf-8",
+            )
+            (fake_bin / "git").chmod(0o755)
+            import os
+            env = os.environ.copy()
+            env["PATH"] = str(fake_bin) + ":" + env.get("PATH", "")
+            env["WORKFLOW_ARCHIVE_GATE"] = "1"
+            env["WORKFLOW_ARCHIVE_BASE"] = "HEAD"
+            result = subprocess.run(
+                ["/usr/bin/bash", str(root / "scripts" / "validate-workflow.sh"),
+                 "--archive-light", "--archive-files", "scripts/validate-workflow.sh"],
+                cwd=root, env=env, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, check=False, timeout=60,
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout + result.stderr)
+            # 关键断言：promoted 路径必须包含"内部设计性跳过"渲染段
+            self.assertIn("内部设计性跳过", result.stdout,
+                          msg=result.stdout + result.stderr)
+
+    def test_archive_light_fails_closed_when_git_missing(self) -> None:
+        """F-Q2 regression：WORKFLOW_ARCHIVE_GATE=1 + --archive-files 非空时，
+        若 git 不可用必须 fail-closed（stderr 提示 + 非零退出码）。"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_wrapper_tree(root)
+            # 构造一个没有 git 的 PATH（指向空目录）
+            empty_bin = root / "emptybin"
+            empty_bin.mkdir()
+            import os
+            env = os.environ.copy()
+            env["PATH"] = str(empty_bin)  # 仅含空目录，无 git
+            env["WORKFLOW_ARCHIVE_GATE"] = "1"
+            env["WORKFLOW_ARCHIVE_BASE"] = "HEAD"
+            result = subprocess.run(
+                ["/usr/bin/bash", str(root / "scripts" / "validate-workflow.sh"),
+                 "--archive-light", "--archive-files", "scripts/validate-workflow.sh"],
+                cwd=root, env=env, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, check=False, timeout=60,
+            )
+            self.assertNotEqual(0, result.returncode,
+                                msg="git 缺失时 WORKFLOW_ARCHIVE_GATE=1 必须非零退出: "
+                                + result.stdout + result.stderr)
+            combined = result.stdout + result.stderr
+            self.assertIn("git 不可用", combined,
+                          msg=combined)
 
 
 if __name__ == "__main__":

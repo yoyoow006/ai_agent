@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import dataclasses
 import hashlib
 import importlib.util
@@ -47,6 +48,7 @@ EXPECTED_ASSET_PATHS = {
         "openspec/specs/risk-tiered-ai-workflow/spec.md",
         "openspec/specs/shared-ai-workflow-infrastructure/spec.md",
         "scripts/lib/validate-workflow-core.sh", "scripts/tests/__init__.py",
+        "scripts/tests/run_validate_workflow_parallel.py",
         "scripts/tests/test_validate_workflow.py", "scripts/validate-workflow.sh",
         "scripts/workflow-pressure-scenarios.md",
     ),
@@ -218,6 +220,23 @@ class PortableAssetManifestTests(unittest.TestCase):
                 self.assertEqual(entry, {"path": entry["path"], "mode": expected})
                 self.assertEqual(stat.S_IMODE((ASSET_ROOT / group / entry["path"]).stat().st_mode), int(expected, 8))
 
+    def test_parallel_runner_asset_is_manifested_and_byte_identical(self):
+        relative = "scripts/tests/run_validate_workflow_parallel.py"
+        entry = {"path": relative, "mode": "0644"}
+        self.assertIn(entry, self.manifest["shared"])
+        packaged = ASSET_ROOT / "shared" / relative
+        self.assertTrue(packaged.is_file(), f"missing asset: {packaged}")
+        self.assertEqual(
+            stat.S_IMODE(packaged.stat().st_mode),
+            0o644,
+            f"unexpected mode for asset: {packaged}",
+        )
+        self.assertEqual(
+            packaged.read_bytes(),
+            (REPOSITORY_ROOT / relative).read_bytes(),
+            "packaged parallel runner differs from active source",
+        )
+
 
 class PortableAssetContentTests(unittest.TestCase):
     def asset_bytes(self, relative):
@@ -242,6 +261,7 @@ class PortableAssetContentTests(unittest.TestCase):
             "shared/scripts/validate-workflow.sh": "scripts/validate-workflow.sh",
             "shared/scripts/lib/validate-workflow-core.sh": "scripts/lib/validate-workflow-core.sh",
             "shared/scripts/tests/__init__.py": "scripts/tests/__init__.py",
+            "shared/scripts/tests/run_validate_workflow_parallel.py": "scripts/tests/run_validate_workflow_parallel.py",
             "shared/scripts/tests/test_validate_workflow.py": "scripts/tests/test_validate_workflow.py",
             "shared/scripts/workflow-pressure-scenarios.md": "scripts/workflow-pressure-scenarios.md",
         }
@@ -321,24 +341,43 @@ class AssistantSelectionTests(unittest.TestCase):
 
 
 class InstalledWorkflowValidationTests(unittest.TestCase):
+    REQUIRED_SHIPPED_CONTRACT_TEST_IDS = (
+        "scripts.tests.test_validate_workflow.WorkflowProfileTests."
+        "test_installer_selected_only_metadata_allows_core_validation",
+        "scripts.tests.test_validate_workflow.WorkflowProfileMutationTests."
+        "test_shared_gates_remain_required_for_each_profile",
+    )
+
     @staticmethod
-    def _shipped_contract_test_count() -> int:
-        """随包契约套件的用例数:从资产副本动态加载统计,避免硬编码漂移。"""
+    def _load_shipped_contract_suite() -> unittest.TestSuite:
+        """从资产副本动态加载随包契约套件,避免硬编码漂移。"""
         shipped = ASSET_ROOT / "shared" / "scripts" / "tests" / "test_validate_workflow.py"
-        spec = importlib.util.spec_from_file_location("shipped_contract_tests", shipped)
+        module_name = "scripts.tests.test_validate_workflow"
+        spec = importlib.util.spec_from_file_location(module_name, shipped)
         assert spec is not None and spec.loader is not None
         module = importlib.util.module_from_spec(spec)
         # 随包文件使用 @dataclass,其字段解析要求模块已注册进 sys.modules。
-        sys.modules[spec.name] = module
+        previous_module = sys.modules.get(module_name)
+        sys.modules[module_name] = module
         # 无 -B 运行时 exec_module 会把 __pycache__ 写进资产树,令同轮稍后
         # 的物理枚举自污必败;加载期间抑制字节码写入(-B 下为无害冗余)。
         previous_dont_write_bytecode = sys.dont_write_bytecode
         sys.dont_write_bytecode = True
         try:
             spec.loader.exec_module(module)
+            suite = unittest.defaultTestLoader.loadTestsFromModule(module)
         finally:
             sys.dont_write_bytecode = previous_dont_write_bytecode
-        suite = unittest.defaultTestLoader.loadTestsFromModule(module)
+            if previous_module is None:
+                sys.modules.pop(module_name, None)
+            else:
+                sys.modules[module_name] = previous_module
+        return suite
+
+    @staticmethod
+    def _shipped_contract_test_count() -> int:
+        """随包契约套件的用例数。"""
+        suite = InstalledWorkflowValidationTests._load_shipped_contract_suite()
 
         def collect(test) -> int:
             if isinstance(test, unittest.TestSuite):
@@ -346,6 +385,51 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
             return 1
 
         return collect(suite)
+
+    @staticmethod
+    def _shipped_contract_test_ids() -> tuple[str, ...]:
+        suite = InstalledWorkflowValidationTests._load_shipped_contract_suite()
+
+        def collect(test):
+            if isinstance(test, unittest.TestSuite):
+                for item in test:
+                    yield from collect(item)
+            else:
+                yield test.id()
+
+        return tuple(collect(suite))
+
+    @staticmethod
+    def _assert_required_shipped_contract_coverage(
+        shipped_test_ids: tuple[str, ...], public_output: str
+    ) -> None:
+        available_test_ids = set(shipped_test_ids)
+        missing_test_ids = [
+            test_id
+            for test_id in InstalledWorkflowValidationTests.REQUIRED_SHIPPED_CONTRACT_TEST_IDS
+            if test_id not in available_test_ids
+        ]
+        if missing_test_ids:
+            raise AssertionError(
+                "required shipped contract tests are missing: "
+                f"{missing_test_ids}\npublic output:\n{public_output}"
+            )
+        skipped_test_ids = [
+            test_id
+            for test_id in InstalledWorkflowValidationTests.REQUIRED_SHIPPED_CONTRACT_TEST_IDS
+            if any(
+                re.search(
+                    rf"(?:^|\s){re.escape(test_id)} \.\.\. skipped(?:\s|$)",
+                    line,
+                )
+                for line in public_output.splitlines()
+            )
+        ]
+        if skipped_test_ids:
+            raise AssertionError(
+                "required shipped contract tests were skipped: "
+                f"{skipped_test_ids}\npublic output:\n{public_output}"
+            )
 
     def test_shipped_contract_count_leaves_no_asset_pycache_without_dash_b(self) -> None:
         """无 -B 运行时统计随包套件不得把 __pycache__ 写进资产树。
@@ -456,10 +540,6 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
                 self.assertEqual(self._git_identity(target), git_before)
                 environment = self._restricted_environment(temporary_root)
 
-                contract = self._run_target(
-                    target, environment, "python3", "-B", "-m", "unittest", "-v",
-                    "scripts.tests.test_validate_workflow",
-                )
                 tools = self._run_target(
                     target, environment, "python3", "-B", "-m", "unittest", "discover", "-v",
                     "-s", ".ai/tools/tests", "-p", "test_*.py",
@@ -467,15 +547,51 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
                 public = self._run_target(
                     target, environment, "bash", "scripts/validate-workflow.sh",
                 )
+                real_target_before_required = identity_snapshot_tree(target)
+                required_target = temporary_root / f"required-{assistant}"
+                shutil.copytree(target, required_target, symlinks=True)
+                sentinel_module = '''\
+from pathlib import Path
+import unittest
+
+
+class ContractSentinelTests(unittest.TestCase):
+    def test_contract_sentinel_called(self):
+        marker = Path(__file__).resolve().parents[2] / "CONTRACT_SENTINEL_CALLED"
+        marker.write_text("CONTRACT_SENTINEL_CALLED\\n", encoding="utf-8")
+        print("CONTRACT_SENTINEL_CALLED")
+
+
+if __name__ == "__main__":
+    unittest.main()
+'''
+                (
+                    required_target / "scripts" / "tests" / "test_validate_workflow.py"
+                ).write_text(sentinel_module, encoding="utf-8")
                 required = self._run_target(
-                    target, environment, "bash", "scripts/validate-workflow.sh",
+                    required_target, environment, "bash", "scripts/validate-workflow.sh",
                     "--require-openspec",
                 )
 
-                with self.subTest(assistant=assistant, command="contract"):
-                    self.assertEqual(contract.returncode, 0, contract.stdout)
-                    self.assertIn(f"Ran {self._shipped_contract_test_count()} tests", contract.stdout)
-                    # 只允许已知理由的 skip;出现新理由即失败,防止必需用例静默消失。
+                with self.subTest(assistant=assistant, command="tools"):
+                    self.assertEqual(tools.returncode, 0, tools.stdout)
+                    self.assertIn("Ran 53 tests", tools.stdout)
+                with self.subTest(assistant=assistant, command="public"):
+                    self.assertEqual(public.returncode, 0, public.stdout)
+                    shipped_count = self._shipped_contract_test_count()
+                    successful_contract_counts = re.findall(
+                        r"^\[PASS\] 工作流顶层契约测试（([1-9][0-9]*) tests）$",
+                        public.stdout,
+                        re.MULTILINE,
+                    )
+                    self.assertEqual(
+                        successful_contract_counts, [str(shipped_count)], public.stdout
+                    )
+                    self._assert_required_shipped_contract_coverage(
+                        self._shipped_contract_test_ids(), public.stdout
+                    )
+                    # 公共 wrapper 成功输出保持简洁;用真实计数证明完整套件,
+                    # 并只允许已知理由的内部设计性 skip。
                     allowed_skip_reasons = {
                         "single-assistant installation lacks the compatibility fixture",
                         "codex assistant is not present in this fixture",
@@ -486,24 +602,11 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
                         "flock is required to exercise the lock infrastructure path",
                     }
                     observed_skips = set(
-                        re.findall(r"\.\.\. skipped '([^']*)'", contract.stdout)
+                        re.findall(r"\.\.\. skipped '([^']*)'", public.stdout)
                     )
                     self.assertLessEqual(
-                        observed_skips, allowed_skip_reasons, contract.stdout
+                        observed_skips, allowed_skip_reasons, public.stdout
                     )
-                    self.assertRegex(
-                        contract.stdout,
-                        r"test_installer_selected_only_metadata_allows_core_validation .* \.\.\. ok",
-                    )
-                    self.assertRegex(
-                        contract.stdout,
-                        r"test_shared_gates_remain_required_for_each_profile .* \.\.\. ok",
-                    )
-                with self.subTest(assistant=assistant, command="tools"):
-                    self.assertEqual(tools.returncode, 0, tools.stdout)
-                    self.assertIn("Ran 53 tests", tools.stdout)
-                with self.subTest(assistant=assistant, command="public"):
-                    self.assertEqual(public.returncode, 0, public.stdout)
                     self.assertEqual(
                         len(re.findall(r"^\[SKIP\] OpenSpec CLI ", public.stdout, re.MULTILINE)),
                         1,
@@ -515,6 +618,9 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
                     self.assertEqual(len(summaries), 1, public.stdout)
                 with self.subTest(assistant=assistant, command="required"):
                     self.assertNotEqual(required.returncode, 0, required.stdout)
+                    self.assertIn(
+                        "[PASS] 工作流顶层契约测试（1 tests）", required.stdout
+                    )
                     fail_lines = re.findall(r"^\[FAIL\] .*$", required.stdout, re.MULTILINE)
                     self.assertEqual(
                         fail_lines,
@@ -526,6 +632,14 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
                         if re.fullmatch(r"PASS=\d+ FAIL=1 SKIP=0", line)
                     ]
                     self.assertEqual(len(required_summaries), 1, required.stdout)
+                    marker = required_target / "CONTRACT_SENTINEL_CALLED"
+                    self.assertTrue(marker.is_file())
+                    self.assertEqual(
+                        marker.read_text(encoding="utf-8"), "CONTRACT_SENTINEL_CALLED\n"
+                    )
+                    self.assertEqual(
+                        identity_snapshot_tree(target), real_target_before_required
+                    )
 
                 expected_status = set(EXPECTED_ASSET_PATHS["shared"])
                 expected_status.update(EXPECTED_ASSET_PATHS[assistant])
@@ -2486,6 +2600,144 @@ class UpgradeTransactionTests(unittest.TestCase):
             hashlib.sha256(b"shared v9\n").hexdigest(),
         )
 
+
+class InstalledIntegrationPerformanceContractTests(unittest.TestCase):
+    def test_installed_integration_runs_one_public_gate_and_one_required_probe(self):
+        source = Path(__file__).read_text(encoding="utf-8")
+        module = ast.parse(source, filename=str(__file__))
+        method = next(
+            node for node in ast.walk(module)
+            if isinstance(node, ast.FunctionDef)
+            and node.name ==
+            "test_installed_codex_and_claude_validate_without_source_or_openspec"
+        )
+        target_calls = [
+            call for call in ast.walk(method)
+            if isinstance(call, ast.Call)
+            and isinstance(call.func, ast.Attribute)
+            and call.func.attr == "_run_target"
+        ]
+        direct_contract_calls = [
+            call for call in target_calls
+            if any(
+                isinstance(argument, ast.Constant)
+                and argument.value == "scripts.tests.test_validate_workflow"
+                for argument in call.args
+            )
+        ]
+        public_wrapper_calls = [
+            call for call in target_calls
+            if any(
+                isinstance(argument, ast.Constant)
+                and argument.value == "scripts/validate-workflow.sh"
+                for argument in call.args
+            )
+            and not any(
+                isinstance(argument, ast.Constant)
+                and argument.value == "--require-openspec"
+                for argument in call.args
+            )
+        ]
+        required_wrapper_calls = [
+            call for call in target_calls
+            if any(
+                isinstance(argument, ast.Constant)
+                and argument.value == "--require-openspec"
+                for argument in call.args
+            )
+        ]
+
+        self.assertEqual(direct_contract_calls, [])
+        self.assertEqual(len(public_wrapper_calls), 1)
+        self.assertEqual(len(required_wrapper_calls), 1)
+
+    def test_installed_integration_calls_required_coverage_guard(self):
+        source = Path(__file__).read_text(encoding="utf-8")
+        module = ast.parse(source, filename=str(__file__))
+        method = next(
+            node for node in ast.walk(module)
+            if isinstance(node, ast.FunctionDef)
+            and node.name ==
+            "test_installed_codex_and_claude_validate_without_source_or_openspec"
+        )
+        coverage_calls = [
+            call for call in ast.walk(method)
+            if isinstance(call, ast.Call)
+            and isinstance(call.func, ast.Attribute)
+            and call.func.attr == "_assert_required_shipped_contract_coverage"
+        ]
+
+        self.assertEqual(len(coverage_calls), 1)
+        arguments = coverage_calls[0].args
+        self.assertTrue(
+            any(
+                isinstance(argument, ast.Call)
+                and isinstance(argument.func, ast.Attribute)
+                and argument.func.attr == "_shipped_contract_test_ids"
+                for argument in arguments
+            )
+        )
+        self.assertTrue(
+            any(
+                isinstance(argument, ast.Attribute)
+                and argument.attr == "stdout"
+                and isinstance(argument.value, ast.Name)
+                and argument.value.id == "public"
+                for argument in arguments
+            )
+        )
+
+
+class RequiredShippedContractCoverageTests(unittest.TestCase):
+    required_test_ids = (
+        "scripts.tests.test_validate_workflow.WorkflowProfileTests."
+        "test_installer_selected_only_metadata_allows_core_validation",
+        "scripts.tests.test_validate_workflow.WorkflowProfileMutationTests."
+        "test_shared_gates_remain_required_for_each_profile",
+    )
+
+    def test_accepts_complete_unskipped_required_set(self):
+        public_output = (
+            "[PASS] 工作流顶层契约测试（2 tests）\n"
+            "  - scripts.tests.other ... skipped 'unrelated allowed reason'\n"
+            "PASS=1 FAIL=0 SKIP=1\n"
+        )
+
+        InstalledWorkflowValidationTests._assert_required_shipped_contract_coverage(
+            (*self.required_test_ids, "scripts.tests.other"), public_output
+        )
+
+    def test_rejects_missing_required_test_id(self):
+        for missing_test_id in self.required_test_ids:
+            with self.subTest(missing_test_id=missing_test_id):
+                available_ids = tuple(
+                    test_id for test_id in self.required_test_ids
+                    if test_id != missing_test_id
+                )
+
+                with self.assertRaises(AssertionError) as caught:
+                    InstalledWorkflowValidationTests._assert_required_shipped_contract_coverage(
+                        available_ids, "PASS=1 FAIL=0 SKIP=0\n"
+                    )
+
+                self.assertIn("required shipped contract tests are missing", str(caught.exception))
+                self.assertIn(missing_test_id, str(caught.exception))
+
+    def test_rejects_required_test_skipped_in_public_output(self):
+        for skipped_test_id in self.required_test_ids:
+            with self.subTest(skipped_test_id=skipped_test_id):
+                public_output = (
+                    f"  - {skipped_test_id} ... skipped 'allowed reason'\n"
+                    "PASS=1 FAIL=0 SKIP=1\n"
+                )
+
+                with self.assertRaises(AssertionError) as caught:
+                    InstalledWorkflowValidationTests._assert_required_shipped_contract_coverage(
+                        self.required_test_ids, public_output
+                    )
+
+                self.assertIn("required shipped contract tests were skipped", str(caught.exception))
+                self.assertIn(skipped_test_id, str(caught.exception))
 
 if __name__ == "__main__":
     unittest.main()

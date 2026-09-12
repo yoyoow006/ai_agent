@@ -348,6 +348,7 @@ class ContractFixtureTest(unittest.TestCase):
             "if test \"$1\" = \"-B\" && test \"$2\" = \"-c\"; then\n"
             f"  exec {sys.executable} \"$@\"\n"
             "fi\n"
+            "printf 'Ran 1 tests\\n\\nOK\\n'\n"
             "exit 0\n",
         )
 
@@ -362,6 +363,7 @@ class ValidateWorkflowContractTest(ContractFixtureTest):
             f"  exec {sys.executable} \"$@\"\n"
             "fi\n"
             f"printf '%s\\n' \"$*\" >> {marker}\n"
+            "printf 'Ran 1 tests\\n\\nOK\\n'\n"
             "exit 0\n"
         )
 
@@ -2129,6 +2131,52 @@ class WrapperFastCacheSwitchTest(unittest.TestCase):
                 self.assertIn("conflict", result.stdout.lower())
 
 
+class WrapperRequiredForwardingTest(unittest.TestCase):
+    def test_wrapper_forwards_required_openspec_to_core(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            scripts = root / "scripts"
+            core = scripts / "lib" / "validate-workflow-core.sh"
+            core.parent.mkdir(parents=True)
+            core.write_text(
+                "#!/usr/bin/env bash\n"
+                "case \" $* \" in\n"
+                "  *' --require-openspec '*)"
+                " printf 'CORE_RECEIVED_REQUIRED=1\\n' ;;\n"
+                "  *) printf 'CORE_RECEIVED_REQUIRED=0\\n' ;;\n"
+                "esac\n"
+                "printf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\n",
+                encoding="utf-8",
+            )
+            (scripts / "validate-workflow.sh").write_text(
+                (REPOSITORY_ROOT / "scripts" / "validate-workflow.sh").read_text(
+                    encoding="utf-8"
+                ),
+                encoding="utf-8",
+            )
+            tests = scripts / "tests"
+            tests.mkdir()
+            (tests / "run_validate_workflow_parallel.py").write_text(
+                "print('Ran 1 tests\\n\\nOK')\n",
+                encoding="utf-8",
+            )
+            environment = {"LC_ALL": "C.UTF-8", "PATH": os.environ.get("PATH", "")}
+            result = subprocess.run(
+                ["/usr/bin/bash", "scripts/validate-workflow.sh", "--require-openspec"],
+                cwd=root,
+                env=environment,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("CORE_RECEIVED_REQUIRED=1", result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+
+
 class ParallelContractRunnerTest(unittest.TestCase):
     """契约套件并行执行器：结果聚合、失败传播、跳过兼容与 worker 崩溃隔离。"""
 
@@ -2152,7 +2200,13 @@ class ParallelContractRunnerTest(unittest.TestCase):
             timeout=60,
         )
 
-    def _stage_wrapper_tree(self, root: Path, *, stub_runner: bool) -> Path:
+    def _stage_wrapper_tree(
+        self,
+        root: Path,
+        *,
+        stub_runner: bool,
+        contract_summary: str = "Ran 1 tests\n",
+    ) -> Path:
         (root / "scripts" / "lib").mkdir(parents=True)
         (root / "scripts" / "lib" / "validate-workflow-core.sh").write_text(
             "#!/usr/bin/env bash\nprintf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\nexit 0\n",
@@ -2177,7 +2231,8 @@ class ParallelContractRunnerTest(unittest.TestCase):
             (tests / "run_validate_workflow_parallel.py").write_text(
                 "#!/usr/bin/env python3\n"
                 "from pathlib import Path\n"
-                "Path(__file__).resolve().parents[2].joinpath('runner-called').write_text('1')\n",
+                "Path(__file__).resolve().parents[2].joinpath('runner-called').write_text('1')\n"
+                f"print({contract_summary!r}, end='')\n",
                 encoding="utf-8",
             )
         else:
@@ -2188,11 +2243,19 @@ class ParallelContractRunnerTest(unittest.TestCase):
         return marker
 
     def _run_staged_wrapper(
-        self, *, stub_runner: bool, environment_extras: dict[str, str] | None = None
+        self,
+        *,
+        stub_runner: bool,
+        contract_summary: str = "Ran 1 tests\n",
+        environment_extras: dict[str, str] | None = None,
     ) -> tuple[subprocess.CompletedProcess[str], bool]:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            marker = self._stage_wrapper_tree(root, stub_runner=stub_runner)
+            marker = self._stage_wrapper_tree(
+                root,
+                stub_runner=stub_runner,
+                contract_summary=contract_summary,
+            )
             environment = os.environ.copy()
             environment.update(environment_extras or {})
             result = subprocess.run(
@@ -2303,7 +2366,13 @@ class ParallelContractRunnerTest(unittest.TestCase):
         result, runner_called = self._run_staged_wrapper(stub_runner=True)
         self.assertEqual(0, result.returncode, msg=result.stdout)
         self.assertTrue(runner_called, msg=result.stdout)
-        self.assertIn("[PASS] 工作流顶层契约测试", result.stdout)
+        self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+
+    def test_wrapper_reports_contract_test_count_by_default(self) -> None:
+        result, _ = self._run_staged_wrapper(stub_runner=True)
+        self.assertEqual(0, result.returncode, msg=result.stdout)
+        self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+        self.assertIn("PASS=2 FAIL=0 SKIP=0", result.stdout)
 
     def test_wrapper_jobs_one_falls_back_to_unittest(self) -> None:
         result, runner_called = self._run_staged_wrapper(
@@ -2311,7 +2380,17 @@ class ParallelContractRunnerTest(unittest.TestCase):
         )
         self.assertEqual(0, result.returncode, msg=result.stdout)
         self.assertFalse(runner_called, msg=result.stdout)
-        self.assertIn("[PASS] 工作流顶层契约测试", result.stdout)
+        self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+
+    def test_wrapper_fails_closed_when_contract_success_count_is_missing(self) -> None:
+        result, runner_called = self._run_staged_wrapper(
+            stub_runner=True, contract_summary=""
+        )
+        self.assertNotEqual(0, result.returncode, msg=result.stdout)
+        self.assertTrue(runner_called, msg=result.stdout)
+        self.assertIn("[FAIL] 契约套件用例计数解析失败", result.stdout)
+        self.assertNotIn("[PASS] 工作流顶层契约测试", result.stdout)
+        self.assertIn("PASS=1 FAIL=1 SKIP=0", result.stdout)
 
 
 class WorkflowFixtureCopyTests(unittest.TestCase):
@@ -2498,7 +2577,17 @@ class MutationStandardThreePieceSuiteTest(unittest.TestCase):
     AGENTS_MD = REPOSITORY_ROOT / "AGENTS.md"
     OPEN_SKILL = REPOSITORY_ROOT / ".codex" / "skills" / "open" / "SKILL.md"
 
+    def _require_agents_md(self) -> None:
+        if not self.AGENTS_MD.is_file():
+            self.skipTest("codex assistant is not present in this fixture")
+
+    def _require_codex_skill(self, path: Path) -> Path:
+        if not path.is_file():
+            self.skipTest("codex assistant is not present in this fixture")
+        return path
+
     def test_agents_md_states_three_piece_suite(self) -> None:
+        self._require_agents_md()
         text = self.AGENTS_MD.read_text(encoding="utf-8")
         self.assertIn("三件套", text, "AGENTS.md 必须明确三件套")
         # 旧四件套契约不应再存在
@@ -2506,13 +2595,15 @@ class MutationStandardThreePieceSuiteTest(unittest.TestCase):
                          "AGENTS.md 不应再保留旧四件套契约")
 
     def test_open_skill_states_three_piece_suite(self) -> None:
-        text = self.OPEN_SKILL.read_text(encoding="utf-8")
+        open_skill = self._require_codex_skill(self.OPEN_SKILL)
+        text = open_skill.read_text(encoding="utf-8")
         self.assertIn("三件套", text, ".codex/skills/open/SKILL.md 必须明确三件套")
         self.assertNotIn("一次产出可执行四件套", text,
                          ".codex/skills/open/SKILL.md 不应再保留旧四件套契约")
 
     def test_design_skill_states_risk_triggered_second_confirm(self) -> None:
         design_skill = REPOSITORY_ROOT / ".codex" / "skills" / "design" / "SKILL.md"
+        design_skill = self._require_codex_skill(design_skill)
         text = design_skill.read_text(encoding="utf-8")
         self.assertIn("不可逆风险触发", text,
                       ".codex/skills/design/SKILL.md 必须含'不可逆风险触发'段")
@@ -2525,18 +2616,25 @@ class StrictSecondConfirmHardSetTest(unittest.TestCase):
 
     AGENTS_MD = REPOSITORY_ROOT / "AGENTS.md"
 
+    def _require_agents_md(self) -> None:
+        if not self.AGENTS_MD.is_file():
+            self.skipTest("codex assistant is not present in this fixture")
+
     def test_strict_hard_risk_set_listed(self) -> None:
+        self._require_agents_md()
         text = self.AGENTS_MD.read_text(encoding="utf-8")
         for keyword in ["权限认证", "资金账务", "数据库 Schema", "数据删除", "破坏性动作", "外部副作用"]:
             self.assertIn(keyword, text, f"AGENTS.md 严格模式节必须含硬风险关键词: {keyword}")
 
     def test_strict_continuous_build_clause(self) -> None:
+        self._require_agents_md()
         text = self.AGENTS_MD.read_text(encoding="utf-8")
         self.assertIn("不命中上述硬风险集合且未引入新选择的严格计划", text,
                       "AGENTS.md 严格模式节必须含'连续 Build'句")
 
     def test_old_double_confirm_clause_removed(self) -> None:
         """mutation 注入: 旧"保留两次实施前确认"句应被移除"""
+        self._require_agents_md()
         text = self.AGENTS_MD.read_text(encoding="utf-8")
         self.assertNotIn("保留两次实施前确认", text,
                          "AGENTS.md 不应再保留旧双确认句")

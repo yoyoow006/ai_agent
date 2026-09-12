@@ -143,3 +143,7 @@
 ## 2026-09-02 · 来源变更 harmonize-scenario-i-codex-target（umask-002 权限坑扩界＋归因配方）
 **坑**：继 2026-09-01 merge/checkout 场景后新增两个边界——①`git worktree add` 全新检出在 umask-002 会话下使资产树 70/70 条目全部带组写位（664/775），套件在首个 0644 条目即断言 436!=420；②main 检出当日实测 8/70 预存残留（昨日 slim 合并写入的三个技能 SKILL.md 等），即套件红不必然是当日变更因果。另：写枚举脚本猜错 manifest schema（实为顶层 shared/codex/claude 三组列表，非 data['files']）会得到 total:0 的空集假绿
 **解**：归因先跑 `git ls-files -s` 核对索引模式位（100644/100755）＋实体↔镜像 blob 哈希——两者精确即为纯磁盘工件；解阻为按 manifest 三组 chmod 归一（exec 仅 shared/scripts/{validate-workflow.sh,lib/validate-workflow-core.sh} 0755、其余 0644），git 零 diff，先跑 PortableAssetManifestTests 再全量；枚举脚本必须打印 total 计数防空集
+
+## 2026-09-13 · 来源变更 speed-up-ci-validation（随包并行门禁与集成测试提速）
+**坑**：全局资产同步测试暴露的不只是新 runner 缺分发，还包括 main 既有 12 处 reusable asset 漂移；随包契约测试的 python3 stub 只透传 `python3 -B -c`，wrapper 改调用 runner 后成功输出没有 `Ran N tests`；Claude-only 目标中 Codex 专属 AGENTS/open/design mutation guard 若无条件读文件会 FileNotFoundError；动态加载随包测试用内部别名会生成错误 test ID 前缀。
+**解**：先用独立提交机械同步既有漂移，再分发 runner 并让 stub 输出有效一用例摘要；单侧安装中 Codex 专属守卫按既有 allowed reason 跳过；动态加载随包测试时注册 exact `scripts.tests.test_validate_workflow` 模块名、执行后恢复源仓模块对象，并保持 `sys.dont_write_bytecode` 防自污。工作区挂载虚假显示 0777 时，以 Git index/manifest 为准并导出提交到原生临时目录恢复权限后复跑模式断言。
