@@ -55,6 +55,14 @@ if test "$archive_light" -eq 1 && test "$require_openspec_user" -eq 1; then
   printf "[FAIL] --archive-light 与 --require-openspec 冲突（conflict）：归档轻量门禁与强制完整门禁不能同时启用\n" >&2
   exit 2
 fi
+if test "$fast_mode" -eq 1 && test "$require_openspec_user" -eq 1; then
+  printf "[FAIL] --fast 与 --require-openspec 冲突（conflict）：快速分层不能替代强制完整门禁\n" >&2
+  exit 2
+fi
+if test "$fast_mode" -eq 1 && test "$archive_light" -eq 1; then
+  printf "[FAIL] --fast 与 --archive-light 冲突（conflict）：两种轻量入口语义不能叠加\n" >&2
+  exit 2
+fi
 
 # --archive-light 单独使用 = 纯轻量（仅跑 core，不做 diff 分类）
 #   配合 --archive-files + WORKFLOW_ARCHIVE_GATE=1 才做 diff 分类自动升级

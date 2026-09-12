@@ -2009,6 +2009,23 @@ class FastValidationCacheTest(ContractFixtureTest):
         self.assertIn(f"[PASS] {self.OPENSPEC_LABEL}\n", second.stdout)
         self.assertNotIn(f"{self.OPENSPEC_LABEL}（指纹", second.stdout)
 
+    def test_core_change_invalidates_cache(self) -> None:
+        first = self._run_core(cache_enabled=True)
+        self.assertEqual(0, first.returncode, msg=first.stdout)
+        core_script = self.fixture / "scripts" / "lib" / "validate-workflow-core.sh"
+        core_script.write_text(
+            core_script.read_text(encoding="utf-8") + "\n# cache probe\n",
+            encoding="utf-8",
+        )
+
+        second = self._run_core(cache_enabled=True)
+        self.assertEqual(0, second.returncode, msg=second.stdout)
+        self.assertIn(f"[PASS] {self.PROJECT_FACTS_LABEL}\n", second.stdout)
+        self.assertNotIn(f"{self.PROJECT_FACTS_LABEL}（指纹", second.stdout)
+        self.assertNotIn(f"{self.REVIEW_MANIFEST_LABEL}（指纹", second.stdout)
+        self.assertTrue(self._cache_file("project-facts-required-tests").is_file())
+        self.assertTrue(self._cache_file("review-manifest-required-tests").is_file())
+
 
 class WrapperFastCacheSwitchTest(unittest.TestCase):
     """wrapper 只在 --fast 路径向 core 注入 WORKFLOW_FAST_CACHE=1。"""
@@ -2089,6 +2106,16 @@ class WrapperFastCacheSwitchTest(unittest.TestCase):
                 result = self._run_wrapper(*arguments, environment_extras=inherited)
                 self.assertEqual(0, result.returncode, msg=result.stdout)
                 self.assertIn("WORKFLOW_FAST_CACHE=0", result.stdout)
+
+    def test_conflicting_mode_combinations_fail_closed(self) -> None:
+        for arguments in (
+            ("--fast", "--require-openspec"),
+            ("--fast", "--archive-light"),
+        ):
+            with self.subTest(arguments=arguments):
+                result = self._run_wrapper(*arguments)
+                self.assertEqual(2, result.returncode, msg=result.stdout)
+                self.assertIn("conflict", result.stdout.lower())
 
 
 class ParallelContractRunnerTest(unittest.TestCase):
@@ -2227,6 +2254,39 @@ class ParallelContractRunnerTest(unittest.TestCase):
             self.assertIn("test_ok ... ok", result.stdout)
             self.assertIn("Ran 2 tests", result.stdout)
             self.assertIn("errors=1", result.stdout)
+
+    def test_expected_failure_semantics_match_unittest(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._write_module(
+                root,
+                "import unittest\n"
+                "class SampleTests(unittest.TestCase):\n"
+                "    def test_ok(self) -> None: self.assertTrue(True)\n"
+                "    @unittest.expectedFailure\n"
+                "    def test_expected_fail(self) -> None: self.fail('planned')\n"
+                "    @unittest.expectedFailure\n"
+                "    def test_unexpected_pass(self) -> None: self.assertTrue(True)\n",
+            )
+            reference = subprocess.run(
+                [sys.executable, "-B", "-m", "unittest", "-v", "sample_tests"],
+                cwd=root,
+                env={**os.environ, "PYTHONPATH": str(root)},
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                check=False,
+                timeout=60,
+            )
+            self.assertNotEqual(0, reference.returncode, msg=reference.stdout)
+
+            result = self._run_runner(root, "--module", "sample_tests", "--jobs", "2")
+            self.assertNotEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("Ran 3 tests", result.stdout)
+            self.assertIn("UNEXPECTEDLY SUCCEEDED", result.stdout)
+            self.assertIn("EXPECTED FAILURE", result.stdout)
+            self.assertIn("expected failures=1", result.stdout)
+            self.assertIn("unexpected successes=1", result.stdout)
 
     def test_wrapper_uses_runner_by_default(self) -> None:
         result, runner_called = self._run_staged_wrapper(stub_runner=True)

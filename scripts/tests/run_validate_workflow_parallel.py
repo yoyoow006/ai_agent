@@ -72,9 +72,15 @@ def summarize_result(
         {"id": _entry_id(entry), "reason": reason}
         for entry, reason in result.skipped
     ]
+    expected_failures = [
+        {"id": _entry_id(entry)} for entry, _ in result.expectedFailures
+    ]
+    unexpected_successes = [
+        {"id": _entry_id(entry)} for entry in result.unexpectedSuccesses
+    ]
     if errors:
         outcome = "ERROR"
-    elif failures:
+    elif failures or unexpected_successes:
         outcome = "FAIL"
     elif skipped:
         outcome = "skipped"
@@ -86,6 +92,8 @@ def summarize_result(
         "failures": failures,
         "errors": errors,
         "skipped": skipped,
+        "expected_failures": expected_failures,
+        "unexpected_successes": unexpected_successes,
         "stdout": "",
         "stderr": "",
     }
@@ -105,6 +113,7 @@ def run_test_in_process(test: unittest.TestCase) -> dict[str, Any]:
             "id": test.id(),
             "outcome": "ERROR",
             "failures": [],
+            "expected_failures": [],
             "errors": [
                 {
                     "id": test.id(),
@@ -112,6 +121,7 @@ def run_test_in_process(test: unittest.TestCase) -> dict[str, Any]:
                 }
             ],
             "skipped": [],
+            "unexpected_successes": [],
             "stdout": stdout.getvalue(),
             "stderr": stderr.getvalue(),
         }
@@ -156,6 +166,8 @@ def _load_child_result(
             "failures": [],
             "errors": [{"id": test.id(), "traceback": detail}],
             "skipped": [],
+            "expected_failures": [],
+            "unexpected_successes": [],
             "stdout": "",
             "stderr": "",
         }
@@ -215,6 +227,8 @@ def print_report(payloads: list[dict[str, Any]], wall_seconds: float) -> int:
     failure_entries = 0
     error_entries = 0
     skipped_entries = 0
+    expected_failure_entries = 0
+    unexpected_success_entries = 0
     blocks: list[str] = []
     for payload in payloads:
         status_line = f"{payload['id']} ... {payload['outcome']}"
@@ -223,17 +237,25 @@ def print_report(payloads: list[dict[str, Any]], wall_seconds: float) -> int:
         print(status_line)
         _write_stream(payload.get("stdout", ""), sys.stdout)
         _write_stream(payload.get("stderr", ""), sys.stderr)
-        for kind, entries in (("FAIL", payload["failures"]), ("ERROR", payload["errors"])):
+        for kind, entries in (
+            ("FAIL", payload["failures"]),
+            ("ERROR", payload["errors"]),
+            ("EXPECTED FAILURE", payload["expected_failures"]),
+            ("UNEXPECTEDLY SUCCEEDED", payload["unexpected_successes"]),
+        ):
             for entry in entries:
+                detail = entry.get("traceback", "test unexpectedly passed")
                 blocks.append(
                     f"{'=' * 70}\n"
                     f"{kind}: {entry['id']}\n"
                     f"{'-' * 70}\n"
-                    f"{entry['traceback']}"
+                    f"{detail}"
                 )
         failure_entries += len(payload["failures"])
         error_entries += len(payload["errors"])
         skipped_entries += len(payload["skipped"])
+        expected_failure_entries += len(payload["expected_failures"])
+        unexpected_success_entries += len(payload["unexpected_successes"])
     for block in blocks:
         print(block)
     print(f"Ran {len(payloads)} tests in {wall_seconds:.3f}s")
@@ -245,11 +267,28 @@ def print_report(payloads: list[dict[str, Any]], wall_seconds: float) -> int:
         summary_parts.append(f"errors={error_entries}")
     if skipped_entries:
         summary_parts.append(f"skipped={skipped_entries}")
-    if failure_entries or error_entries:
+    if expected_failure_entries:
+        summary_parts.append(f"expected failures={expected_failure_entries}")
+    if unexpected_success_entries:
+        summary_parts.append(f"unexpected successes={unexpected_success_entries}")
+    if failure_entries or error_entries or unexpected_success_entries:
         print(f"FAILED ({', '.join(summary_parts)})")
         return 1
-    if skipped_entries:
-        print(f"OK (skipped={skipped_entries})")
+    if skipped_entries or expected_failure_entries:
+        print(
+            "OK ("
+            + ", ".join(
+                part
+                for part in (
+                    f"skipped={skipped_entries}" if skipped_entries else "",
+                    f"expected failures={expected_failure_entries}"
+                    if expected_failure_entries
+                    else "",
+                )
+                if part
+            )
+            + ")"
+        )
     else:
         print("OK")
     return 0
