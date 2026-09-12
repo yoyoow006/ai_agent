@@ -47,6 +47,7 @@ EXPECTED_ASSET_PATHS = {
         "openspec/specs/risk-tiered-ai-workflow/spec.md",
         "openspec/specs/shared-ai-workflow-infrastructure/spec.md",
         "scripts/lib/validate-workflow-core.sh", "scripts/tests/__init__.py",
+        "scripts/tests/run_validate_workflow_parallel.py",
         "scripts/tests/test_validate_workflow.py", "scripts/validate-workflow.sh",
         "scripts/workflow-pressure-scenarios.md",
     ),
@@ -218,6 +219,23 @@ class PortableAssetManifestTests(unittest.TestCase):
                 self.assertEqual(entry, {"path": entry["path"], "mode": expected})
                 self.assertEqual(stat.S_IMODE((ASSET_ROOT / group / entry["path"]).stat().st_mode), int(expected, 8))
 
+    def test_parallel_runner_asset_is_manifested_and_byte_identical(self):
+        relative = "scripts/tests/run_validate_workflow_parallel.py"
+        entry = {"path": relative, "mode": "0644"}
+        self.assertIn(entry, self.manifest["shared"])
+        packaged = ASSET_ROOT / "shared" / relative
+        self.assertTrue(packaged.is_file(), f"missing asset: {packaged}")
+        self.assertEqual(
+            stat.S_IMODE(packaged.stat().st_mode),
+            0o644,
+            f"unexpected mode for asset: {packaged}",
+        )
+        self.assertEqual(
+            packaged.read_bytes(),
+            (REPOSITORY_ROOT / relative).read_bytes(),
+            "packaged parallel runner differs from active source",
+        )
+
 
 class PortableAssetContentTests(unittest.TestCase):
     def asset_bytes(self, relative):
@@ -242,6 +260,7 @@ class PortableAssetContentTests(unittest.TestCase):
             "shared/scripts/validate-workflow.sh": "scripts/validate-workflow.sh",
             "shared/scripts/lib/validate-workflow-core.sh": "scripts/lib/validate-workflow-core.sh",
             "shared/scripts/tests/__init__.py": "scripts/tests/__init__.py",
+            "shared/scripts/tests/run_validate_workflow_parallel.py": "scripts/tests/run_validate_workflow_parallel.py",
             "shared/scripts/tests/test_validate_workflow.py": "scripts/tests/test_validate_workflow.py",
             "shared/scripts/workflow-pressure-scenarios.md": "scripts/workflow-pressure-scenarios.md",
         }

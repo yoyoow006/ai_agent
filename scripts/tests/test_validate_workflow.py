@@ -2152,7 +2152,13 @@ class ParallelContractRunnerTest(unittest.TestCase):
             timeout=60,
         )
 
-    def _stage_wrapper_tree(self, root: Path, *, stub_runner: bool) -> Path:
+    def _stage_wrapper_tree(
+        self,
+        root: Path,
+        *,
+        stub_runner: bool,
+        contract_summary: str = "Ran 1 tests\n",
+    ) -> Path:
         (root / "scripts" / "lib").mkdir(parents=True)
         (root / "scripts" / "lib" / "validate-workflow-core.sh").write_text(
             "#!/usr/bin/env bash\nprintf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\nexit 0\n",
@@ -2177,7 +2183,8 @@ class ParallelContractRunnerTest(unittest.TestCase):
             (tests / "run_validate_workflow_parallel.py").write_text(
                 "#!/usr/bin/env python3\n"
                 "from pathlib import Path\n"
-                "Path(__file__).resolve().parents[2].joinpath('runner-called').write_text('1')\n",
+                "Path(__file__).resolve().parents[2].joinpath('runner-called').write_text('1')\n"
+                f"print({contract_summary!r}, end='')\n",
                 encoding="utf-8",
             )
         else:
@@ -2188,11 +2195,19 @@ class ParallelContractRunnerTest(unittest.TestCase):
         return marker
 
     def _run_staged_wrapper(
-        self, *, stub_runner: bool, environment_extras: dict[str, str] | None = None
+        self,
+        *,
+        stub_runner: bool,
+        contract_summary: str = "Ran 1 tests\n",
+        environment_extras: dict[str, str] | None = None,
     ) -> tuple[subprocess.CompletedProcess[str], bool]:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            marker = self._stage_wrapper_tree(root, stub_runner=stub_runner)
+            marker = self._stage_wrapper_tree(
+                root,
+                stub_runner=stub_runner,
+                contract_summary=contract_summary,
+            )
             environment = os.environ.copy()
             environment.update(environment_extras or {})
             result = subprocess.run(
@@ -2303,7 +2318,13 @@ class ParallelContractRunnerTest(unittest.TestCase):
         result, runner_called = self._run_staged_wrapper(stub_runner=True)
         self.assertEqual(0, result.returncode, msg=result.stdout)
         self.assertTrue(runner_called, msg=result.stdout)
-        self.assertIn("[PASS] 工作流顶层契约测试", result.stdout)
+        self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+
+    def test_wrapper_reports_contract_test_count_by_default(self) -> None:
+        result, _ = self._run_staged_wrapper(stub_runner=True)
+        self.assertEqual(0, result.returncode, msg=result.stdout)
+        self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+        self.assertIn("PASS=2 FAIL=0 SKIP=0", result.stdout)
 
     def test_wrapper_jobs_one_falls_back_to_unittest(self) -> None:
         result, runner_called = self._run_staged_wrapper(
@@ -2311,7 +2332,17 @@ class ParallelContractRunnerTest(unittest.TestCase):
         )
         self.assertEqual(0, result.returncode, msg=result.stdout)
         self.assertFalse(runner_called, msg=result.stdout)
-        self.assertIn("[PASS] 工作流顶层契约测试", result.stdout)
+        self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+
+    def test_wrapper_fails_closed_when_contract_success_count_is_missing(self) -> None:
+        result, runner_called = self._run_staged_wrapper(
+            stub_runner=True, contract_summary=""
+        )
+        self.assertNotEqual(0, result.returncode, msg=result.stdout)
+        self.assertTrue(runner_called, msg=result.stdout)
+        self.assertIn("[FAIL] 契约套件用例计数解析失败", result.stdout)
+        self.assertNotIn("[PASS] 工作流顶层契约测试", result.stdout)
+        self.assertIn("PASS=1 FAIL=1 SKIP=0", result.stdout)
 
 
 class WorkflowFixtureCopyTests(unittest.TestCase):
