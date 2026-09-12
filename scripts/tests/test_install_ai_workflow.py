@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import dataclasses
 import hashlib
 import importlib.util
@@ -475,10 +476,6 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
                 self.assertEqual(self._git_identity(target), git_before)
                 environment = self._restricted_environment(temporary_root)
 
-                contract = self._run_target(
-                    target, environment, "python3", "-B", "-m", "unittest", "-v",
-                    "scripts.tests.test_validate_workflow",
-                )
                 tools = self._run_target(
                     target, environment, "python3", "-B", "-m", "unittest", "discover", "-v",
                     "-s", ".ai/tools/tests", "-p", "test_*.py",
@@ -486,15 +483,48 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
                 public = self._run_target(
                     target, environment, "bash", "scripts/validate-workflow.sh",
                 )
+                real_target_before_required = identity_snapshot_tree(target)
+                required_target = temporary_root / f"required-{assistant}"
+                shutil.copytree(target, required_target, symlinks=True)
+                sentinel_module = '''\
+from pathlib import Path
+import unittest
+
+
+class ContractSentinelTests(unittest.TestCase):
+    def test_contract_sentinel_called(self):
+        marker = Path(__file__).resolve().parents[2] / "CONTRACT_SENTINEL_CALLED"
+        marker.write_text("CONTRACT_SENTINEL_CALLED\\n", encoding="utf-8")
+        print("CONTRACT_SENTINEL_CALLED")
+
+
+if __name__ == "__main__":
+    unittest.main()
+'''
+                (
+                    required_target / "scripts" / "tests" / "test_validate_workflow.py"
+                ).write_text(sentinel_module, encoding="utf-8")
                 required = self._run_target(
-                    target, environment, "bash", "scripts/validate-workflow.sh",
+                    required_target, environment, "bash", "scripts/validate-workflow.sh",
                     "--require-openspec",
                 )
 
-                with self.subTest(assistant=assistant, command="contract"):
-                    self.assertEqual(contract.returncode, 0, contract.stdout)
-                    self.assertIn(f"Ran {self._shipped_contract_test_count()} tests", contract.stdout)
-                    # 只允许已知理由的 skip;出现新理由即失败,防止必需用例静默消失。
+                with self.subTest(assistant=assistant, command="tools"):
+                    self.assertEqual(tools.returncode, 0, tools.stdout)
+                    self.assertIn("Ran 53 tests", tools.stdout)
+                with self.subTest(assistant=assistant, command="public"):
+                    self.assertEqual(public.returncode, 0, public.stdout)
+                    shipped_count = self._shipped_contract_test_count()
+                    successful_contract_counts = re.findall(
+                        r"^\[PASS\] 工作流顶层契约测试（([1-9][0-9]*) tests）$",
+                        public.stdout,
+                        re.MULTILINE,
+                    )
+                    self.assertEqual(
+                        successful_contract_counts, [str(shipped_count)], public.stdout
+                    )
+                    # 公共 wrapper 成功输出保持简洁;用真实计数证明完整套件,
+                    # 并只允许已知理由的内部设计性 skip。
                     allowed_skip_reasons = {
                         "single-assistant installation lacks the compatibility fixture",
                         "codex assistant is not present in this fixture",
@@ -505,24 +535,11 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
                         "flock is required to exercise the lock infrastructure path",
                     }
                     observed_skips = set(
-                        re.findall(r"\.\.\. skipped '([^']*)'", contract.stdout)
+                        re.findall(r"\.\.\. skipped '([^']*)'", public.stdout)
                     )
                     self.assertLessEqual(
-                        observed_skips, allowed_skip_reasons, contract.stdout
+                        observed_skips, allowed_skip_reasons, public.stdout
                     )
-                    self.assertRegex(
-                        contract.stdout,
-                        r"test_installer_selected_only_metadata_allows_core_validation .* \.\.\. ok",
-                    )
-                    self.assertRegex(
-                        contract.stdout,
-                        r"test_shared_gates_remain_required_for_each_profile .* \.\.\. ok",
-                    )
-                with self.subTest(assistant=assistant, command="tools"):
-                    self.assertEqual(tools.returncode, 0, tools.stdout)
-                    self.assertIn("Ran 53 tests", tools.stdout)
-                with self.subTest(assistant=assistant, command="public"):
-                    self.assertEqual(public.returncode, 0, public.stdout)
                     self.assertEqual(
                         len(re.findall(r"^\[SKIP\] OpenSpec CLI ", public.stdout, re.MULTILINE)),
                         1,
@@ -534,6 +551,9 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
                     self.assertEqual(len(summaries), 1, public.stdout)
                 with self.subTest(assistant=assistant, command="required"):
                     self.assertNotEqual(required.returncode, 0, required.stdout)
+                    self.assertIn(
+                        "[PASS] 工作流顶层契约测试（1 tests）", required.stdout
+                    )
                     fail_lines = re.findall(r"^\[FAIL\] .*$", required.stdout, re.MULTILINE)
                     self.assertEqual(
                         fail_lines,
@@ -545,6 +565,14 @@ class InstalledWorkflowValidationTests(unittest.TestCase):
                         if re.fullmatch(r"PASS=\d+ FAIL=1 SKIP=0", line)
                     ]
                     self.assertEqual(len(required_summaries), 1, required.stdout)
+                    marker = required_target / "CONTRACT_SENTINEL_CALLED"
+                    self.assertTrue(marker.is_file())
+                    self.assertEqual(
+                        marker.read_text(encoding="utf-8"), "CONTRACT_SENTINEL_CALLED\n"
+                    )
+                    self.assertEqual(
+                        identity_snapshot_tree(target), real_target_before_required
+                    )
 
                 expected_status = set(EXPECTED_ASSET_PATHS["shared"])
                 expected_status.update(EXPECTED_ASSET_PATHS[assistant])
@@ -2505,6 +2533,56 @@ class UpgradeTransactionTests(unittest.TestCase):
             hashlib.sha256(b"shared v9\n").hexdigest(),
         )
 
+
+class InstalledIntegrationPerformanceContractTests(unittest.TestCase):
+    def test_installed_integration_runs_one_public_gate_and_one_required_probe(self):
+        source = Path(__file__).read_text(encoding="utf-8")
+        module = ast.parse(source, filename=str(__file__))
+        method = next(
+            node for node in ast.walk(module)
+            if isinstance(node, ast.FunctionDef)
+            and node.name ==
+            "test_installed_codex_and_claude_validate_without_source_or_openspec"
+        )
+        target_calls = [
+            call for call in ast.walk(method)
+            if isinstance(call, ast.Call)
+            and isinstance(call.func, ast.Attribute)
+            and call.func.attr == "_run_target"
+        ]
+        direct_contract_calls = [
+            call for call in target_calls
+            if any(
+                isinstance(argument, ast.Constant)
+                and argument.value == "scripts.tests.test_validate_workflow"
+                for argument in call.args
+            )
+        ]
+        public_wrapper_calls = [
+            call for call in target_calls
+            if any(
+                isinstance(argument, ast.Constant)
+                and argument.value == "scripts/validate-workflow.sh"
+                for argument in call.args
+            )
+            and not any(
+                isinstance(argument, ast.Constant)
+                and argument.value == "--require-openspec"
+                for argument in call.args
+            )
+        ]
+        required_wrapper_calls = [
+            call for call in target_calls
+            if any(
+                isinstance(argument, ast.Constant)
+                and argument.value == "--require-openspec"
+                for argument in call.args
+            )
+        ]
+
+        self.assertEqual(direct_contract_calls, [])
+        self.assertEqual(len(public_wrapper_calls), 1)
+        self.assertEqual(len(required_wrapper_calls), 1)
 
 if __name__ == "__main__":
     unittest.main()
