@@ -51,6 +51,7 @@ print_external_commands() {
     grep \
     head \
     mktemp \
+    mkdir \
     rm \
     rmdir \
     sed \
@@ -230,12 +231,118 @@ check_required_test() {
   output="$(mktemp)"
   if "$@" >"$output" 2>&1; then
     report_pass "$label"
+    rm -f "$output"
+    return 0
   else
     report_fail "$label"
     # 必需测试失败时保留具体用例/回溯，避免只有聚合标签的假诊断。
     sed 's/^/  /' "$output"
+    rm -f "$output"
+    return 1
   fi
-  rm -f "$output"
+}
+
+# --fast 输入指纹缓存：仅当 wrapper 显式注入 WORKFLOW_FAST_CACHE=1 时启用。
+# 任何缺失、格式异常、指纹漂移或历史非 PASS 都按未命中处理并实际执行。
+validation_cache_dir=".ai-local/validation-cache"
+cached_timestamp=""
+
+fast_cache_enabled() {
+  test "${WORKFLOW_FAST_CACHE:-0}" = "1"
+}
+
+compute_validation_fingerprint() {
+  # 用法: compute_validation_fingerprint <命令字符串> <输入文件>...
+  local command_text="$1"
+  shift
+  python3 -B -c '
+import hashlib
+import sys
+
+digest = hashlib.sha256()
+digest.update(sys.argv[1].encode("utf-8"))
+for path in sys.argv[2:]:
+    digest.update(bytes([0]))
+    digest.update(path.encode("utf-8"))
+    try:
+        with open(path, "rb") as source:
+            while True:
+                chunk = source.read(1024 * 1024)
+                if not chunk:
+                    break
+                digest.update(chunk)
+    except OSError:
+        digest.update(b"<missing>")
+print(digest.hexdigest())
+' "$command_text" "$@"
+}
+
+validation_cache_timestamp() {
+  python3 -B -c 'import datetime; print(datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))'
+}
+
+validation_cache_hit() {
+  # 用法: validation_cache_hit <缓存文件> <指纹>；命中时设置 cached_timestamp。
+  local cache_file="$1" fingerprint="$2" stored timestamp extra
+  cached_timestamp=""
+  test -r "$cache_file" || return 1
+  {
+    IFS= read -r stored &&
+      IFS= read -r timestamp &&
+      ! IFS= read -r extra
+  } < "$cache_file" || return 1
+  test "$stored" = "$fingerprint" || return 1
+  case "$timestamp" in
+    [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z) ;;
+    *) return 1 ;;
+  esac
+  cached_timestamp="$timestamp"
+  return 0
+}
+
+write_validation_cache() {
+  # 用法: write_validation_cache <检查ID> <指纹>；写入失败按未命中处理（下次重新执行）。
+  local cache_file timestamp
+  mkdir -p "$validation_cache_dir" 2>/dev/null || return 0
+  timestamp="$(validation_cache_timestamp)" || return 0
+  cache_file="$validation_cache_dir/$1.cache"
+  printf '%s\n%s\n' "$2" "$timestamp" > "$cache_file" 2>/dev/null || return 0
+}
+
+fingerprint_prefix() {
+  local fingerprint="$1"
+  printf '%s' "${fingerprint%"${fingerprint#????????????}"}"
+}
+
+check_cached_required_test() {
+  # 用法: check_cached_required_test <检查ID> <标签> <输入文件>... -- <命令>...
+  local id="$1" label="$2" fingerprint inputs
+  shift 2
+  inputs=()
+  while test "$#" -gt 0 && test "$1" != "--"; do
+    inputs+=("$1")
+    shift
+  done
+  if test "$#" -eq 0; then
+    report_fail "$label（内部错误：缺少命令分隔符）"
+    return 1
+  fi
+  shift
+  if fast_cache_enabled; then
+    fingerprint="$(compute_validation_fingerprint "$*" ${inputs[@]+"${inputs[@]}"})" || fingerprint=""
+    if test -n "$fingerprint" &&
+      validation_cache_hit "$validation_cache_dir/$id.cache" "$fingerprint"; then
+      report_pass "$label（指纹 $(fingerprint_prefix "$fingerprint") 未变，沿用 $cached_timestamp 实际执行结果）"
+      return 0
+    fi
+  fi
+  if check_required_test "$label" "$@"; then
+    if fast_cache_enabled && test -n "$fingerprint"; then
+      write_validation_cache "$id" "$fingerprint"
+    fi
+    return 0
+  fi
+  return 1
 }
 
 python_cache_paths_ignored() {
@@ -757,11 +864,48 @@ if assistant_required codex; then
 fi
 
 # 内部 core 不运行顶层 contract；公共 wrapper 必须无条件执行该套件。
-check_required_test "事实工具必需测试（registry/边界/分页/ignore）" python3 -B -m unittest discover -v -s .ai/tools/tests -p test_project_facts.py
-check_required_test "Review manifest 必需测试（freeze/STALE/delta）" python3 -B -m unittest discover -v -s .ai/tools/tests -p test_review_manifest.py
+check_cached_required_test "project-facts-required-tests" \
+  "事实工具必需测试（registry/边界/分页/ignore）" \
+  scripts/lib/validate-workflow-core.sh \
+  .ai/tools/project_facts.py \
+  .ai/tools/tests/test_project_facts.py \
+  .ai/tools/README.md \
+  .ai/kb/projects/registry.json \
+  .ai/kb/projects/README.md \
+  -- python3 -B -m unittest discover -v -s .ai/tools/tests -p test_project_facts.py
+
+check_cached_required_test "review-manifest-required-tests" \
+  "Review manifest 必需测试（freeze/STALE/delta）" \
+  scripts/lib/validate-workflow-core.sh \
+  .ai/tools/review_manifest.py \
+  .ai/tools/tests/test_review_manifest.py \
+  -- python3 -B -m unittest discover -v -s .ai/tools/tests -p test_review_manifest.py
 
 if command -v openspec >/dev/null 2>&1; then
-  check "OpenSpec validate --all --no-interactive" openspec validate --all --no-interactive
+  openspec_inputs=(scripts/lib/validate-workflow-core.sh openspec/AGENTS.md openspec/project.md)
+  while IFS= read -r openspec_spec_file; do
+    openspec_inputs+=("$openspec_spec_file")
+  done < <(find openspec/specs -type f | sort)
+  openspec_fingerprint=""
+  openspec_cache_used=0
+  if fast_cache_enabled; then
+    openspec_fingerprint="$(compute_validation_fingerprint "openspec validate --all --no-interactive" ${openspec_inputs[@]+"${openspec_inputs[@]}"})" || openspec_fingerprint=""
+    if test -n "$openspec_fingerprint" &&
+      validation_cache_hit "$validation_cache_dir/openspec-validate.cache" "$openspec_fingerprint"; then
+      report_pass "OpenSpec validate --all --no-interactive（指纹 $(fingerprint_prefix "$openspec_fingerprint") 未变，沿用 $cached_timestamp 实际执行结果）"
+      openspec_cache_used=1
+    fi
+  fi
+  if test "$openspec_cache_used" -eq 0; then
+    if openspec validate --all --no-interactive >/dev/null 2>&1; then
+      report_pass "OpenSpec validate --all --no-interactive"
+      if fast_cache_enabled && test -n "$openspec_fingerprint"; then
+        write_validation_cache "openspec-validate" "$openspec_fingerprint"
+      fi
+    else
+      report_fail "OpenSpec validate --all --no-interactive"
+    fi
+  fi
 elif test "$require_openspec" -eq 1; then
   report_fail "OpenSpec CLI 缺失；required 模式不得跳过严格校验"
 else
