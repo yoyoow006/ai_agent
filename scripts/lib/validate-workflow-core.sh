@@ -261,6 +261,7 @@ import sys
 
 digest = hashlib.sha256()
 digest.update(sys.argv[1].encode("utf-8"))
+missing = False
 for path in sys.argv[2:]:
     digest.update(bytes([0]))
     digest.update(path.encode("utf-8"))
@@ -272,7 +273,9 @@ for path in sys.argv[2:]:
                     break
                 digest.update(chunk)
     except OSError:
-        digest.update(b"<missing>")
+        missing = True
+if missing:
+    sys.exit(3)
 print(digest.hexdigest())
 ' "$command_text" "$@"
 }
@@ -341,6 +344,10 @@ check_cached_required_test() {
       write_validation_cache "$id" "$fingerprint"
     fi
     return 0
+  fi
+  # 最近一次实际执行为 FAIL：删除旧指纹缓存，避免输入回退后掩盖失败。
+  if fast_cache_enabled; then
+    rm -f "$validation_cache_dir/$id.cache"
   fi
   return 1
 }
@@ -882,10 +889,11 @@ check_cached_required_test "review-manifest-required-tests" \
   -- python3 -B -m unittest discover -v -s .ai/tools/tests -p test_review_manifest.py
 
 if command -v openspec >/dev/null 2>&1; then
+  # openspec validate --all 同时校验活跃 changes 与主 specs，两者都必须进入指纹。
   openspec_inputs=(scripts/lib/validate-workflow-core.sh openspec/AGENTS.md openspec/project.md)
   while IFS= read -r openspec_spec_file; do
     openspec_inputs+=("$openspec_spec_file")
-  done < <(find openspec/specs -type f | sort)
+  done < <((find openspec/specs -type f; find openspec/changes -type f) | sort)
   openspec_fingerprint=""
   openspec_cache_used=0
   if fast_cache_enabled; then
@@ -903,12 +911,20 @@ if command -v openspec >/dev/null 2>&1; then
         write_validation_cache "openspec-validate" "$openspec_fingerprint"
       fi
     else
+      # 最近一次结果为 FAIL：清除旧缓存，避免输入回退后掩盖失败。
+      if fast_cache_enabled; then
+        rm -f "$validation_cache_dir/openspec-validate.cache"
+      fi
       report_fail "OpenSpec validate --all --no-interactive"
     fi
   fi
 elif test "$require_openspec" -eq 1; then
   report_fail "OpenSpec CLI 缺失；required 模式不得跳过严格校验"
 else
+  # CLI 可用性变化也是检查语义变化；fast 模式下清除可能存在的旧缓存。
+  if fast_cache_enabled; then
+    rm -f "$validation_cache_dir/openspec-validate.cache"
+  fi
   report_skip "OpenSpec CLI 缺失；未运行 openspec validate --all --no-interactive"
 fi
 

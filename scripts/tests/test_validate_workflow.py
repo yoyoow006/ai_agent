@@ -1882,6 +1882,62 @@ class FastValidationCacheTest(ContractFixtureTest):
         self.assertIn(f"[FAIL] {self.REVIEW_MANIFEST_LABEL}", result.stdout)
         self.assertEqual([], self._cache_files())
 
+    def test_failed_execution_clears_existing_cache(self) -> None:
+        first = self._run_core(cache_enabled=True)
+        self.assertEqual(0, first.returncode, msg=first.stdout)
+        facts_cache = self._cache_file("project-facts-required-tests")
+        review_cache = self._cache_file("review-manifest-required-tests")
+        self.assertTrue(facts_cache.is_file())
+        self.assertTrue(review_cache.is_file())
+
+        facts_tool = self.fixture / ".ai" / "tools" / "project_facts.py"
+        original_facts = facts_tool.read_bytes()
+        facts_tool.write_text(
+            original_facts.decode("utf-8") + "\n# failing input probe\n",
+            encoding="utf-8",
+        )
+        review_tool = self.fixture / ".ai" / "tools" / "review_manifest.py"
+        original_review = review_tool.read_bytes()
+        review_tool.write_text(
+            original_review.decode("utf-8") + "\n# failing input probe\n",
+            encoding="utf-8",
+        )
+        self._write_executable(
+            "python3",
+            "#!/bin/sh\n"
+            "if test \"$1\" = \"-B\" && test \"$2\" = \"-c\"; then\n"
+            f"  exec {sys.executable} \"$@\"\n"
+            "fi\n"
+            "exit 1\n",
+        )
+        failed = self._run_core(cache_enabled=True)
+        self.assertNotEqual(0, failed.returncode, msg=failed.stdout)
+        self.assertFalse(facts_cache.exists())
+        self.assertFalse(review_cache.exists())
+
+        facts_tool.write_bytes(original_facts)
+        review_tool.write_bytes(original_review)
+        self._enable_profile_parser()
+        restored = self._run_core(cache_enabled=True)
+        self.assertEqual(0, restored.returncode, msg=restored.stdout)
+        self.assertIn(f"[PASS] {self.PROJECT_FACTS_LABEL}\n", restored.stdout)
+        self.assertNotIn(f"{self.PROJECT_FACTS_LABEL}（指纹", restored.stdout)
+        self.assertNotIn(f"{self.REVIEW_MANIFEST_LABEL}（指纹", restored.stdout)
+        self.assertTrue(facts_cache.is_file())
+        self.assertTrue(review_cache.is_file())
+
+    def test_missing_input_disables_cache_entry(self) -> None:
+        kb_readme = self.fixture / ".ai" / "kb" / "projects" / "README.md"
+        kb_readme.unlink()
+        for run in ("first", "second"):
+            with self.subTest(run=run):
+                result = self._run_core(cache_enabled=True)
+                self.assertEqual(0, result.returncode, msg=result.stdout)
+                self.assertIn(f"[PASS] {self.PROJECT_FACTS_LABEL}\n", result.stdout)
+                self.assertNotIn(f"{self.PROJECT_FACTS_LABEL}（指纹", result.stdout)
+        self.assertFalse(self._cache_file("project-facts-required-tests").exists())
+        self.assertTrue(self._cache_file("review-manifest-required-tests").is_file())
+
     def test_corrupt_cache_reruns_execution(self) -> None:
         first = self._run_core(cache_enabled=True)
         self.assertEqual(0, first.returncode, msg=first.stdout)
@@ -1932,6 +1988,27 @@ class FastValidationCacheTest(ContractFixtureTest):
         self.assertIn(f"[FAIL] {self.OPENSPEC_LABEL}", third.stdout)
         self.assertFalse(openspec_cache.is_file())
 
+    def test_openspec_change_file_invalidates_cache(self) -> None:
+        self._write_executable("openspec", "#!/bin/sh\nexit 0\n")
+        first = self._run_core(cache_enabled=True)
+        self.assertEqual(0, first.returncode, msg=first.stdout)
+        active_change = (
+            self.fixture
+            / "openspec"
+            / "changes"
+            / "speed-up-workflow-gates"
+            / "proposal.md"
+        )
+        active_change.write_text(
+            active_change.read_text(encoding="utf-8") + "\n# cache probe\n",
+            encoding="utf-8",
+        )
+
+        second = self._run_core(cache_enabled=True)
+        self.assertEqual(0, second.returncode, msg=second.stdout)
+        self.assertIn(f"[PASS] {self.OPENSPEC_LABEL}\n", second.stdout)
+        self.assertNotIn(f"{self.OPENSPEC_LABEL}（指纹", second.stdout)
+
 
 class WrapperFastCacheSwitchTest(unittest.TestCase):
     """wrapper 只在 --fast 路径向 core 注入 WORKFLOW_FAST_CACHE=1。"""
@@ -1973,13 +2050,20 @@ class WrapperFastCacheSwitchTest(unittest.TestCase):
         )
         (root / ".ai-local").mkdir()
 
-    def _run_wrapper(self, *arguments: str) -> subprocess.CompletedProcess[str]:
+    def _run_wrapper(
+        self,
+        *arguments: str,
+        environment_extras: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             self._stage_tree(root)
+            environment = os.environ.copy()
+            environment.update(environment_extras or {})
             return subprocess.run(
                 ["/usr/bin/bash", str(root / "scripts" / "validate-workflow.sh"), *arguments],
                 cwd=root,
+                env=environment,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
@@ -1997,6 +2081,14 @@ class WrapperFastCacheSwitchTest(unittest.TestCase):
         self.assertEqual(0, result.returncode, msg=result.stdout)
         self.assertIn("WORKFLOW_FAST_CACHE=0", result.stdout)
         self.assertIn("[PASS] 工作流顶层契约测试", result.stdout)
+
+    def test_inherited_cache_env_is_neutralized_outside_fast(self) -> None:
+        inherited = {"WORKFLOW_FAST_CACHE": "1"}
+        for arguments in ((), ("--require-openspec",), ("--archive-light",)):
+            with self.subTest(arguments=arguments or ("default",)):
+                result = self._run_wrapper(*arguments, environment_extras=inherited)
+                self.assertEqual(0, result.returncode, msg=result.stdout)
+                self.assertIn("WORKFLOW_FAST_CACHE=0", result.stdout)
 
 
 class ParallelContractRunnerTest(unittest.TestCase):
