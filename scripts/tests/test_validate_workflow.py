@@ -1990,15 +1990,9 @@ class FastValidationCacheTest(ContractFixtureTest):
 
     def test_openspec_change_file_invalidates_cache(self) -> None:
         self._write_executable("openspec", "#!/bin/sh\nexit 0\n")
+        active_change = self._prepare_active_change_probe()
         first = self._run_core(cache_enabled=True)
         self.assertEqual(0, first.returncode, msg=first.stdout)
-        active_change = (
-            self.fixture
-            / "openspec"
-            / "changes"
-            / "speed-up-workflow-gates"
-            / "proposal.md"
-        )
         active_change.write_text(
             active_change.read_text(encoding="utf-8") + "\n# cache probe\n",
             encoding="utf-8",
@@ -2008,6 +2002,23 @@ class FastValidationCacheTest(ContractFixtureTest):
         self.assertEqual(0, second.returncode, msg=second.stdout)
         self.assertIn(f"[PASS] {self.OPENSPEC_LABEL}\n", second.stdout)
         self.assertNotIn(f"{self.OPENSPEC_LABEL}（指纹", second.stdout)
+
+    def _prepare_active_change_probe(self) -> Path:
+        """返回夹具内一个活跃 change 的 proposal；无活跃变更时自建合法最小变更。
+
+        测试不得依赖源仓某个特定变更仍处于 openspec/changes/（归档后会漂移）。
+        """
+        changes = self.fixture / "openspec" / "changes"
+        for candidate in sorted(changes.glob("*/proposal.md")):
+            return candidate
+        probe = changes / "cache-fixture-change"
+        probe.mkdir(parents=True)
+        proposal = probe / "proposal.md"
+        proposal.write_text(
+            "# 变更：缓存夹具探针\n\n模式: 标准\n状态: 待确认计划\n",
+            encoding="utf-8",
+        )
+        return proposal
 
     def test_core_change_invalidates_cache(self) -> None:
         first = self._run_core(cache_enabled=True)
