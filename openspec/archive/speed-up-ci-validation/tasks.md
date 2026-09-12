@@ -45,7 +45,17 @@
 - Bash 安装器套件：`Ran 8 tests`，`OK`，`ELAPSED=95.74s`，退出 0。
 - 结构检查：4 个 shell 脚本 `bash -n` 通过；`.github/workflows/validate.yml` YAML 解析通过，required / 便携安装器 / Bash 安装器三个步骤均存在；相对 `origin/main` 该 workflow 文件零 diff。
 - Diff 检查：`git diff --check` 通过；验证期间仓库零编辑；外层安装器套件无 skipped。
-- [ ] 5. 严格终验与归档准备
+- [x] 5. 严格终验与归档准备
   - 执行任务级审查与 Verify 双阶段独立审查。
   - 检查完整 diff、OpenSpec delta、资产 manifest、CI 失败语义和知识沉淀。
   - 通过后将状态推进到`待归档`；推送或触发远端 Actions 仍需用户单独授权。
+
+**任务 5 执行记录**
+
+- Verify 阶段 1（规格符合性）：manifest `c5b3d10acc5278dab1666e912d8c82282c23c7554a7a6248f20e376775e7b224`，comparison base `0c7aed7e80f81338b9bf0e6be1d60c6efa81d2c`，通过；Minor `SPEC-VER-001`（两处 EOF 空行）由 `ed8f82d` 修复，完整 diff 与 OpenSpec strict 复验通过。
+- Verify 阶段 2（代码质量）：最终 manifest `7e0693c6e79ec4d03dd85ac025d1f8105b8733ad0388ddf32f41a5ffed2d8a4a`，comparison base `0c7aed7e80f81338b9bf0e6be1d60c6efa81d2c`，HEAD `ed8f82d`，通过，无 Critical/Important/Minor finding。
+- finding 状态：`resolved=2`（`UNIT-B-001` Important、`SPEC-VER-001` Minor），`open=0`，`not-an-issue=0`，`accepted-risk=0`。
+- 未验证范围：远端 GitHub Actions 实际运行、非 Linux/fork 不可用平台与 Python 3.8 实机矩阵、推送后 CI 墙钟时间。
+- 残余风险：GitHub CPU/I/O 波动会影响耗时但保留串行回退；显式设置超大 `WORKFLOW_TEST_JOBS` 可超过默认 8；远端 Actions 需用户单独授权推送后观察。
+- 知识沉淀：`.ai/kb/overview.md`、`.ai/rules/index.md`、`.ai/memory/workflow.md`、`.ai/memory/installer.md` 已更新可复用事实。
+- Archive 复验：`openspec validate --all --strict --no-interactive` 10/10 specs passed；因主治理规格与知识层在 Verify 后变化，归档改跑完整 required 门禁，`PASS=198 FAIL=0 SKIP=0`，契约套件 191 tests，`ELAPSED=188.04s`；工作区与 base→HEAD diff 空白检查均通过。

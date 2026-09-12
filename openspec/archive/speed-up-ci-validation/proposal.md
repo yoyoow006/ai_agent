@@ -1,7 +1,7 @@
 # 加速 GitHub Actions validate
 
 模式: 严格
-状态: 待验证
+状态: 已归档
 
 ## Why
 
