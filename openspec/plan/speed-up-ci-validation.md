@@ -22,6 +22,9 @@
 - 随包 manifest 缺 `scripts/tests/run_validate_workflow_parallel.py`，物理资产也不存在。
 - `InstalledWorkflowValidationTests.test_installed_codex_and_claude_validate_without_source_or_openspec` 对每个 assistant 当前执行：直接串行契约套件、公共门禁、required 门禁；后两者都会再次执行完整随包契约套件。
 - 现有基线还存在既有资产脱节（不是本变更新增语义）：`shared/.ai/rules/review.md`、`shared/scripts/lib/validate-workflow-core.sh`、双侧 `archive/build/design/open/verify` 技能资产未同步活动源。全局 `test_reusable_assets_are_byte_synchronized_with_active_sources` 因此已经红；必须先机械复制当前活动源到这些资产并单独提交，才能获得本变更的可验证绿基线。
+- Unit B 首次绿灯进一步暴露两个随包前置问题：`codex/AGENTS.md` 资产仍为旧标准四件套/无条件双确认文案；随包契约测试的 `_recording_python_script` stub 未处理 `python3 -B scripts/tests/run_validate_workflow_parallel.py`，导致嵌套 wrapper 成功路径缺少 `Ran N tests`。先修这两点，再复跑 Unit B。
+- Unit B sentinel 还暴露 wrapper 生产缺陷：`--require-openspec` 被解析进 `require_openspec_user` 后未转发 core，导致目标缺 OpenSpec CLI 时公共 wrapper 仍可能退出 0。必须以 targeted 红灯证明参数转发，再修复活动与随包 wrapper。
+- Claude-only 目标还暴露 `MutationStandardThreePieceSuiteTest` 中 open/design 两个 Codex 专属用例未随 AGENTS guard 一起跳过；需按同一已允许理由适配单侧安装，并同步随包测试。
 
 ## Task 1——红灯守卫与 wrapper 成功计数
 
@@ -208,8 +211,12 @@ Invariant: performance optimization does not diminish installed-target coverage 
 Review exact files:
 
 - `scripts/tests/test_install_ai_workflow.py`
+- `scripts/tests/test_validate_workflow.py`
+- `scripts/ai-workflow-assets/codex/AGENTS.md`
+- `scripts/validate-workflow.sh`
 - `scripts/ai-workflow-assets/shared/scripts/validate-workflow.sh`
 - `scripts/ai-workflow-assets/shared/scripts/tests/run_validate_workflow_parallel.py`
+- `scripts/ai-workflow-assets/shared/scripts/tests/test_validate_workflow.py`
 
 Independent reviewer verifies:
 
