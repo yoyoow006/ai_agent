@@ -21,10 +21,20 @@
 - 活动源仓 wrapper 已默认调用 `scripts/tests/run_validate_workflow_parallel.py`；随包 wrapper 仍直接串行调用 unittest。
 - 随包 manifest 缺 `scripts/tests/run_validate_workflow_parallel.py`，物理资产也不存在。
 - `InstalledWorkflowValidationTests.test_installed_codex_and_claude_validate_without_source_or_openspec` 对每个 assistant 当前执行：直接串行契约套件、公共门禁、required 门禁；后两者都会再次执行完整随包契约套件。
+- 现有基线还存在既有资产脱节（不是本变更新增语义）：`shared/.ai/rules/review.md`、`shared/scripts/lib/validate-workflow-core.sh`、双侧 `archive/build/design/open/verify` 技能资产未同步活动源。全局 `test_reusable_assets_are_byte_synchronized_with_active_sources` 因此已经红；必须先机械复制当前活动源到这些资产并单独提交，才能获得本变更的可验证绿基线。
 
 ## Task 1——红灯守卫与 wrapper 成功计数
 
 ### Create / Modify
+
+Before Task 1 implementation, commit one mechanical baseline-only synchronization of these existing drifted reusable assets to their current active sources:
+
+- `scripts/ai-workflow-assets/shared/.ai/rules/review.md`
+- `scripts/ai-workflow-assets/shared/scripts/lib/validate-workflow-core.sh`
+- both assistants' packaged `archive/build/design/open/verify` skill files
+- current `scripts/validate-workflow.sh` and `scripts/tests/test_validate_workflow.py` asset copies
+
+This commit must not include new tests or the missing parallel runner.
 
 - Modify `scripts/tests/test_validate_workflow.py`
   - In `ParallelContractRunnerTest`:
@@ -267,4 +277,3 @@ Workers must not modify outside their assigned file sets. Reviews use fresh inde
 - The only new distributed runtime file is the existing zero-dependency Python runner; no third-party dependency is introduced.
 - Fixed wall-clock time is evidence, not a pass/fail gate, to avoid GitHub runner nondeterminism.
 - This plan introduces no choice, assumption, dependency, or scope absent from the confirmed specification; therefore it may proceed from Design to Build without a second confirmation.
-
