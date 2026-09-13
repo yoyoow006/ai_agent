@@ -35,4 +35,12 @@
 
 - [x] 6.1 完成严格模式任务级审查。
 - [x] 6.2 完成 Verify 规格符合性与代码质量两个独立关注面审查。
-- [ ] 6.3 通过归档门禁并沉淀必要知识。
+- [x] 6.3 通过归档门禁并沉淀必要知识。
+
+## 7. 归档终证
+
+- 最终 manifest ID：`0f9272dc1737c5e26c30cba6938f465187b9beb27654d7eae8a757ebba121917`。
+- comparison base：输入 `main`，解析为 `1fbad77089b52c424bc06c3b0759048d4618ef9e`。
+- finding 状态：`resolved=1`（Minor `verify-quality-001`），`open=0`，`not-an-issue=0`，`accepted-risk=0`；Critical/Important 均为 0。
+- 未验证范围：目标非 Git 且未做并发写入监控；`fuseblk` mount ACL 与其他本地用户写权限未审计；未重放最初安装过程；未读取用户合作文档正文。
+- 残余风险：目标后续仍可能被外部进程修改；文件系统呈现宽权限，实际跨用户可写性未证明；源 feature/worktree 的合并、推送或清理尚未执行。

@@ -147,3 +147,7 @@
 ## 2026-09-13 · 来源变更 speed-up-ci-validation（随包并行门禁与集成测试提速）
 **坑**：全局资产同步测试暴露的不只是新 runner 缺分发，还包括 main 既有 12 处 reusable asset 漂移；随包契约测试的 python3 stub 只透传 `python3 -B -c`，wrapper 改调用 runner 后成功输出没有 `Ran N tests`；Claude-only 目标中 Codex 专属 AGENTS/open/design mutation guard 若无条件读文件会 FileNotFoundError；动态加载随包测试用内部别名会生成错误 test ID 前缀。
 **解**：先用独立提交机械同步既有漂移，再分发 runner 并让 stub 输出有效一用例摘要；单侧安装中 Codex 专属守卫按既有 allowed reason 跳过；动态加载随包测试时注册 exact `scripts.tests.test_validate_workflow` 模块名、执行后恢复源仓模块对象，并保持 `sys.dont_write_bytecode` 防自污。工作区挂载虚假显示 0777 时，以 Git index/manifest 为准并导出提交到原生临时目录恢复权限后复跑模式断言。
+
+## 2026-09-13 · 来源变更 install-codex-workflow-ai-hospital（fuseblk 目录事务适配）
+**坑**：fuseblk/NTFS 挂载对 `renameat2(..., RENAME_NOREPLACE)` 返回 `EINVAL`，便携安装器在首个新父目录事务处汇总为 `ERROR: installation failed` 并完整回滚；另从 manifest 文件直接父目录推导集合会漏掉 `.ai/prompts`、`.codex/skills` 这类中间父目录。
+**解**：先核对失败后目标和受保护用户文件确实回滚，再用同文件系统临时目标验证适配；经用户确认后预创建完整传递闭包目录集（本次 37 个，含中间父目录），逐项确认目录树无文件，重建 dry-run 仍为 55 CREATE/0 UPDATE 后执行原安装器；不得手工复制、绕过事务或盲目重试。

@@ -1,7 +1,7 @@
 # 安装 Codex AI 工作流到 ai_hospital
 
 模式: 严格
-状态: 待归档
+状态: 已归档
 
 ## Why
 
@@ -79,3 +79,12 @@
 - 终验源仓 required 门禁：`PASS=200 FAIL=0 SKIP=0`。第一次源仓 required 曾因未导出隔离 HOME 导致 Git dubious ownership 环境失败；失败测试用正确 HOME 单独复验通过，随后完整重跑通过。
 - 最终源侧 diff 仅 5 个治理产物，`git diff --check` 通过，工作区 clean。
 - 未验证范围与残余风险：目标非 Git 且可被并发修改；`fuseblk` 宽权限/ACL 未审计；未读取用户合作文档正文。
+
+## Archive Evidence
+
+- Delta 已合并到 `openspec/specs/codex-workflow-target-installation/spec.md`。
+- 知识沉淀：`.ai/kb/overview.md` 与 `.ai/memory/installer.md` 记录 fuseblk 空父目录适配；未新增模块，`.ai/rules/index.md` 无需路由变更。
+- 严格独立计划已移动为 `openspec/archive/install-codex-workflow-ai-hospital/plan.md`。
+- 归档后 OpenSpec：`10 passed, 0 failed`。
+- 归档后 `bash scripts/validate-workflow.sh --archive-light`：`PASS=197 FAIL=0 SKIP=0`。
+- 归档后未合并分支、未推送、未清理 worktree；整合方式等待用户选择。
