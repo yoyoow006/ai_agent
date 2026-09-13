@@ -32,3 +32,9 @@
 - 原安装命令在目标文件系统失败且事务完整回滚；受保护文档哈希不变。
 - 根因是 `fuseblk` 不支持安装器依赖的 `renameat2(..., RENAME_NOREPLACE)`，最小探测返回 `EINVAL`。
 - 同文件系统临时诊断证明：预创建 35 个清单推导空父目录、重建计划后，安装器可成功创建 55 个文件。该方案等待用户重新确认，未在目标重试。
+
+## Empty-parent correction
+
+- The 35-item list came from direct parents of manifest files and omitted required intermediate directories `.ai/prompts` and `.codex/skills`.
+- The failed preparation created only four empty directories and did not touch the protected document.
+- Continue only after user confirms the corrected 37-directory set and preflight confirms the four existing directories remain empty.
