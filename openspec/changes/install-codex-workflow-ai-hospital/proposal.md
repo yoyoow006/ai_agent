@@ -1,7 +1,7 @@
 # 安装 Codex AI 工作流到 ai_hospital
 
 模式: 严格
-状态: 待确认计划
+状态: 构建中
 
 ## Why
 
@@ -43,3 +43,5 @@
 ## Empty-Parent Reconfirmation
 
 用户确认 35 个清单目录后，预创建脚本按清单顺序创建了 4 个空目录（`.ai`、`.ai/kb`、`.ai/kb/projects`、`.ai/memory`），随后在 `.ai/prompts/agents` 停止。原因是清单列出的是 manifest 文件直接父目录，遗漏了层级中必须存在的 `.ai/prompts` 与 `.codex/skills` 两个中间目录。当前目标只有这 4 个空工作流目录、既有 `docs` 及合作协议；文档 SHA-256 未变。继续安装需要把空父目录集合修正为 37 个，并先复核已创建 4 个目录均保持空目录。
+
+用户已于 2026-09-13 回复“确认”，37 目录修正确认完成。
