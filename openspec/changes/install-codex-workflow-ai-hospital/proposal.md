@@ -1,7 +1,7 @@
 # 安装 Codex AI 工作流到 ai_hospital
 
 模式: 严格
-状态: 构建中
+状态: 待确认计划
 
 ## Why
 
@@ -31,3 +31,9 @@
 - 源仓库 OpenSpec 基线：`/home/yoyoo/.nvm/versions/node/v20.19.4/bin/openspec validate --all --strict --no-interactive` 通过，`10 passed, 0 failed`。
 - 目标预览：`bash scripts/install-ai-workflow.sh --target /home/yoyoo/windsk/ubuntu_dir/sources/gitdemo/ai_hospital --assistant codex --dry-run` 通过，计划 `created=55 updated=0 unchanged=0`。
 - 用户已于 2026-09-13 明确确认“确认”，规范确认完成；独立实施计划见 `openspec/plan/install-codex-workflow-ai-hospital.md`。
+
+## Build Incident Reconfirmation
+
+首次实际安装按已确认命令执行，但安装器退出码 1，仅输出 `ERROR: installation failed`。事后核查目标仍只剩 `docs/好实用合作协议I51.2.doc`，SHA-256 未变，dry-run 仍为 55 个 CREATE，说明事务已回滚且无部分安装。
+
+系统化调试确认根因：目标与源同在 `fuseblk` 文件系统，安装器的 Linux `renameat2(..., RENAME_NOREPLACE)` 在该文件系统返回 `EINVAL`。在同一文件系统的自动清理临时目录中，先预创建清单推导出的 35 个空父目录、重建安装计划后再执行安装器，55 个文件创建成功。该适配会先写空目录再调用安装器，超出原“唯一写入命令”边界，必须获得用户重新确认。
