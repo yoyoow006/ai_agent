@@ -21,20 +21,20 @@
 - OpenSpec CLI 不在 `/usr/bin`，本机可用路径为 `/home/yoyoo/.nvm/versions/node/v20.19.4/bin/openspec`；验证时显式使用该离线已有命令。
 - 不联网、不安装依赖、不执行目标业务代码，不读取用户合作协议正文。
 
-## 待 Design 细化
+## 已由实施计划细化
 
-- 写入前目标状态、入口冲突和用户文件哈希的精确复核顺序。
-- 安装器实际执行、幂等预览、required 门禁和 OpenSpec 严格校验的完整命令序列。
-- 验证失败时是否以及如何使用安装器事务回滚，何时停止等待用户决定。
+- 写入前目标状态、入口冲突和用户文件哈希的精确复核顺序已写入实施计划。
+- 安装器实际执行、幂等预览、required 门禁和 OpenSpec 严格校验的完整命令序列已写入实施计划。
+- 验证失败时依赖安装器事务回滚；成功安装后验证失败则保留现场并停止，等待用户决定。
 
 ## Build 阶段补充事实
 
 - 原安装命令在目标文件系统失败且事务完整回滚；受保护文档哈希不变。
 - 根因是 `fuseblk` 不支持安装器依赖的 `renameat2(..., RENAME_NOREPLACE)`，最小探测返回 `EINVAL`。
-- 同文件系统临时诊断证明：预创建 35 个清单推导空父目录、重建计划后，安装器可成功创建 55 个文件。该方案等待用户重新确认，未在目标重试。
+- 同文件系统临时诊断证明：预创建空父目录、重建计划后，安装器可成功创建 55 个文件。该方案已获用户重新确认，并在修正为 37 目录集合后执行。
 
 ## Empty-parent correction
 
 - The 35-item list came from direct parents of manifest files and omitted required intermediate directories `.ai/prompts` and `.codex/skills`.
 - The failed preparation created only four empty directories and did not touch the protected document.
-- Continue only after user confirms the corrected 37-directory set and preflight confirms the four existing directories remain empty.
+- The user confirmed the corrected 37-directory set; preflight confirmed the four existing directories remained empty, and the adapted installation completed.

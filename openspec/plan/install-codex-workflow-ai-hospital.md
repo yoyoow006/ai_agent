@@ -88,16 +88,16 @@
 - 真实路径、Git 状态、入口状态、用户文档哈希或 dry-run 汇总任一不匹配：停止，不执行任务 2，向用户报告事实并等待决定。
 - 目标出现新的非清单文件：不删除、不覆盖；仅当其成为安装清单冲突时停止。
 
-## 任务 2A：fuseblk 空父目录适配（待用户确认 37 目录修正）
+## 任务 2A：fuseblk 空父目录适配（37 目录修正已确认并执行）
 
-1. 先确认当前只存在首轮误列清单创建的 4 个空目录：`.ai`, `.ai/kb`, `.ai/kb/projects`, `.ai/memory`；不得继续创建或安装。
-2. 用户确认修正后，创建剩余 33 个空目录。完整集合为 37 个：
+1. 已确认当时只存在首轮误列清单创建的 4 个空目录：`.ai`, `.ai/kb`, `.ai/kb/projects`, `.ai/memory`；该停止点未继续安装。
+2. 用户已确认修正；实际创建剩余 33 个空目录。完整集合为 37 个：
 
    `.ai`, `.ai/kb`, `.ai/kb/projects`, `.ai/memory`, `.ai/prompts`, `.ai/prompts/agents`, `.ai/rules`, `.ai/tools`, `.ai/tools/tests`, `.codex`, `.codex/agents`, `.codex/ai-kb`, `.codex/sdd`, `.codex/skills`, `.codex/skills/archive`, `.codex/skills/build`, `.codex/skills/code-review`, `.codex/skills/design`, `.codex/skills/git-worktrees`, `.codex/skills/open`, `.codex/skills/parallel-agents`, `.codex/skills/subagent-driven`, `.codex/skills/systematic-debugging`, `.codex/skills/tdd`, `.codex/skills/verification`, `.codex/skills/verify`, `.codex/skills/writing-skills`, `openspec`, `openspec/archive`, `openspec/changes`, `openspec/plan`, `openspec/specs`, `openspec/specs/risk-tiered-ai-workflow`, `openspec/specs/shared-ai-workflow-infrastructure`, `scripts`, `scripts/lib`, `scripts/tests`。
-3. 创建后逐一确认全部 37 个路径均为真实空目录。
+3. 创建后已逐一确认全部 37 个路径均为真实空目录。
 
-4. 重新执行 dry-run。由于目录不是 manifest 文件，预期仍是 `created=55 updated=0 unchanged=0 dry_run=1`。
-5. 除已记录的 4 个首轮空目录外，任意目录已存在、非空、身份变化或 dry-run 改变时停止。
+4. 已重新执行 dry-run。由于目录不是 manifest 文件，结果保持 `created=55 updated=0 unchanged=0 dry_run=1`。
+5. 执行时除已记录的 4 个首轮空目录外，未出现目录已存在、非空、身份变化或 dry-run 改变；停止路径未触发。
 
 ## 任务 2：执行离线事务安装
 
