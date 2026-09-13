@@ -1,7 +1,7 @@
 # 安装 Codex AI 工作流到 ai_hospital
 
 模式: 严格
-状态: 构建中
+状态: 待验证
 
 ## Why
 
@@ -45,3 +45,23 @@
 用户确认 35 个清单目录后，预创建脚本按清单顺序创建了 4 个空目录（`.ai`、`.ai/kb`、`.ai/kb/projects`、`.ai/memory`），随后在 `.ai/prompts/agents` 停止。原因是清单列出的是 manifest 文件直接父目录，遗漏了层级中必须存在的 `.ai/prompts` 与 `.codex/skills` 两个中间目录。当前目标只有这 4 个空工作流目录、既有 `docs` 及合作协议；文档 SHA-256 未变。继续安装需要把空父目录集合修正为 37 个，并先复核已创建 4 个目录均保持空目录。
 
 用户已于 2026-09-13 回复“确认”，37 目录修正确认完成。
+
+## Build Verification Evidence
+
+- 用户确认 37 目录修正后，预检确认原有 4 个工作流目录保持无文件，创建剩余 33 个空目录，总计 37 个目录、0 个工作流文件。
+- 适配后 dry-run：`created=55 updated=0 unchanged=0 dry_run=1`。
+- 实际安装：`created=55 updated=0 unchanged=0 dry_run=0`。
+- 幂等 dry-run：`created=0 updated=0 unchanged=55 dry_run=1`。
+- 目标 required 门禁：`PASS=120 FAIL=0 SKIP=0`；套件内部设计性跳过 4 项为源仓专属能力，不影响门禁计数。
+- 目标 OpenSpec 严格校验：`2 passed, 0 failed`。
+- 最终清单核对：55 个 manifest 文件、1 个既有用户文档、0 个 `.git`/`.claude`/`CLAUDE.md` 禁止项；用户文档 SHA-256 仍为 `9a76ae560637818368ddbbaa298409747210a066c0c061224c257b798b25787f`。
+- 目标校验器产生 1 个允许的本地锁文件 `.ai-local/.validate.lock`；未发现其他计划外工作流文件。
+
+## Task Review Evidence
+
+- 任务级审查单元：`external-target-install-safety`。
+- Manifest ID：`2b5f2be2f51fd57cdc35d19c3d30a702f15b2038dba346730d57442263518837`；comparison base 输入 `main`，解析为 `1fbad77089b52c424bc06c3b0759048d4618ef9e`。
+- Reviewer 读取前与结论前均执行 manifest verify 并得到 `VALID`。
+- 审查结论：PASS；未发现 Critical、Important 或 Minor finding。
+- 已独立核对真实路径、无符号链接、37 个目录集合、55 个文件内容、ledger、Codex-only 边界、非 Git 目标、用户文档哈希和禁止项。
+- 未验证范围与残余风险：目标非 Git 且可被并发修改；`fuseblk` 将文件模式映射为 `0777`，未审计 mount ACL 与其他本地用户写权限；任务级 reviewer 未重放三项目标验证，依赖构建时证据；未读取用户合作文档正文。

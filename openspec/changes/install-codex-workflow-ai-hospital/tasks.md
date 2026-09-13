@@ -19,20 +19,20 @@
 
 ## 4. 目标安装
 
-- [ ] 4.1 用真实路径和 `--assistant codex` 执行离线安装。
-- [ ] 4.2 确认安装台账、Codex 入口和共享资产存在。
-- [ ] 4.3 确认 `.claude/`、`CLAUDE.md` 和 `.git` 未被创建。
+- [x] 4.1 用真实路径和 `--assistant codex` 执行离线安装。
+- [x] 4.2 确认安装台账、Codex 入口和共享资产存在。
+- [x] 4.3 确认 `.claude/`、`CLAUDE.md` 和 `.git` 未被创建。
 
 ## 5. 目标验证
 
-- [ ] 5.1 执行安装器幂等 dry-run，确认 55 个资产均为 unchanged。
-- [ ] 5.2 运行 `bash scripts/validate-workflow.sh --require-openspec`。
-- [ ] 5.3 运行 `openspec validate --all --strict --no-interactive`。
-- [ ] 5.4 复核用户文档 SHA-256 与权限不变。
-- [ ] 5.5 检查完整文件清单与目标 diff，确认无计划外写入。
+- [x] 5.1 执行安装器幂等 dry-run，确认 55 个资产均为 unchanged。
+- [x] 5.2 运行 `bash scripts/validate-workflow.sh --require-openspec`。
+- [x] 5.3 运行 `openspec validate --all --strict --no-interactive`。
+- [x] 5.4 复核用户文档 SHA-256 与权限不变。
+- [x] 5.5 检查完整文件清单与目标 diff，确认无计划外写入。
 
 ## 6. 审查与收尾
 
-- [ ] 6.1 完成严格模式任务级审查。
+- [x] 6.1 完成严格模式任务级审查。
 - [ ] 6.2 完成 Verify 规格符合性与代码质量两个独立关注面审查。
 - [ ] 6.3 通过归档门禁并沉淀必要知识。
