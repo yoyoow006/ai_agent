@@ -1,7 +1,7 @@
 # 安装 Codex AI 工作流到 ai_hospital
 
 模式: 严格
-状态: 待验证
+状态: 待归档
 
 ## Why
 
@@ -65,3 +65,17 @@
 - 审查结论：PASS；未发现 Critical、Important 或 Minor finding。
 - 已独立核对真实路径、无符号链接、37 个目录集合、55 个文件内容、ledger、Codex-only 边界、非 Git 目标、用户文档哈希和禁止项。
 - 未验证范围与残余风险：目标非 Git 且可被并发修改；`fuseblk` 将文件模式映射为 `0777`，未审计 mount ACL 与其他本地用户写权限；任务级 reviewer 未重放三项目标验证，依赖构建时证据；未读取用户合作文档正文。
+
+## Verify Evidence
+
+- 规格符合性独立审查：Manifest `d7339f800f576168a0b5e74180d8a6156a1dddcfcc9c5e33c385b5b60229d541`，comparison base `main` 解析为 `1fbad77089b52c424bc06c3b0759048d4618ef9e`；读取前与结论前均 VALID，结论 PASS，无 finding。
+- 代码与操作质量独立审查：同一 Manifest `d7339f800f576168a0b5e74180d8a6156a1dddcfcc9c5e33c385b5b60229d541`；发现 1 条 Minor 状态措辞不一致。
+- Minor 修复复审：新 Manifest `ac6ffa67b5cc6582d93781dd795a6184372d41959ecb0fe05084a6d89c7224b4`；差异仅 `design.md` 与实施计划状态措辞，`verify-quality-001` 已 resolved。
+- 终验目标幂等预览：`created=0 updated=0 unchanged=55 dry_run=1`。
+- 终验目标 OpenSpec：`2 passed, 0 failed`。
+- 终验目标 required 门禁：`PASS=120 FAIL=0 SKIP=0`。
+- 终验目标不变量：55 个 manifest 文件、0 个禁止项、用户文档哈希匹配。
+- 终验源仓 OpenSpec：`11 passed, 0 failed`。
+- 终验源仓 required 门禁：`PASS=200 FAIL=0 SKIP=0`。第一次源仓 required 曾因未导出隔离 HOME 导致 Git dubious ownership 环境失败；失败测试用正确 HOME 单独复验通过，随后完整重跑通过。
+- 最终源侧 diff 仅 5 个治理产物，`git diff --check` 通过，工作区 clean。
+- 未验证范围与残余风险：目标非 Git 且可被并发修改；`fuseblk` 宽权限/ACL 未审计；未读取用户合作文档正文。
