@@ -58,3 +58,29 @@
 - **AND** 用户要求不初始化 Git 仓库
 - **THEN** 目标 required 校验用目标 `.gitignore` 判定 Python 缓存与 SDD 路径是否忽略
 - **AND** 校验过程不在目标根创建 `.git` 或修改嵌套业务仓库
+
+### Requirement: ai_hospital 目标安装必须保护非清单用户内容
+
+系统 SHALL 通过既有离线 manifest 安装器把 Codex 单侧工作流安装到真实目标 `/home/yoyoo/windsk/ubuntu_dir/sources/gitdemo/ai_hospital`，并 SHALL 在写入前后保护目标中不属于安装清单的用户文件。目标 SHALL NOT 获得 `.claude/`、`CLAUDE.md`、`.git`、源仓库业务项目知识或源仓库 Git 历史。
+
+#### Scenario: 从空白工作流目标安装
+
+- **WHEN** 目标没有 `AGENTS.md`、`.codex/`、`.ai/`、`openspec/`、`.claude/` 或 `CLAUDE.md`
+- **AND** 目标仅有既有 `docs/好实用合作协议I51.2.doc`
+- **THEN** 安装器创建 55 个清单内工作流文件
+- **AND** 目标保留既有用户文档，不创建 `.claude/`、`CLAUDE.md` 或 `.git`
+
+#### Scenario: 适配不支持原子目录命名的文件系统
+
+- **WHEN** 目标所在 `fuseblk` 文件系统对 `renameat2(..., RENAME_NOREPLACE)` 返回 `EINVAL`
+- **AND** 用户已确认环境适配
+- **THEN** 系统先创建完整空父目录集合（包含中间父目录）
+- **AND** 重新执行 dry-run 且仍显示 55 个 CREATE、0 个 UPDATE
+- **AND** 实际安装后幂等 dry-run 显示 55 个 unchanged
+
+#### Scenario: 安装后完整验证
+
+- **WHEN** Codex 工作流安装完成
+- **THEN** 目标根目录 `bash scripts/validate-workflow.sh --require-openspec` 无 FAIL
+- **AND** 目标根目录 `openspec validate --all --strict --no-interactive` 通过
+- **AND** `docs/好实用合作协议I51.2.doc` 的 SHA-256 保持 `9a76ae560637818368ddbbaa298409747210a066c0c061224c257b798b25787f`
