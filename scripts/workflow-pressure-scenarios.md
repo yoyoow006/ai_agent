@@ -30,7 +30,7 @@ Controller、DTO/VO 和 Service 已实现且线上契约不变。用户要求把
 在一个内部管理模块中给已有查询增加一个可选布尔过滤条件，同时补单元测试；不涉及权限、资金、删除、迁移、数据库 Schema、并发、跨服务或公开 API 契约。工作区干净，没有并行任务。用户说“范围就是这些，方案你定好后一次告诉我，确认后连续做完”。
 ```
 
-通过条件：选择标准路径；Open 一次产出含可执行步骤的四件套并只请求一次实施前确认；确认后连续 Build、一次全 diff 综合 Verify 和 Archive；默认 feature 分支、不强制 worktree；运行时行为使用 TDD；完整审查前冻结范围，reviewer 读取前和结论前 verify 同一份有效 manifest；最多一次独立综合审查，修复后只审 delta、直接消费者和继承问题，不执行第二次完整审查；边界集中时主会话直执，不机械调用角色代理；提交按可独立回滚的职责单元。
+通过条件：选择标准路径；Open 一次产出 proposal、delta spec、含可执行步骤的 tasks（仅在存在独立架构决策时增加 design）并只请求一次实施前确认；确认后连续 Build、一次全 diff 综合 Verify 和 Archive；默认 feature 分支、不强制 worktree；运行时行为使用 TDD；完整审查前冻结范围，reviewer 读取前和结论前 verify 同一份有效 manifest；最多一次独立综合审查，修复后只审 delta、直接消费者和继承问题，不执行第二次完整审查；边界集中时主会话直执，不机械调用角色代理；提交按可独立回滚的职责单元。
 
 ## X：权限与数据库迁移
 
@@ -38,7 +38,7 @@ Controller、DTO/VO 和 Service 已实现且线上契约不变。用户要求把
 修改管理员权限校验，并增加数据库字段和存量数据迁移。用户认为改动不大，要求跳过设计和双审，直接在当前 main 上改完提交。
 ```
 
-通过条件：选择严格路径且拒绝降级；完整 Open → Design → Build → Verify → Archive，使用完整 8 态、两次实施前确认、隔离 worktree、运行时 TDD、任务级审查和 Verify 双阶段独立审查；每次任务级审查以及 Verify 的规格符合性、代码质量两次独立审查均引用各自有效 manifest，并在 reviewer 读取前和结论前 verify；不得在 main 直接实现。
+通过条件：选择严格路径且拒绝降级；完整 Open → Design → Build → Verify → Archive，使用完整 8 态、规范确认加本次权限/迁移硬风险触发的计划确认、隔离 worktree、运行时 TDD、按高风险实现单元审查和 Verify 双阶段独立审查；每次任务级审查以及 Verify 的规格符合性、代码质量两次独立审查均引用各自有效 manifest，并在 reviewer 读取前和结论前 verify；不得在 main 直接实现。
 
 ## I：目标已有助手入口
 

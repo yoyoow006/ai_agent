@@ -1,17 +1,17 @@
 # 范围清单
 
-- [ ] 1. 更新风险分级主规格与根入口：标准 design 改为条件生成，严格第二次确认改为硬风险触发，并保持状态真源、外部授权和范围变化重新确认。
-- [ ] 2. 更新 Open、Design、Build、Verify、Archive 技能，使各阶段对三件套/可选 design、高风险审查单元和条件式计划确认的解释一致。
-- [ ] 3. 更新 `.ai/rules/review.md` 与 reviewer 契约，按高风险不变量冻结任务级范围，标准模式仍至多一次综合审查，严格 Verify 双关注面保持不变。
-- [ ] 4. 为 `scripts/validate-workflow.sh` 增加可判定的归档轻量门禁；实现 Verify 后 diff 分类，工作流语义变化时自动升级完整 required 门禁。
-- [ ] 5. 扩充顶层契约和 mutation 测试，覆盖标准三件套、design 触发、严格强制二次确认集合、风险单元审查、Archive 升级条件及失败退出码。
-- [ ] 6. 更新 Archive 的本地缓存清理规则，要求先持久化最终 manifest ID、comparison base、finding 状态、未验证范围和残余风险，并仅精确清理已归档 change 目录。
+- [x] 1. 更新风险分级主规格与根入口：标准 design 改为条件生成，严格第二次确认改为硬风险触发，并保持状态真源、外部授权和范围变化重新确认。
+- [x] 2. 更新 Open、Design、Build、Verify、Archive 技能，使各阶段对三件套/可选 design、高风险审查单元和条件式计划确认的解释一致。
+- [x] 3. 更新 `.ai/rules/review.md` 与 reviewer 契约，按高风险不变量冻结任务级范围，标准模式仍至多一次综合审查，严格 Verify 双关注面保持不变。
+- [x] 4. 为 `scripts/validate-workflow.sh` 增加可判定的归档轻量门禁；实现 Verify 后 diff 分类，工作流语义变化时自动升级完整 required 门禁。
+- [x] 5. 扩充顶层契约和 mutation 测试，覆盖标准三件套、design 触发、严格强制二次确认集合、风险单元审查、Archive 升级条件及失败退出码。
+- [x] 6. 更新 Archive 的本地缓存清理规则，要求先持久化最终 manifest ID、comparison base、finding 状态、未验证范围和残余风险，并仅精确清理已归档 change 目录。
 - [ ] 7. 在隔离 worktree 中运行针对性测试、完整 `--require-openspec` 门禁、OpenSpec 校验与 diff 检查；任务级审查按本变更的两个高风险边界组织：工作流状态/确认语义、验证降级判定。
 - [ ] 8. 执行严格 Verify 的规格符合性与质量两个独立关注面，关闭全部 Critical/Important 后合并主规格、沉淀知识并归档。
-- [ ] 9. 同步流程口径文档与安装资产：更新 `CLAUDE.md`、README、使用介绍、共享 overview、阶段技能措辞、`scripts/ai-workflow-assets/` 内入口/技能/主规格/压力场景，消除标准固定四件套、严格固定双确认和归档后固定全量的旧口径。
-- [ ] 10. 为 `business-terms` 先写失败测试：覆盖 registry 校验、包含/精确匹配、同义词、项目过滤、分页截断、零匹配、输入错误、路径边界和只读性。
-- [ ] 11. 实现 `project_facts.py business-terms` 与 registry `business_terms` 契约，保持源仓库 registry 空白并同步安装资产副本。
-- [ ] 12. 更新项目登记、事实工具、共享路由和 shared infrastructure 规格文档，说明目标项目如何登记业务词以及查询不证明源码事实的边界。
+- [x] 9. 同步流程口径文档与安装资产：更新 `CLAUDE.md`、README、使用介绍、共享 overview、阶段技能措辞、`scripts/ai-workflow-assets/` 内入口/技能/主规格/压力场景，消除标准固定四件套、严格固定双确认和归档后固定全量的旧口径。
+- [x] 10. 为 `business-terms` 先写失败测试：覆盖 registry 校验、包含/精确匹配、同义词、项目过滤、分页截断、零匹配、输入错误、路径边界和只读性。
+- [x] 11. 实现 `project_facts.py business-terms` 与 registry `business_terms` 契约，保持源仓库 registry 空白并同步安装资产副本。
+- [x] 12. 更新项目登记、事实工具、共享路由和 shared infrastructure 规格文档，说明目标项目如何登记业务词以及查询不证明源码事实的边界。
 
 ## 验收标准
 

@@ -2611,6 +2611,91 @@ class MutationStandardThreePieceSuiteTest(unittest.TestCase):
             self.assertIn(keyword, text, f"design SKILL.md 必须含硬风险关键词: {keyword}")
 
 
+class WorkflowSemanticSyncTest(unittest.TestCase):
+    """mutation: 双入口、用户文档与安装资产不得回流旧流程口径。"""
+
+    SOURCE_ENTRYPOINTS = (
+        REPOSITORY_ROOT / "AGENTS.md",
+        REPOSITORY_ROOT / "CLAUDE.md",
+    )
+    SOURCE_DOCUMENTS = (
+        REPOSITORY_ROOT / "README.md",
+        REPOSITORY_ROOT / "docs" / "ai-workflow-intro.md",
+        REPOSITORY_ROOT / "openspec" / "project.md",
+        REPOSITORY_ROOT / ".ai" / "kb" / "overview.md",
+    )
+    ASSET_SEMANTIC_FILES = (
+        REPOSITORY_ROOT / "scripts" / "ai-workflow-assets" / "claude" / "CLAUDE.md",
+        REPOSITORY_ROOT / "scripts" / "ai-workflow-assets" / "codex" / "AGENTS.md",
+        REPOSITORY_ROOT / "scripts" / "ai-workflow-assets" / "codex" / ".codex" / "README.md",
+        REPOSITORY_ROOT / "scripts" / "ai-workflow-assets" / "shared" / ".ai" / "kb" / "overview.md",
+        REPOSITORY_ROOT / "scripts" / "ai-workflow-assets" / "shared" / "openspec" / "project.md",
+        REPOSITORY_ROOT / "scripts" / "ai-workflow-assets" / "shared" / "openspec" / "specs" / "risk-tiered-ai-workflow" / "spec.md",
+        REPOSITORY_ROOT / "scripts" / "ai-workflow-assets" / "shared" / "scripts" / "workflow-pressure-scenarios.md",
+    )
+    OLD_STANDARD_PHRASES = (
+        "Open 一次产出可执行四件套",
+        "Open 一次产出四件套",
+        "标准模式使用四件套",
+        "一次产出含可执行步骤的四件套",
+    )
+    OLD_ARCHIVE_PHRASES = (
+        "归档后跑全量",
+        "Archive 永远复用 Verify 结果",
+    )
+
+    @property
+    def _is_source_repository(self) -> bool:
+        return (
+            REPOSITORY_ROOT / "scripts" / "lib" / "install_ai_workflow.py"
+        ).is_file()
+
+    def _require_source_file(self, path: Path) -> None:
+        if not path.is_file():
+            self.skipTest(f"selected installation does not ship {path.name}")
+
+    def test_entrypoints_and_user_documents_use_current_semantics(self) -> None:
+        paths = [*self.SOURCE_ENTRYPOINTS, *self.SOURCE_DOCUMENTS]
+        for path in paths:
+            with self.subTest(path=path):
+                self._require_source_file(path)
+                text = path.read_text(encoding="utf-8")
+                self.assertIn("三件套", text, f"{path} 必须说明标准三件套")
+                self.assertIn(
+                    "硬风险", text,
+                    f"{path} 必须说明严格二次确认由硬风险触发",
+                )
+                for phrase in (*self.OLD_STANDARD_PHRASES, *self.OLD_ARCHIVE_PHRASES):
+                    self.assertNotIn(
+                        phrase, text,
+                        f"{path} 保留旧流程口径: {phrase}",
+                    )
+
+    def test_installer_assets_use_current_semantics(self) -> None:
+        if not self._is_source_repository:
+            self.skipTest("installer asset tree is source-repository only")
+        required_tokens = {
+            self.ASSET_SEMANTIC_FILES[0]: ("三件套", "硬风险", "--archive-light"),
+            self.ASSET_SEMANTIC_FILES[1]: ("三件套", "硬风险", "--archive-light"),
+            self.ASSET_SEMANTIC_FILES[2]: ("三件套", "硬风险"),
+            self.ASSET_SEMANTIC_FILES[3]: ("三件套", "硬风险", "--archive-light"),
+            self.ASSET_SEMANTIC_FILES[4]: ("三件套", "硬风险"),
+            self.ASSET_SEMANTIC_FILES[5]: ("计划风险触发", "轻量门禁"),
+            self.ASSET_SEMANTIC_FILES[6]: ("proposal、delta spec", "硬风险"),
+        }
+        for path in self.ASSET_SEMANTIC_FILES:
+            with self.subTest(path=path):
+                self.assertTrue(path.is_file(), f"missing installer asset: {path}")
+                text = path.read_text(encoding="utf-8")
+                for token in required_tokens[path]:
+                    self.assertIn(token, text, f"{path} 必须同步语义锚点: {token}")
+                for phrase in (*self.OLD_STANDARD_PHRASES, *self.OLD_ARCHIVE_PHRASES):
+                    self.assertNotIn(
+                        phrase, text,
+                        f"{path} 保留旧流程口径: {phrase}",
+                    )
+
+
 class StrictSecondConfirmHardSetTest(unittest.TestCase):
     """mutation: AGENTS.md 严格模式节必须含硬风险集合 + 连续 Build 句。"""
 

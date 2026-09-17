@@ -20,6 +20,9 @@ REQUIRED_PROJECT_FIELDS = {
 REQUIRED_APPLICATION_FIELDS = {
     "server", "module", "main_class", "source_path"
 }
+REQUIRED_BUSINESS_TERM_FIELDS = {
+    "term", "source_paths"
+}
 SENSITIVE_SUFFIXES = {
     ".key", ".pem", ".p12", ".pfx", ".crt", ".cer", ".jks", ".keystore"
 }
@@ -60,6 +63,68 @@ def _within(path: Path, parent: Path, label: str) -> Path:
 
 def _validated_child(parent: Path, relative: str, label: str) -> Path:
     return _within(parent / relative, parent, label)
+
+
+def _business_terms(
+    raw_terms: Any, project_name: str
+) -> list[dict[str, Any]]:
+    if not isinstance(raw_terms, list):
+        raise InputError(
+            f"project {project_name} business_terms must be a list"
+        )
+    checked_terms: list[dict[str, Any]] = []
+    seen_terms: set[str] = set()
+    for term_index, raw_term in enumerate(raw_terms):
+        if (
+            not isinstance(raw_term, dict)
+            or not REQUIRED_BUSINESS_TERM_FIELDS.issubset(raw_term)
+        ):
+            raise InputError(
+                f"project {project_name} business_term[{term_index}] "
+                "is missing required fields"
+            )
+        term = dict(raw_term)
+        term["term"] = _string(
+            term["term"],
+            f"project {project_name} business_term[{term_index}].term",
+        )
+        if term["term"] in seen_terms:
+            raise InputError(
+                f"duplicate business term for project {project_name}: "
+                f"{term['term']}"
+            )
+        seen_terms.add(term["term"])
+
+        synonyms = term.get("synonyms", [])
+        if not isinstance(synonyms, list):
+            raise InputError(
+                f"project {project_name} business_term[{term_index}] "
+                "synonyms must be a list"
+            )
+        term["synonyms"] = [
+            _string(
+                synonym,
+                f"project {project_name} business_term[{term_index}] synonym",
+            )
+            for synonym in synonyms
+        ]
+
+        source_paths = term["source_paths"]
+        if not isinstance(source_paths, list) or not source_paths:
+            raise InputError(
+                f"project {project_name} business_term[{term_index}] "
+                "source_paths must be a non-empty list"
+            )
+        term["source_paths"] = [
+            _relative(
+                source_path,
+                f"project {project_name} business_term[{term_index}] source path",
+                allow_dot=True,
+            )
+            for source_path in source_paths
+        ]
+        checked_terms.append(term)
+    return checked_terms
 
 
 def load_registry(workspace_arg: str) -> tuple[Path, list[dict[str, Any]]]:
@@ -132,6 +197,10 @@ def load_registry(workspace_arg: str) -> tuple[Path, list[dict[str, Any]]]:
             )
             checked_apps.append(app)
         project["applications"] = checked_apps
+        if "business_terms" in project:
+            project["business_terms"] = _business_terms(
+                project["business_terms"], name
+            )
         project["_workspace"] = workspace
         validated.append(project)
     return workspace, validated
@@ -147,6 +216,13 @@ def resolve_project_root(project: dict[str, Any]) -> Path:
         _validated_child(
             project_root, app["source_path"], f"project {name} application"
         )
+    for business_term in project.get("business_terms", []):
+        for source_path in business_term["source_paths"]:
+            _validated_child(
+                project_root,
+                source_path,
+                f"project {name} business term source path",
+            )
     return project_root
 
 
@@ -256,6 +332,43 @@ def _is_sensitive(relative: str) -> bool:
     return any(part in {"secrets", "credentials", ".ssh", ".gnupg"} for part in lowered)
 
 
+def business_terms(
+    projects: list[dict[str, Any]], names: list[str] | None, text: str,
+    limit: int, offset: int, exact: bool,
+) -> int:
+    text = _string(text, "business term")
+    if limit < 1 or offset < 0:
+        raise InputError("limit must be positive and offset must be non-negative")
+    selected = select_projects(projects, names)
+    matches: list[str] = []
+    for project in selected:
+        resolve_project_root(project)
+        for declaration in project.get("business_terms", []):
+            candidates = [declaration["term"], *declaration["synonyms"]]
+            matched = (
+                any(text == candidate for candidate in candidates)
+                if exact
+                else any(text in candidate for candidate in candidates)
+            )
+            if not matched:
+                continue
+            for source_path in declaration["source_paths"]:
+                matches.append("\t".join([
+                    "BUSINESS_TERM", declaration["term"], project["name"],
+                    project["card"], source_path,
+                ]))
+    page = matches[offset:offset + limit]
+    if not page:
+        print("no business term matches", file=sys.stderr)
+        return EXIT_ZERO_MATCH
+    for match in page:
+        print(match)
+    next_offset = offset + len(page)
+    if next_offset < len(matches):
+        print(f"TRUNCATED\tnext_offset={next_offset}\ttotal={len(matches)}", file=sys.stderr)
+    return 0
+
+
 def workspace_search(
     projects: list[dict[str, Any]], names: list[str] | None, text: str,
     limit: int, offset: int,
@@ -321,6 +434,14 @@ def build_parser() -> argparse.ArgumentParser:
     search.add_argument("--project", action="append")
     search.add_argument("--limit", type=int, default=20)
     search.add_argument("--offset", type=int, default=0)
+
+    terms = commands.add_parser("business-terms")
+    terms.add_argument("--workspace", required=True)
+    terms.add_argument("--text", required=True)
+    terms.add_argument("--project", action="append")
+    terms.add_argument("--exact", action="store_true")
+    terms.add_argument("--limit", type=int, default=20)
+    terms.add_argument("--offset", type=int, default=0)
     return parser
 
 
@@ -332,6 +453,11 @@ def main(argv: list[str] | None = None) -> int:
             return project_context(projects, args.project)
         if args.command == "server-registry":
             return server_registry(projects, args.server, args.project)
+        if args.command == "business-terms":
+            return business_terms(
+                projects, args.project, args.text, args.limit, args.offset,
+                args.exact,
+            )
         return workspace_search(
             projects, args.project, args.text, args.limit, args.offset
         )

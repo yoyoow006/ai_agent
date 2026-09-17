@@ -63,6 +63,23 @@ class ProjectFactsTest(unittest.TestCase):
         value.update(overrides)
         return value
 
+    def business_entry(self, **overrides):
+        value = self.entry(
+            business_terms=[
+                {
+                    "term": "contract",
+                    "synonyms": ["lease"],
+                    "source_paths": ["src/App.java", "src/Other.java"],
+                },
+                {
+                    "term": "contract draft",
+                    "source_paths": ["notes.txt"],
+                },
+            ]
+        )
+        value.update(overrides)
+        return value
+
     def write_registry(self, projects, schema_version=1):
         (self.ai / "kb/projects/registry.json").write_text(
             json.dumps({"schema_version": schema_version, "projects": projects}),
@@ -222,6 +239,119 @@ class ProjectFactsTest(unittest.TestCase):
         ambiguous = self.run_cli("server-registry", "--server", "alpha-server")
         self.assertEqual(4, ambiguous.returncode)
 
+    def test_business_terms_route_synonyms_exact_filter_and_pagination(self):
+        beta_card = self.ai / "kb/projects/beta.md"
+        beta_card.write_text("# Beta\n", encoding="utf-8")
+        beta = self.business_entry(
+            name="beta",
+            path="beta",
+            card="kb/projects/beta.md",
+            business_terms=[{
+                "term": "contract",
+                "source_paths": ["src/Contract.java"],
+            }],
+        )
+        self.write_registry([self.business_entry(), beta])
+
+        contained = self.run_cli(
+            "business-terms", "--project", "alpha", "--text", "lease",
+            "--limit", "20", "--offset", "0",
+        )
+        self.assertEqual(0, contained.returncode, contained.stderr)
+        self.assertEqual(
+            [
+                "BUSINESS_TERM\tcontract\talpha\tkb/projects/alpha.md\tsrc/App.java",
+                "BUSINESS_TERM\tcontract\talpha\tkb/projects/alpha.md\tsrc/Other.java",
+            ],
+            contained.stdout.splitlines(),
+        )
+
+        exact = self.run_cli(
+            "business-terms", "--project", "alpha", "--text", "contract draft",
+            "--exact", "--limit", "20", "--offset", "0",
+        )
+        self.assertEqual(0, exact.returncode, exact.stderr)
+        self.assertEqual(
+            ["BUSINESS_TERM\tcontract draft\talpha\tkb/projects/alpha.md\tnotes.txt"],
+            exact.stdout.splitlines(),
+        )
+
+        paged = self.run_cli(
+            "business-terms", "--text", "contract", "--limit", "2", "--offset", "1",
+        )
+        self.assertEqual(0, paged.returncode, paged.stderr)
+        self.assertEqual(
+            [
+                "BUSINESS_TERM\tcontract\talpha\tkb/projects/alpha.md\tsrc/Other.java",
+                "BUSINESS_TERM\tcontract draft\talpha\tkb/projects/alpha.md\tnotes.txt",
+            ],
+            paged.stdout.splitlines(),
+        )
+        self.assertEqual("TRUNCATED\tnext_offset=3\ttotal=4\n", paged.stderr)
+
+    def test_business_terms_reports_zero_match_and_rejects_invalid_input(self):
+        zero = self.run_cli(
+            "business-terms", "--text", "missing", "--limit", "5", "--offset", "0"
+        )
+        self.assertEqual(3, zero.returncode)
+        self.assertEqual("", zero.stdout)
+        self.assertEqual("no business term matches\n", zero.stderr)
+
+        cases = [
+            (("--text", ""), "non-empty single-line"),
+            (("--text", "contract\nINJECT"), "non-empty single-line"),
+            (("--text", "contract", "--limit", "0"), "limit must"),
+            (("--text", "contract", "--limit", "5", "--offset", "-1"), "offset must"),
+            (("--text", "contract", "--project", "unknown"), "unregistered"),
+        ]
+        for args, reason in cases:
+            with self.subTest(args=args):
+                result = self.run_cli("business-terms", *args)
+                self.assertEqual(2, result.returncode)
+                self.assertEqual("", result.stdout)
+                self.assertTrue(result.stderr.startswith("ERROR\t"), result.stderr)
+                self.assertEqual(1, len(result.stderr.splitlines()), result.stderr)
+                self.assertIn(reason, result.stderr.lower())
+
+    def test_business_terms_registry_rejects_invalid_declarations(self):
+        invalid_entries = [
+            self.business_entry(business_terms="contract"),
+            self.business_entry(business_terms=[{"synonyms": [], "source_paths": ["src"]}]),
+            self.business_entry(business_terms=[{"term": "contract", "source_paths": []}]),
+            self.business_entry(business_terms=[{
+                "term": "contract", "source_paths": [str(self.project.resolve())]
+            }]),
+            self.business_entry(business_terms=[{
+                "term": "contract", "source_paths": ["../outside"]
+            }]),
+            self.business_entry(business_terms=[{
+                "term": "contract", "synonyms": ["lease\nINJECT"], "source_paths": ["src"]
+            }]),
+        ]
+        for entry in invalid_entries:
+            with self.subTest(entry=entry):
+                self.write_registry([entry])
+                result = self.run_cli("business-terms", "--text", "contract")
+                self.assertEqual(2, result.returncode)
+                self.assertEqual("", result.stdout)
+                self.assertTrue(result.stderr.startswith("ERROR\t"), result.stderr)
+                self.assertEqual(1, len(result.stderr.splitlines()), result.stderr)
+
+    def test_business_terms_rejects_source_path_symlink_escape(self):
+        outside = Path(self.tempdir.name) / "business-outside"
+        outside.mkdir()
+        escape = self.project / "escape"
+        escape.symlink_to(outside, target_is_directory=True)
+        self.write_registry([self.business_entry(business_terms=[{
+            "term": "contract", "source_paths": ["escape"]
+        }])])
+
+        result = self.run_cli("business-terms", "--text", "contract")
+
+        self.assertEqual(2, result.returncode)
+        self.assertEqual("", result.stdout)
+        self.assertIn("boundary", result.stderr.lower())
+
     def test_workspace_search_includes_tracked_and_unignored_untracked_only(self):
         result = self.run_cli(
             "workspace-search", "--project", "alpha", "--text", "needle",
@@ -358,6 +488,7 @@ class ProjectFactsTest(unittest.TestCase):
                 self.assertIn(reason, result.stderr.lower())
 
     def test_all_queries_leave_workspace_content_and_mtime_unchanged(self):
+        self.write_registry([self.business_entry()])
         before = self.snapshot()
         time.sleep(0.01)
         commands = [
@@ -365,6 +496,7 @@ class ProjectFactsTest(unittest.TestCase):
             ("server-registry", "--server", "alpha-server"),
             ("workspace-search", "--project", "alpha", "--text", "needle",
              "--limit", "5", "--offset", "0"),
+            ("business-terms", "--text", "lease", "--limit", "5", "--offset", "0"),
         ]
         for command, *args in commands:
             result = self.run_cli(command, *args)

@@ -58,13 +58,15 @@ OpenSpec CLI 不在安装包内；可按目标项目需要安装到已忽略的�
 python3 .ai/tools/project_facts.py project-context --workspace /path/to/workspace --project example-project
 python3 .ai/tools/project_facts.py server-registry --workspace /path/to/workspace --server example-server --project example-project
 python3 .ai/tools/project_facts.py workspace-search --workspace /path/to/workspace --project example-project --text ExampleSymbol --limit 20 --offset 0
+python3 .ai/tools/project_facts.py business-terms --workspace /path/to/workspace --text ExampleTerm --exact --limit 20 --offset 0
 ```
 
 - `project-context` 输出 `PROJECT` 与零个或多个 `APPLICATION` TSV 行；未检出项目标记为 `missing`，不会自动获取。
 - `server-registry` 精确匹配登记的 `server`；可重复传入 `--project` 限定项目。
 - `workspace-search` 可重复传入 `--project`，查询至少 3 个字符。结果只含 `project/path:line`，不会输出匹配正文；分页截断提示写 stderr。
+- `business-terms` 可重复传入 `--project`，默认对登记的 term/synonym 做包含匹配，`--exact` 改为精确匹配。结果输出 `BUSINESS_TERM`、canonical term、项目、项目卡和相对源码路径；它只做声明式路由，不读取正文，也不证明业务语义仍有效。
 
-所有路径先进行相对路径和 `Path.resolve()` 边界校验；`.ai`、registry、项目路径、搜索根或候选文件的符号链接逃逸 workspace 时均拒绝。Git 搜索使用 literal pathspec，registry 内容不能注入 pathspec magic 扩大范围。候选只来自 Git tracked 与未忽略 untracked 文件；候选路径任一组件是 symlink 时在解析和读取前跳过，并排除 `.env`、凭据、证书、私钥扩展名和 `id_rsa`、`id_dsa`、`id_ecdsa`、`id_ed25519`。CLI 的 server、project 与 search text 必须是非空单行字符串。
+所有路径先进行相对路径和 `Path.resolve()` 边界校验；`.ai`、registry、项目路径、搜索根、业务词路径或候选文件的符号链接逃逸 workspace 时均拒绝。Git 搜索使用 literal pathspec，registry 内容不能注入 pathspec magic 扩大范围。候选只来自 Git tracked 与未忽略 untracked 文件；候选路径任一组件是 symlink 时在解析和读取前跳过，并排除 `.env`、凭据、证书、私钥扩展名和 `id_rsa`、`id_dsa`、`id_ecdsa`、`id_ed25519`。CLI 的 server、project、search text 与 business term 必须是非空单行字符串。
 
 退出码：`0` 成功，`2` 输入、registry 或边界错误，`3` 零匹配，`4` server 歧义。错误和截断提示写 stderr，正常结果写 stdout，输出顺序稳定。
 

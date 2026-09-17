@@ -26,7 +26,7 @@
 
 - Modify: `.ai/tools/tests/test_project_facts.py`
 - 新增 `business-terms` 用例：包含/精确、同义词、项目过滤、分页、零匹配、非法 registry、路径边界、只读性。
-- Test: `python3 -m unittest -v .ai.tools.tests.test_project_facts`
+- Test: `python3 -B -m unittest discover -v -s .ai/tools/tests -p 'test_project_facts.py'`
 - 预期先失败：命令不存在或参数不支持，失败原因正是行为缺失。
 
 ## 任务 4：实现业务词路由
@@ -35,7 +35,7 @@
 - Modify: `openspec/specs/shared-ai-workflow-infrastructure/spec.md`
 - Modify: `scripts/ai-workflow-assets/shared/.ai/**` 与安装资产规格副本。
 - 实现 optional `business_terms` 解析与 `business-terms` CLI。
-- Test: `python3 -m unittest -v .ai.tools.tests.test_project_facts`
+- Test: `python3 -B -m unittest discover -v -s .ai/tools/tests -p 'test_project_facts.py'`
 - 预期：新增和既有事实工具测试全部通过。
 
 ## 任务 5：扩展漂移回归
@@ -48,7 +48,7 @@
 ## 任务 6：综合验证与审查
 
 - Commands:
-  - `python3 -m unittest -v .ai.tools.tests.test_project_facts`
+  - `python3 -B -m unittest discover -v -s .ai/tools/tests -p 'test_project_facts.py'`
   - `python3 -m unittest -v scripts.tests.test_validate_workflow`
   - `python3 -B -m unittest -v scripts.tests.test_install_ai_workflow`
   - `python3 -B -m unittest -v scripts.tests.test_install_workflow`
