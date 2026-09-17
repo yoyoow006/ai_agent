@@ -599,8 +599,10 @@ if __name__ == "__main__":
                         "pre-push hook is not shipped with this installation",
                         "CI pipeline configuration is source-repository only",
                         "installer asset tree is source-repository only",
+                        "installer template does not carry active source changes",
                         "selected installation does not ship AGENTS.md",
                         "selected installation does not ship CLAUDE.md",
+                        "selected installation does not ship SKILL.md",
                         "flock is required to exercise the concurrency lock",
                         "flock is required to exercise the lock infrastructure path",
                     }
