@@ -5,8 +5,8 @@
 - [x] 3. 为 `business-terms` 先写失败测试，再实现 registry `business_terms` 契约与只读查询；覆盖包含/精确匹配、同义词、项目过滤、分页、零匹配、非法声明、路径/symlink 边界和只读性。
 - [x] 4. 加固 archive-light 自动升级：Git diff 分类错误 fail-closed；语义变化时 core 从调用开始收到 `--require-openspec` 并运行顶层契约套件；同步安装资产。
 - [x] 5. 扩展语义同步与 archive-light 回归，覆盖源主规格、双入口、关键文档、阶段技能、压力场景和安装资产。
-- [ ] 6. 在隔离 worktree 中运行事实工具、工作流契约、便携安装器、一键安装器、`--require-openspec`、OpenSpec strict 与 diff 检查。
-- [ ] 7. 任务级审查按两个高风险单元执行：工作流语义/验证降级边界、业务词查询边界与只读性；处置全部 Critical/Important。
+- [x] 6. 在隔离 worktree 中运行事实工具、工作流契约、便携安装器、一键安装器、`--require-openspec`、OpenSpec strict 与 diff 检查。
+- [x] 7. 任务级审查按两个高风险单元执行：工作流语义/验证降级边界、业务词查询边界与只读性；处置全部 Critical/Important。
 - [ ] 8. 执行严格 Verify 的规格符合性与代码质量两个独立关注面，关闭全部 Critical/Important 后合并主规格、沉淀知识并归档。
 
 ## 验收标准
