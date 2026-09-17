@@ -432,3 +432,25 @@ Archive SHALL 对归档后的主规格、目录结构、OpenSpec、diff 与 Git 
 - **WHEN** manifest 为 STALE、仍有开放 finding 或 proposal 尚未归档
 - **THEN** 系统保留该 review 目录
 - **AND** 不把缓存清理当作关闭 finding 的手段
+
+### Requirement: 流程语义必须在双运行时文档和安装资产中保持一致
+
+Codex 与 Claude 根入口、用户文档、共享知识总览、阶段技能和便携安装资产 SHALL 表达同一套风险分级语义：标准模式三件套加条件 design、严格模式第二次确认由硬风险触发、任务级审查按高风险实现单元组织，以及 Archive 按 Verify 后变化选择轻量或完整门禁。自动化回归 SHALL 覆盖双入口、关键文档和安装资产中的旧口径回归。
+
+#### Scenario: Claude 入口保留旧标准口径
+
+- **WHEN** Claude 根入口或其安装资产重新要求标准模式固定创建 design
+- **THEN** 工作流契约测试失败
+- **AND** 安装产物不得被判为与 Codex 语义一致
+
+#### Scenario: 用户文档保留旧归档口径
+
+- **WHEN** README、使用介绍或共享 overview 要求归档后一律重复完整契约套件
+- **THEN** mutation/契约测试失败
+- **AND** 文档必须同步 archive-light 与自动升级语义
+
+#### Scenario: 安装资产保留旧严格确认口径
+
+- **WHEN** 便携安装资产要求所有严格计划无条件二次确认
+- **THEN** 工作流回归失败
+- **AND** 安装器不得把旧语义发布到目标项目

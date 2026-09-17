@@ -173,3 +173,11 @@
 ## 2026-09-13 · 来源变更 speed-up-ci-validation（GitHub Actions validate 提速）
 **坑**：源仓契约套件切到并行 runner 后没有同步随包 wrapper/manifest，安装目标仍串行且重复三份完整套件；wrapper 解析 `--require-openspec` 只做冲突标记却未转发 core，目标缺 OpenSpec CLI 时可错误退出 0；安装器集成测试仅用动态总数守卫时，关键用例被删除或改成 allowed skip 会随总数一起消失。
 **解**：runner、wrapper、契约测试进入 shared 资产并保持字节一致；wrapper 把 `--require-openspec` 同时加入 core 参数，成功路径解析并透出 `Ran N tests`，缺失计数 fail-closed。每个 assistant 只跑一份真实完整公共门禁，required 缺 CLI 在复制目标中用一用例 sentinel + 真实 marker 证明套件调用与非零传播；动态加载必须用 exact 模块名 `scripts.tests.test_validate_workflow` 并恢复源仓模块注册，同时显式守护关键 test ID 存在且未 skipped。完整安装器套件由 1109–1375s 降至 297.92s。
+
+## 2026-09-17 · 来源变更 align-workflow-semantics-and-business-context（OpenSpec 活跃/归档同名身份）
+**坑**：base 中已存在同名归档目录时又创建活跃 `openspec/changes/<name>/`，状态真源出现 active/archive 双身份；归档移动目标会与既有目录冲突，且 delta 容易把 base 已有 Requirement 再写成 ADDED。
+**解**：扩展语义前先检查 `openspec/archive/<name>` 是否已存在，收口/续作使用唯一变更名；delta 先对 base 主规格求 Requirement/Scenario 集合，已有目标用 MODIFIED 且保留非冲突 Scenario，真正不存在的能力才 ADDED。契约测试禁止 active/archive 名称交集。
+
+## 2026-09-17 · 来源变更 align-workflow-semantics-and-business-context（archive-light 升级必须先分类）
+**坑**：wrapper 先跑轻量 core，之后发现语义 diff 才追加顶层契约套件，导致 core 没有收到 `--require-openspec`；`git diff ... 2>/dev/null || true` 会把非法 base/pathspec 吞成“无变化”，归档可假绿。
+**解**：在调用 core 前完成 archive diff 分类；Git 缺失或 diff 非零立即 exit 2，命中语义变化时把 `--require-openspec` 追加到 forwarded arguments，再执行 core 和顶层契约套件。回归必须同时断言 core 参数、diff fail-closed 和契约套件执行。
