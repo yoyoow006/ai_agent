@@ -12,6 +12,17 @@
 - **THEN** 主会话现跑 `bash scripts/validate-workflow.sh --fast` 与目标/回归测试并读取退出结果
 - **AND** Archive 按 Verify 后 diff 分类运行轻量或升级后的 required 门禁，FAIL=0 才可声称归档完成
 
+#### Scenario: fast 暖缓存命中
+
+- **WHEN** `--fast` 模式下某重检查的命令、输入文件与 core 实现均与上次实际执行的 PASS 记录一致
+- **THEN** 该检查输出 PASS 并透明标注指纹、上次实际执行时间与沿用来源
+- **AND** 顶层汇总仍按 PASS 计数，不新增第四种检查状态
+
+#### Scenario: 缓存输入变化
+
+- **WHEN** 重检查任一输入文件、检查命令或 core 实现在上次 PASS 后发生变化
+- **THEN** 该检查重新实际执行并按新结果更新或清除缓存
+
 #### Scenario: 严格模式 Verify 不得降级
 
 - **WHEN** 严格模式变更进入 Verify
