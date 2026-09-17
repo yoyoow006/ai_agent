@@ -7,7 +7,7 @@
 - [x] 5. 扩展语义同步与 archive-light 回归，覆盖源主规格、双入口、关键文档、阶段技能、压力场景和安装资产。
 - [x] 6. 在隔离 worktree 中运行事实工具、工作流契约、便携安装器、一键安装器、`--require-openspec`、OpenSpec strict 与 diff 检查。
 - [x] 7. 任务级审查按两个高风险单元执行：工作流语义/验证降级边界、业务词查询边界与只读性；处置全部 Critical/Important。
-- [ ] 8. 执行严格 Verify 的规格符合性与代码质量两个独立关注面，关闭全部 Critical/Important 后合并主规格、沉淀知识并归档。
+- [x] 8. 执行严格 Verify 的规格符合性与代码质量两个独立关注面，关闭全部 Critical/Important 后合并主规格、沉淀知识并归档。
 
 ## 验收标准
 
