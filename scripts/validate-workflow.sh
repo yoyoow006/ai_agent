@@ -68,6 +68,34 @@ fi
 # --archive-light 单独使用 = 纯轻量（仅跑 core，不做 diff 分类）
 #   配合 --archive-files + WORKFLOW_ARCHIVE_GATE=1 才做 diff 分类自动升级
 
+# Archive 的 diff 分类必须在运行 core 前完成：命中语义变化时，本次调用从一开始
+# 就按 required 语义执行，而不是只追加顶层契约套件。
+archive_promoted=0
+if test "$archive_light" -eq 1; then
+  printf "[INFO] archive-light gate engaged (files=%d)\n" "${#archive_files[@]}"
+  if test "${WORKFLOW_ARCHIVE_GATE:-0}" = "1" && test "${#archive_files[@]}" -gt 0; then
+    diff_base="${WORKFLOW_ARCHIVE_BASE:-HEAD}"
+    if ! command -v git >/dev/null 2>&1; then
+      printf "[FAIL] WORKFLOW_ARCHIVE_GATE=1 但 git 不可用；无法执行 diff 分类自动升级。请安装 git 或撤销 WORKFLOW_ARCHIVE_GATE。\n" >&2
+      exit 2
+    fi
+    diff_output=""
+    if ! diff_output="$(git diff --name-only "$diff_base" -- ${archive_files[@]+"${archive_files[@]}"} 2>&1)"; then
+      printf "[FAIL] Archive diff 分类失败（base=%s）：%s\n" "$diff_base" "$diff_output" >&2
+      exit 2
+    fi
+    if test -n "$diff_output"; then
+      while IFS= read -r diff_file; do
+        test -n "$diff_file" && printf "[INFO] archive gate promoted to --require-openspec: %s\n" "$diff_file"
+      done <<EOF
+$diff_output
+EOF
+      archive_promoted=1
+      forwarded_arguments+=(--require-openspec)
+    fi
+  fi
+fi
+
 # 串行化同一工作树的并发校验：契约套件含 mutation,并发实例会互踩产生假失败。
 if command -v flock >/dev/null 2>&1; then
   # 注意:exec 无命令时其重定向会持久作用到当前 shell,故 2>/dev/null 必须
@@ -187,26 +215,7 @@ fi
 # 归档轻量门禁：跳过顶层契约套件，core 结果已足；diff 分类自动升级如下。
 # 1) WORKFLOW_ARCHIVE_GATE=1 + --archive-files 非空 + git diff --name-only <base> -- <files> 非空 → 改跑契约套件
 if test "$archive_light" -eq 1; then
-  printf "[INFO] archive-light gate engaged (files=%d, core_status=%d)\n" "${#archive_files[@]}" "$core_status"
-  promoted=0
-  if test "${WORKFLOW_ARCHIVE_GATE:-0}" = "1" && test "${#archive_files[@]}" -gt 0; then
-    diff_base="${WORKFLOW_ARCHIVE_BASE:-HEAD}"
-    if ! command -v git >/dev/null 2>&1; then
-      printf "[FAIL] WORKFLOW_ARCHIVE_GATE=1 但 git 不可用；无法执行 diff 分类自动升级。请安装 git 或撤销 WORKFLOW_ARCHIVE_GATE。\n" >&2
-      fail_count=$((fail_count + 1))
-    else
-      diff_output="$(git diff --name-only "$diff_base" -- ${archive_files[@]+"${archive_files[@]}"} 2>/dev/null || true)"
-      if test -n "$diff_output"; then
-        while IFS= read -r diff_file; do
-          test -n "$diff_file" && printf "[INFO] archive gate promoted to --require-openspec: %s\n" "$diff_file"
-        done <<EOF
-$diff_output
-EOF
-        promoted=1
-      fi
-    fi
-  fi
-  if test "$promoted" -eq 1; then
+  if test "$archive_promoted" -eq 1; then
     # 改跑契约套件（与正常路径同一段）
     if run_contract_suite; then
       if report_contract_suite_success; then

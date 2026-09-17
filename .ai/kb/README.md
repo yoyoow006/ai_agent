@@ -7,7 +7,7 @@
 | `overview.md` | 工作流与模块总览 |
 | `repository-ignore-rules.md` | 根仓库忽略规则事实 |
 | `contracts/` | 已核对的跨端或跨服务契约 |
-| `projects/registry.json` | 声明式项目登记与有界搜索范围 |
+| `projects/registry.json` | 声明式项目登记、业务词路由与有界搜索范围 |
 | `projects/<project>.md` | 项目卡、入口、约定和风险提示 |
 
 ## 维护规则

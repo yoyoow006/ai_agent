@@ -8,10 +8,11 @@
 
 - **三级风险分流**：快速 / 标准 / 严格三档，流程成本与风险相称；未知风险至少升级到标准，严格任务不得降级
 - **单一状态真源**：`openspec/changes/<变更名>/proposal.md` 的`状态:`字段是唯一断点真源，新会话可从任意断点续传，不依赖对话历史
-- **按风险分层的确认与门禁**：标准模式仅一次实施前确认；严格模式保留 G1–G4 四道硬门禁（四件套未确认不写计划、计划未确认不写代码、测试不全绿不交棒、两阶段审查未过不归档）
+- **按风险分层的确认与门禁**：标准模式仅一次实施前确认；严格模式保留 G1–G4 四道硬门禁（四件套未确认不写计划、命中硬风险的计划未确认不写代码、测试不全绿不交棒、两阶段审查未过不归档）
 - **13 个原生技能**：5 个阶段编排器 + 8 个支撑技能（TDD、代码审查、系统化调试、完成前验证、worktree、并行代理、子代理驱动、技能写作），无需安装任何插件
 - **共享审查契约**：manifest 冻结 + STALE 双检杜绝"审旧代码报新结论"，finding 台账固定字段，最小修复沿用授权
 - **`.ai/` 共享知识层**：kb（架构）/ memory（踩坑）/ rules（路由与审查契约）/ prompts（角色契约）/ tools（事实工具），双运行时共用，坑即时记录、归档时三写沉淀
+- **声明式业务上下文路由**：目标项目可在 registry 中登记项目卡、源码搜索范围、服务入口和业务词/同义词；`business-terms` 只做有界只读路由，不携带或泄露源仓库业务事实
 - **双运行时镜像校验**：Claude 与 Codex 技能字节级镜像比对，流程语义分叉即校验失败；旧版"一刀切重流程"的回归同样会被拦截
 - **一键安装器**：把整套工作流装进任意目标项目，装后自检全绿才退出；升级走台账驱动事务路径，失败自动回滚
 
@@ -19,15 +20,15 @@
 
 ```text
                 ┌─ 快速：探索事实 → 直接修改 → 针对性验证 → 汇报
-用户提需求 ──▶ 分类 ─┼─ 标准：Open 四件套 → 一次确认 → Build → 综合 Verify → Archive
-                └─ 严格：Open → 确认 → Design → 确认 → Build(TDD) → Verify(双阶段) → Archive
+用户提需求 ──▶ 分类 ─┼─ 标准：Open 三件套（条件 design）→ 一次确认 → Build → 综合 Verify → Archive
+                └─ 严格：Open → 确认 → Design → 硬风险时确认计划 → Build(TDD) → Verify(双阶段) → Archive
 ```
 
 | 模式 | 条件 | 路径 | 确认 |
 |---|---|---|---|
 | **快速** | 只维护已有事实的 Markdown、纯文本、注释或机械格式，不影响运行时、API/Schema、配置语义、安全合规、工作流治理或发布 | 探索事实 → 直接修改 → 针对性验证 → 汇报 | 0 |
-| **标准** | 低到中风险运行时代码变更 | Open 一次产出可执行四件套 → 一次确认 → Build → 综合 Verify → Archive | 1 |
-| **严格** | 权限认证、资金账务、删除/迁移、数据库 Schema、并发一致性、跨服务或公开运行时契约、工作流治理、破坏性操作、大范围重构 | Open → Design → Build → Verify → Archive 完整门禁 | 2 |
+| **标准** | 低到中风险运行时代码变更 | Open 一次产出可执行三件套，必要时增加 design → 一次确认 → Build → 综合 Verify → Archive | 1 |
+| **严格** | 权限认证、资金账务、删除/迁移、数据库 Schema、并发一致性、跨服务或公开运行时契约、工作流治理、破坏性操作、大范围重构 | Open → Design → Build → Verify → Archive 完整门禁 | 规范确认 + 硬风险计划确认 |
 
 - 标准状态：`待确认计划 → 构建中 → 待验证 → 待归档 → 已归档`（不创建独立 `openspec/plan`）
 - 严格状态：`草稿 → 待确认规范 → 设计中 → 待确认计划 → 构建中 → 待验证 → 待归档 → 已归档`
@@ -54,7 +55,7 @@ bash scripts/install-workflow.sh /path/to/your-project --force # 覆盖升级（
 bash scripts/install-ai-workflow.sh --help                      # 便携安装器（--upgrade 台账驱动升级）
 ```
 
-装完自检全绿后，填写目标项目 `openspec/project.md` 的项目上下文，重启 AI 会话即可使用。
+装完自检全绿后，填写目标项目 `openspec/project.md` 的项目上下文，并按需登记 `.ai/kb/projects/registry.json`、项目卡和业务词路由，重启 AI 会话即可使用。
 
 ## 目录结构
 
@@ -68,7 +69,7 @@ bash scripts/install-ai-workflow.sh --help                      # 便携安装�
 │   ├── agents/             #   角色适配
 │   └── README.md           #   Claude→Codex 工具映射与派发契约
 ├── .ai/                    # 共享知识层（唯一正文来源，双运行时共用）
-│   ├── kb/                 #   架构事实、项目卡与 registry
+│   ├── kb/                 #   架构事实、项目卡、registry 与业务词路由
 │   ├── memory/             #   踩坑记录（按模块一文件，追加式）
 │   ├── rules/              #   路由表 index.md 与审查契约 review.md
 │   ├── prompts/agents/     #   共享角色契约（explorer/reviewer/test-worker）
@@ -114,7 +115,7 @@ openspec list                                        # 列出活跃变更（装�
 openspec validate <变更名> --strict --no-interactive
 ```
 
-分层规则：标准模式内容变更的 Verify 终验用 `--fast` 加目标/回归测试，归档后跑全量；严格模式及触及工作流入口、技能、校验器、安装资产的变更始终全量。
+分层规则：标准模式内容变更的 Verify 终验用 `--fast` 加目标/回归测试；Archive 默认使用 `--archive-light`，若 Verify 后发生工作流入口、技能语义、可执行文件、契约测试或治理规格变化则自动升级完整门禁。严格模式 Verify 及治理资产变更始终使用 `--require-openspec`。
 
 ## 本地防护（自愿启用）
 
@@ -134,7 +135,7 @@ git config core.hooksPath scripts/hooks
 
 ```text
 你：帮我补一段接口说明文档                    # → 快速：核对事实直接改，现跑校验后汇报
-你：开始做一个用户导出 CSV 的功能             # → Open：分类+四件套，等你确认
+你：开始做一个用户导出 CSV 的功能             # → Open：分类+实际 OpenSpec 产物，等你确认
 你：确认计划，开工                            # → Build：逐任务实现，tasks 全勾+测试全绿
 你：构建完成，审查                            # → Verify：综合审查（严格模式为双阶段）+ 终验证据
 你：审查通过，归档                            # → Archive：并 specs、知识三写、归档、合并
