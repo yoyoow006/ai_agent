@@ -575,7 +575,7 @@ if __name__ == "__main__":
 
                 with self.subTest(assistant=assistant, command="tools"):
                     self.assertEqual(tools.returncode, 0, tools.stdout)
-                    self.assertIn("Ran 53 tests", tools.stdout)
+                    self.assertIn("Ran 57 tests", tools.stdout)
                 with self.subTest(assistant=assistant, command="public"):
                     self.assertEqual(public.returncode, 0, public.stdout)
                     shipped_count = self._shipped_contract_test_count()
@@ -598,6 +598,9 @@ if __name__ == "__main__":
                         "source installer unavailable; current selected side remains covered",
                         "pre-push hook is not shipped with this installation",
                         "CI pipeline configuration is source-repository only",
+                        "installer asset tree is source-repository only",
+                        "selected installation does not ship AGENTS.md",
+                        "selected installation does not ship CLAUDE.md",
                         "flock is required to exercise the concurrency lock",
                         "flock is required to exercise the lock infrastructure path",
                     }
