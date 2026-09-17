@@ -2624,6 +2624,12 @@ class WorkflowSemanticSyncTest(unittest.TestCase):
         REPOSITORY_ROOT / "openspec" / "project.md",
         REPOSITORY_ROOT / ".ai" / "kb" / "overview.md",
     )
+    SOURCE_BEHAVIOR_FILES = (
+        REPOSITORY_ROOT / "openspec" / "specs" / "risk-tiered-ai-workflow" / "spec.md",
+        REPOSITORY_ROOT / ".codex" / "skills" / "build" / "SKILL.md",
+        REPOSITORY_ROOT / ".claude" / "skills" / "build" / "SKILL.md",
+        REPOSITORY_ROOT / "scripts" / "workflow-pressure-scenarios.md",
+    )
     ASSET_SEMANTIC_FILES = (
         REPOSITORY_ROOT / "scripts" / "ai-workflow-assets" / "claude" / "CLAUDE.md",
         REPOSITORY_ROOT / "scripts" / "ai-workflow-assets" / "codex" / "AGENTS.md",
@@ -2631,6 +2637,8 @@ class WorkflowSemanticSyncTest(unittest.TestCase):
         REPOSITORY_ROOT / "scripts" / "ai-workflow-assets" / "shared" / ".ai" / "kb" / "overview.md",
         REPOSITORY_ROOT / "scripts" / "ai-workflow-assets" / "shared" / "openspec" / "project.md",
         REPOSITORY_ROOT / "scripts" / "ai-workflow-assets" / "shared" / "openspec" / "specs" / "risk-tiered-ai-workflow" / "spec.md",
+        REPOSITORY_ROOT / "scripts" / "ai-workflow-assets" / "claude" / ".claude" / "skills" / "build" / "SKILL.md",
+        REPOSITORY_ROOT / "scripts" / "ai-workflow-assets" / "codex" / ".codex" / "skills" / "build" / "SKILL.md",
         REPOSITORY_ROOT / "scripts" / "ai-workflow-assets" / "shared" / "scripts" / "workflow-pressure-scenarios.md",
     )
     OLD_STANDARD_PHRASES = (
@@ -2638,10 +2646,16 @@ class WorkflowSemanticSyncTest(unittest.TestCase):
         "Open 一次产出四件套",
         "标准模式使用四件套",
         "一次产出含可执行步骤的四件套",
+        "区分本变更四件套",
+        "落入 OpenSpec 四件套",
+        "均已获两次确认",
+        "每任务规格与质量审查",
     )
     OLD_ARCHIVE_PHRASES = (
         "归档后跑全量",
         "Archive 永远复用 Verify 结果",
+        "标准模式 Archive 归档后验证 SHALL 运行全量默认门禁",
+        "严格模式 Verify 与 Archive SHALL 始终运行",
     )
 
     @property
@@ -2671,6 +2685,43 @@ class WorkflowSemanticSyncTest(unittest.TestCase):
                         f"{path} 保留旧流程口径: {phrase}",
                     )
 
+    def test_source_behavior_surfaces_use_current_semantics(self) -> None:
+        required_tokens = {
+            self.SOURCE_BEHAVIOR_FILES[0]: ("Archive SHALL 按", "计划风险触发"),
+            self.SOURCE_BEHAVIOR_FILES[1]: ("实际 OpenSpec 产物", "高风险实现单元审查"),
+            self.SOURCE_BEHAVIOR_FILES[2]: ("实际 OpenSpec 产物", "高风险实现单元审查"),
+            self.SOURCE_BEHAVIOR_FILES[3]: ("硬风险", "proposal、delta spec"),
+        }
+        for path in self.SOURCE_BEHAVIOR_FILES:
+            with self.subTest(path=path):
+                self._require_source_file(path)
+                text = path.read_text(encoding="utf-8")
+                for token in required_tokens[path]:
+                    self.assertIn(token, text, f"{path} 缺少语义锚点: {token}")
+                for phrase in (*self.OLD_STANDARD_PHRASES, *self.OLD_ARCHIVE_PHRASES):
+                    self.assertNotIn(
+                        phrase, text,
+                        f"{path} 保留旧流程口径: {phrase}",
+                    )
+
+    def test_active_openspec_names_do_not_collide_with_archive(self) -> None:
+        if not self._is_source_repository:
+            self.skipTest("installer template does not carry active source changes")
+        changes = REPOSITORY_ROOT / "openspec" / "changes"
+        archive = REPOSITORY_ROOT / "openspec" / "archive"
+        active_names = {
+            path.name for path in changes.iterdir()
+            if path.is_dir() and not path.is_symlink()
+        }
+        archived_names = {
+            path.name for path in archive.iterdir()
+            if path.is_dir() and not path.is_symlink()
+        }
+        self.assertFalse(
+            active_names & archived_names,
+            f"OpenSpec active/archive identities collide: {sorted(active_names & archived_names)}",
+        )
+
     def test_installer_assets_use_current_semantics(self) -> None:
         if not self._is_source_repository:
             self.skipTest("installer asset tree is source-repository only")
@@ -2680,8 +2731,10 @@ class WorkflowSemanticSyncTest(unittest.TestCase):
             self.ASSET_SEMANTIC_FILES[2]: ("三件套", "硬风险"),
             self.ASSET_SEMANTIC_FILES[3]: ("三件套", "硬风险", "--archive-light"),
             self.ASSET_SEMANTIC_FILES[4]: ("三件套", "硬风险"),
-            self.ASSET_SEMANTIC_FILES[5]: ("计划风险触发", "轻量门禁"),
-            self.ASSET_SEMANTIC_FILES[6]: ("proposal、delta spec", "硬风险"),
+            self.ASSET_SEMANTIC_FILES[5]: ("计划风险触发", "轻量门禁", "Archive SHALL 按"),
+            self.ASSET_SEMANTIC_FILES[6]: ("实际 OpenSpec 产物", "高风险实现单元审查"),
+            self.ASSET_SEMANTIC_FILES[7]: ("实际 OpenSpec 产物", "高风险实现单元审查"),
+            self.ASSET_SEMANTIC_FILES[8]: ("proposal、delta spec", "硬风险"),
         }
         for path in self.ASSET_SEMANTIC_FILES:
             with self.subTest(path=path):
@@ -2770,13 +2823,14 @@ class ArchiveLightGateTest(unittest.TestCase):
     )
 
 
-    def _stage_wrapper_tree(self, root: Path) -> None:
+    def _stage_wrapper_tree(self, root: Path, core_text: str | None = None) -> None:
         """在临时目录里布置 wrapper + stub core + stub unittest + .ai-local"""
         scripts_dir = root / "scripts" / "lib"
         (root / "scripts").mkdir(parents=True)
         scripts_dir.mkdir(parents=True)
         (scripts_dir / "validate-workflow-core.sh").write_text(
-            "#!/usr/bin/env bash\nprintf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\nexit 0\n",
+            core_text
+            or "#!/usr/bin/env bash\nprintf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\nexit 0\n",
             encoding="utf-8",
         )
         wrapper_text = (REPOSITORY_ROOT / "scripts" / "validate-workflow.sh").read_text(
@@ -2901,6 +2955,87 @@ class ArchiveLightGateTest(unittest.TestCase):
                 or "test_placeholder" in result.stdout,
                 msg=result.stdout + result.stderr,
             )
+
+    def test_archive_light_promotion_sends_required_semantics_to_core(self) -> None:
+        """F-ARCHIVE-CORE-001：promotion 不是只补契约套件，core 必须收到 required 参数。"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            core_text = (
+                "#!/usr/bin/env bash\n"
+                "printf 'CORE_ARGS=%s\\n' \"$*\"\n"
+                "printf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\n"
+                "exit 0\n"
+            )
+            self._stage_wrapper_tree(root, core_text=core_text)
+            fake_bin = root / "fakebin"
+            fake_bin.mkdir()
+            stub_path = root / "git_stub.sh"
+            stub_path.write_text(
+                "#!/usr/bin/env bash\n"
+                "if [ \"$1\" = \"diff\" ] && [ \"$2\" = \"--name-only\" ]; then\n"
+                "  echo scripts/validate-workflow.sh\n"
+                "  exit 0\n"
+                "fi\n"
+                "exit 1\n",
+                encoding="utf-8",
+            )
+            (fake_bin / "git").write_text(
+                f'#!/usr/bin/env bash\nbash {stub_path} "$@"\n',
+                encoding="utf-8",
+            )
+            (fake_bin / "git").chmod(0o755)
+            import os
+            env = os.environ.copy()
+            env["PATH"] = str(fake_bin) + ":" + env.get("PATH", "")
+            env["WORKFLOW_ARCHIVE_GATE"] = "1"
+            env["WORKFLOW_ARCHIVE_BASE"] = "HEAD"
+            result = subprocess.run(
+                ["/usr/bin/bash", str(root / "scripts" / "validate-workflow.sh"),
+                 "--archive-light", "--archive-files", "scripts/validate-workflow.sh"],
+                cwd=root, env=env, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, check=False, timeout=60,
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout + result.stderr)
+            self.assertIn("CORE_ARGS=--require-openspec", result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试", result.stdout)
+
+    def test_archive_light_diff_failure_fails_closed(self) -> None:
+        """F-ARCHIVE-DIFF-001：非法 base/pathspec 不得被吞成无变化轻量路径。"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_wrapper_tree(root)
+            fake_bin = root / "fakebin"
+            fake_bin.mkdir()
+            stub_path = root / "git_stub.sh"
+            stub_path.write_text(
+                "#!/usr/bin/env bash\n"
+                "if [ \"$1\" = \"diff\" ] && [ \"$2\" = \"--name-only\" ]; then\n"
+                "  echo 'fatal: bad revision definitely-missing-ref' >&2\n"
+                "  exit 128\n"
+                "fi\n"
+                "exit 1\n",
+                encoding="utf-8",
+            )
+            (fake_bin / "git").write_text(
+                f'#!/usr/bin/env bash\nbash {stub_path} "$@"\n',
+                encoding="utf-8",
+            )
+            (fake_bin / "git").chmod(0o755)
+            import os
+            env = os.environ.copy()
+            env["PATH"] = str(fake_bin) + ":" + env.get("PATH", "")
+            env["WORKFLOW_ARCHIVE_GATE"] = "1"
+            env["WORKFLOW_ARCHIVE_BASE"] = "definitely-missing-ref"
+            result = subprocess.run(
+                ["/usr/bin/bash", str(root / "scripts" / "validate-workflow.sh"),
+                 "--archive-light", "--archive-files", "scripts/validate-workflow.sh"],
+                cwd=root, env=env, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, text=True, check=False, timeout=60,
+            )
+            self.assertEqual(2, result.returncode, msg=result.stdout + result.stderr)
+            combined = result.stdout + result.stderr
+            self.assertIn("Archive diff 分类失败", combined)
+            self.assertIn("bad revision", combined)
 
     def test_archive_light_no_promotion_when_git_diff_empty(self) -> None:
         """diff 分类无变化时不升级，保持轻量"""

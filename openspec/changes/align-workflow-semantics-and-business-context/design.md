@@ -1,4 +1,4 @@
-# 设计：按风险边界精简流程并补齐上下文路由
+# 设计：对齐工作流语义并补齐上下文路由
 
 ## 设计目标
 
@@ -54,4 +54,4 @@ Codex 与 Claude 根入口、README/介绍文档、共享 overview、阶段技�
 
 ## 当前用户修改保护
 
-当前主工作区仅存在本变更的未跟踪 OpenSpec 目录。实现阶段先把它提交到 `feature/streamline-ai-workflow-overhead`，再切回 `main` 挂载隔离 worktree；不携带其他本地文件。若目标文件出现新的用户修改，立即暂停并重新隔离或请求决定。
+实现使用 `feature/align-workflow-semantics-and-business-context` 的隔离 worktree，基线为 `main`。若目标文件出现新的用户修改，立即暂停并重新隔离或请求决定。
