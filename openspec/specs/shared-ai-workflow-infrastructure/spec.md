@@ -122,7 +122,7 @@
 
 #### Scenario: Git 元数据或间接引用越界
 
--- **WHEN** 项目 `.git` 符号链接、gitdir 文件、commondir、alternate object store 或 Git 元数据内部 symlink 解析到声明 workspace 外
+- **WHEN** 项目 `.git` 符号链接、gitdir 文件、commondir、alternate object store 或 Git 元数据内部 symlink 解析到声明 workspace 外
 - **THEN** `project-context` 与 `workspace-search` 在输出结果前以输入错误拒绝
 - **AND** 不得读取外部 Git 元数据或输出外部 HEAD
 

@@ -284,6 +284,21 @@ class ProjectFactsTest(unittest.TestCase):
             unavailable.stdout,
         )
 
+        declared_commit = self.git("rev-parse", "HEAD").stdout.strip()
+        non_git_entry = self.verification_entry(verified_commit=declared_commit)
+        self.write_registry([non_git_entry, beta])
+        shutil.rmtree(self.project / ".git")
+        non_git = self.run_cli("project-context", "--project", "alpha")
+        self.assertEqual(0, non_git.returncode, non_git.stderr)
+        self.assertIn(
+            "PROJECT\talpha\talpha\tmaven\tkb/projects/alpha.md\tavailable",
+            non_git.stdout,
+        )
+        self.assertIn(
+            "VERIFICATION\tverified_commit\tunavailable\t" + declared_commit,
+            non_git.stdout,
+        )
+
     def test_registry_rejects_invalid_dependencies_and_verification(self):
         beta_card = self.ai / "kb/projects/beta.md"
         beta_card.write_text("# Beta\n", encoding="utf-8")
