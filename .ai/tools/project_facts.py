@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -351,6 +352,15 @@ def resolve_project_root(project: dict[str, Any]) -> Path:
     return project_root
 
 
+def _git_metadata_target(
+    raw_target: str, base: Path, workspace: Path, label: str
+) -> Path:
+    target = Path(raw_target)
+    if not target.is_absolute():
+        target = base / target
+    return _within(target.resolve(), workspace, label)
+
+
 def _validated_git_entry(project: dict[str, Any]) -> Path | None:
     project_root = resolve_project_root(project)
     git_entry = project_root / ".git"
@@ -358,14 +368,15 @@ def _validated_git_entry(project: dict[str, Any]) -> Path | None:
         return None
 
     workspace: Path = project["_workspace"]
+    original_entry = git_entry
     if git_entry.is_symlink():
-        _within(
-            git_entry.resolve(),
+        original_entry = _git_metadata_target(
+            str(git_entry),
+            git_entry.parent,
             workspace,
             f"project {project['name']} Git metadata",
         )
-        return git_entry
-    if git_entry.is_file():
+    elif git_entry.is_file():
         try:
             content = git_entry.read_text(encoding="utf-8").strip()
         except OSError as exc:
@@ -376,15 +387,72 @@ def _validated_git_entry(project: dict[str, Any]) -> Path | None:
             raise InputError(
                 f"invalid project {project['name']} Git metadata file"
             )
-        target = Path(content.removeprefix("gitdir:").strip())
-        if not target.is_absolute():
-            target = git_entry.parent / target
-        _within(
-            target.resolve(),
+        original_entry = _git_metadata_target(
+            content.removeprefix("gitdir:").strip(),
+            git_entry.parent,
             workspace,
             f"project {project['name']} Git metadata",
         )
+
+    metadata_roots = [original_entry]
+    current = original_entry
+    seen_common: set[Path] = set()
+    while (current / "commondir").is_file():
+        if current in seen_common:
+            raise InputError(
+                f"project {project['name']} Git commondir cycle"
+            )
+        seen_common.add(current)
+        try:
+            raw_common = (current / "commondir").read_text(
+                encoding="utf-8"
+            ).strip()
+        except OSError as exc:
+            raise InputError(
+                f"cannot read project {project['name']} Git commondir: {exc}"
+            ) from exc
+        current = _git_metadata_target(
+            raw_common,
+            current,
+            workspace,
+            f"project {project['name']} Git commondir",
+        )
+        metadata_roots.append(current)
+
+    for metadata_root in metadata_roots:
+        alternates = metadata_root / "objects/info/alternates"
+        if alternates.is_file():
+            try:
+                alternate_lines = alternates.read_text(encoding="utf-8").splitlines()
+            except OSError as exc:
+                raise InputError(
+                    f"cannot read project {project['name']} Git alternates: {exc}"
+                ) from exc
+            for alternate in alternate_lines:
+                if alternate and not alternate.startswith("#"):
+                    _git_metadata_target(
+                        alternate,
+                        metadata_root / "objects",
+                        workspace,
+                        f"project {project['name']} Git alternate object store",
+                    )
+        for path in metadata_root.rglob("*"):
+            if path.is_symlink():
+                _within(
+                    path.resolve(),
+                    workspace,
+                    f"project {project['name']} Git metadata symlink",
+                )
     return git_entry
+
+
+def _git_environment() -> dict[str, str]:
+    environment = os.environ.copy()
+    for name in list(environment):
+        if name == "GIT" or name.startswith("GIT_"):
+            environment.pop(name, None)
+    environment["GIT_CONFIG_NOSYSTEM"] = "1"
+    return environment
 
 
 def select_projects(projects: list[dict[str, Any]], names: list[str] | None) -> list[dict[str, Any]]:
@@ -435,10 +503,14 @@ def project_context(projects: list[dict[str, Any]], name: str) -> int:
         status = "unavailable"
         if git_entry is not None:
             result = subprocess.run(
-                ["git", "-C", str(project_root), "rev-parse", "HEAD"],
+                [
+                    "git", "-C", str(project_root),
+                    "--work-tree", str(project_root), "rev-parse", "HEAD",
+                ],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 check=False,
+                env=_git_environment(),
             )
             current = result.stdout.decode("utf-8", errors="replace").strip()
             if result.returncode == 0 and COMMIT_PATTERN.fullmatch(current):
@@ -489,11 +561,17 @@ def _git_candidates(
     if _validated_git_entry(project) is None:
         raise InputError(f"project is not a Git working tree: {project_root.name}")
     command = [
-        "git", "--literal-pathspecs", "-C", str(project_root), "ls-files", "-z", "--cached", "--others",
+        "git", "--literal-pathspecs", "-C", str(project_root),
+        "--work-tree", str(project_root), "ls-files", "-z", "--cached",
+        "--others",
         "--exclude-standard", "--", *roots,
     ]
     result = subprocess.run(
-        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+        env=_git_environment(),
     )
     if result.returncode:
         message = result.stderr.decode("utf-8", errors="replace").strip()

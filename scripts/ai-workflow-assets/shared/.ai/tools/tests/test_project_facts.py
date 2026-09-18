@@ -375,6 +375,25 @@ class ProjectFactsTest(unittest.TestCase):
             self.assertIn("Git metadata", result.stderr)
             self.assertIn("boundary", result.stderr.lower())
 
+        (self.project / ".git").unlink()
+        (self.project / ".git").mkdir()
+        (self.project / ".git/HEAD").write_text(
+            external_head + "\n", encoding="utf-8"
+        )
+        (self.project / ".git/commondir").write_text(
+            str(external / ".git") + "\n", encoding="utf-8"
+        )
+        common_context = self.run_cli("project-context", "--project", "alpha")
+        common_search = self.run_cli(
+            "workspace-search", "--project", "alpha", "--text", "needle",
+            "--limit", "5", "--offset", "0",
+        )
+        for result in (common_context, common_search):
+            self.assertEqual(2, result.returncode)
+            self.assertEqual("", result.stdout)
+            self.assertIn("Git commondir", result.stderr)
+            self.assertIn("boundary", result.stderr.lower())
+
     def test_unregistered_project_is_rejected(self):
         result = self.run_cli("project-context", "--project", "unknown")
         self.assertEqual(2, result.returncode)
