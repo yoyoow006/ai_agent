@@ -54,3 +54,44 @@
 - 依赖与验证声明可能过期，仍需目标维护者从权威源码、构建清单和契约复核。
 - `verified_commit=current` 只说明 HEAD 与登记基线一致，不覆盖 dirty worktree，也不代表当前任务通过。
 - Git 本地 config 仍会被解析；已知执行/外扩路径已被命令行最高优先级覆盖，未来 Git 新执行机制需重新评估。
+
+## Verify 双阶段独立审查
+
+### 规格符合性
+
+- 初审 manifest：`ee34652b36c46716eaa010a853392bfce8c4dfdba3f8df02dab9c02a68cb3072`
+- 初审 HEAD：`b10eb98`
+- 初审发现：
+  - `S-1-non-git-unavailable-test-missing` Important：缺少项目存在但非 Git 的 unavailable 测试。
+  - `S-2-scenario-marker-typo` Minor：Git 元数据场景 WHEN 行格式漂移。
+- 修复提交：`51b40c5`
+- 复审 manifest：`460181fe29533fb0534080fef7edc2dfdca5894d2a6cef9c6161a2fef1c1a9ff`
+- 复审结论：PASS；S-1、S-2 均 resolved。
+- 质量修复补充的“Git 命令不可用 → unavailable”场景经最终规格增量复核 PASS，manifest `2bcf9845...536bc`。
+
+### 代码质量
+
+- 初审 manifest：`460181fe29533fb0534080fef7edc2dfdca5894d2a6cef9c6161a2fef1c1a9ff`
+- 初审 HEAD：`51b40c5`
+- 初审发现：
+  - `VERIFY-QUALITY-001` Important：commondir / alternates 控制文件先读取后检查 symlink，外部无效 UTF-8 可导致裸异常。
+  - `VERIFY-QUALITY-002` Minor：Git 可执行文件缺失时 project-context 输出部分结果后抛 FileNotFoundError。
+- 修复提交：`bc63f05`
+- 复审 manifest：`2bcf984591fc0b41b1564bb19d870a81eecb373e4f773610b2e0c25fdaf536bc`
+- 复审结论：PASS；两条 finding 均 resolved，无新 Critical/Important。
+
+## Verify 后主会话终验
+
+- `python3 -B -m unittest discover -v -s .ai/tools/tests -p 'test_*.py'`：65 tests，OK。
+- `bash scripts/validate-workflow.sh --require-openspec`：PASS=200 FAIL=0 SKIP=0；其中工作流契约测试 201 tests。
+- `python3 -B -m unittest -v scripts.tests.test_install_ai_workflow`：89 tests，OK。
+- `python3 -B -m unittest -v scripts.tests.test_install_workflow`：8 tests，OK。
+- `openspec validate --all --strict --no-interactive`：11 passed，0 failed。
+- `git diff --check`：通过。
+- 工作区：clean。
+
+## Verify finding 状态
+
+- Critical：0 open / 1 resolved。
+- Important：0 open / 4 resolved。
+- Minor：0 open / 2 resolved。
