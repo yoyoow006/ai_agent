@@ -452,7 +452,24 @@ def _git_environment() -> dict[str, str]:
         if name == "GIT" or name.startswith("GIT_"):
             environment.pop(name, None)
     environment["GIT_CONFIG_NOSYSTEM"] = "1"
+    environment["GIT_CONFIG_GLOBAL"] = "/dev/null"
+    environment["GIT_CONFIG_SYSTEM"] = "/dev/null"
+    environment["GIT_OPTIONAL_LOCKS"] = "0"
+    environment["PAGER"] = "cat"
     return environment
+
+
+def _git_command(project_root: Path, *command: str) -> list[str]:
+    return [
+        "git", "--literal-pathspecs", "-C", str(project_root),
+        "--work-tree", str(project_root),
+        "-c", "core.fsmonitor=false",
+        "-c", "core.hooksPath=/dev/null",
+        "-c", "core.attributesFile=/dev/null",
+        "-c", "core.excludesFile=/dev/null",
+        "-c", "core.pager=cat",
+        *command,
+    ]
 
 
 def select_projects(projects: list[dict[str, Any]], names: list[str] | None) -> list[dict[str, Any]]:
@@ -503,10 +520,7 @@ def project_context(projects: list[dict[str, Any]], name: str) -> int:
         status = "unavailable"
         if git_entry is not None:
             result = subprocess.run(
-                [
-                    "git", "-C", str(project_root),
-                    "--work-tree", str(project_root), "rev-parse", "HEAD",
-                ],
+                _git_command(project_root, "rev-parse", "HEAD"),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 check=False,
@@ -560,12 +574,11 @@ def _git_candidates(
 ) -> list[str]:
     if _validated_git_entry(project) is None:
         raise InputError(f"project is not a Git working tree: {project_root.name}")
-    command = [
-        "git", "--literal-pathspecs", "-C", str(project_root),
-        "--work-tree", str(project_root), "ls-files", "-z", "--cached",
-        "--others",
+    command = _git_command(
+        project_root,
+        "ls-files", "-z", "--cached", "--others",
         "--exclude-standard", "--", *roots,
-    ]
+    )
     result = subprocess.run(
         command,
         stdout=subprocess.PIPE,

@@ -189,3 +189,5 @@
 ## 2026-09-18 · 来源变更 extend-project-context-and-evidence-reuse（Git 元数据也必须锁定 workspace 边界）
 **坑**：只校验项目根落在 workspace 内还不够；项目根内 `.git` 符号链接或 gitdir 文件可把 `rev-parse` / `ls-files` 引导到外部仓库，`verified_commit=current` 可能来自 workspace 外 HEAD。
 **解**：在使用 Git 前校验 `.git` 元数据闭包：符号链接/gitdir/commondir/alternate object store/内部 symlink 的目标必须解析进声明 workspace，越界在输出前 fail-closed；Git 子进程移除外部 `GIT_*` 环境覆盖并固定 worktree。`project-context` 与 `workspace-search` 共用同一边界，并有外部仓库 symlink 与 commondir 回归。
+**坑**：即使 gitdir 边界留在 workspace，项目 `.git/config` 仍可通过 include + `core.fsmonitor` 让 `git ls-files` 执行脚本，破坏“只读查询”。
+**解**：所有 Git 子进程统一用命令行最高优先级配置禁用 `core.fsmonitor`、hooks、外部 attributes/excludes 和 pager，并把 global/system config 固定为 `/dev/null`；用 include + fsmonitor marker 回归证明脚本未执行。

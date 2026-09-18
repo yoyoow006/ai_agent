@@ -126,6 +126,12 @@
 - **THEN** `project-context` 与 `workspace-search` 在输出结果前以输入错误拒绝
 - **AND** 不得读取外部 Git 元数据或输出外部 HEAD
 
+#### Scenario: Git 配置不得引入命令执行
+
+- **WHEN** 项目 Git config 或其 include 声明 fsmonitor、hooks、外部 attributes/excludes 或 pager 等可执行/可扩展配置
+- **THEN** 事实工具以安全命令行配置覆盖这些执行路径
+- **AND** 查询过程中不得执行 registry/Git config 声明的脚本或产生外部副作用
+
 #### Scenario: 验证声明非法
 
 - **WHEN** verification 命令为空或多行、evidence 是绝对路径、包含 `..`、指向 `.ai` 边界外或文件不存在，或 verified_commit 不是 40/64 位十六进制

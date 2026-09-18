@@ -576,7 +576,7 @@ if __name__ == "__main__":
 
                 with self.subTest(assistant=assistant, command="tools"):
                     self.assertEqual(tools.returncode, 0, tools.stdout)
-                    self.assertIn("Ran 62 tests", tools.stdout)
+                    self.assertIn("Ran 63 tests", tools.stdout)
                 with self.subTest(assistant=assistant, command="public"):
                     self.assertEqual(public.returncode, 0, public.stdout)
                     shipped_count = self._shipped_contract_test_count()

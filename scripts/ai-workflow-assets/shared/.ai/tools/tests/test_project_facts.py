@@ -394,6 +394,32 @@ class ProjectFactsTest(unittest.TestCase):
             self.assertIn("Git commondir", result.stderr)
             self.assertIn("boundary", result.stderr.lower())
 
+    def test_workspace_search_disables_git_config_fsmonitor_execution(self):
+        config_directory = self.workspace / "config-external"
+        config_directory.mkdir()
+        marker = self.workspace / "fsmonitor-marker"
+        script = config_directory / "fsmonitor.sh"
+        script.write_text(
+            f'#!/bin/sh\nprintf executed > {marker}\n',
+            encoding="utf-8",
+        )
+        script.chmod(0o755)
+        (config_directory / "config").write_text(
+            "[core]\n"
+            f"\tfsmonitor = {script}\n",
+            encoding="utf-8",
+        )
+        with (self.project / ".git/config").open("a", encoding="utf-8") as config:
+            config.write(f"\n[include]\n\tpath = {config_directory / 'config'}\n")
+
+        result = self.run_cli(
+            "workspace-search", "--project", "alpha", "--text", "needle",
+            "--limit", "5", "--offset", "0",
+        )
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertFalse(marker.exists())
+
     def test_unregistered_project_is_rejected(self):
         result = self.run_cli("project-context", "--project", "unknown")
         self.assertEqual(2, result.returncode)
