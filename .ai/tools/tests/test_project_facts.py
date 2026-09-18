@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -80,6 +81,28 @@ class ProjectFactsTest(unittest.TestCase):
         value.update(overrides)
         return value
 
+    def verification_entry(self, verified_commit=None, **overrides):
+        if verified_commit is None:
+            verified_commit = self.git("rev-parse", "HEAD").stdout.strip()
+        (self.ai / "verification").mkdir(exist_ok=True)
+        (self.ai / "verification/alpha.md").write_text(
+            "# Alpha verification evidence\n", encoding="utf-8"
+        )
+        (self.ai / "verification/credentials.json").write_text(
+            "{}\n", encoding="utf-8"
+        )
+        value = self.entry(
+            dependencies=["beta"],
+            verification={
+                "build_command": "example-build --all",
+                "test_command": "example-test --all",
+                "evidence": "verification/alpha.md",
+                "verified_commit": verified_commit,
+            },
+        )
+        value.update(overrides)
+        return value
+
     def write_registry(self, projects, schema_version=1):
         (self.ai / "kb/projects/registry.json").write_text(
             json.dumps({"schema_version": schema_version, "projects": projects}),
@@ -90,6 +113,7 @@ class ProjectFactsTest(unittest.TestCase):
         return subprocess.run(
             [sys.executable, str(SCRIPT), command, "--workspace", str(self.workspace), *args],
             text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            env=None,
         )
 
     def snapshot(self):
@@ -208,6 +232,274 @@ class ProjectFactsTest(unittest.TestCase):
             "APPLICATION\talpha-server\tserver\texample.App\tsrc/App.java\n",
             result.stdout,
         )
+
+    def test_project_context_outputs_dependencies_and_verification(self):
+        beta_card = self.ai / "kb/projects/beta.md"
+        beta_card.write_text("# Beta\n", encoding="utf-8")
+        beta = self.entry(
+            name="beta", path="beta", card="kb/projects/beta.md",
+            applications=[],
+        )
+        self.write_registry([self.verification_entry(), beta])
+
+        result = self.run_cli("project-context", "--project", "alpha")
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(
+            [
+                "PROJECT\talpha\talpha\tmaven\tkb/projects/alpha.md\tavailable",
+                "APPLICATION\talpha-server\tserver\texample.App\tsrc/App.java",
+                "DEPENDENCY\tbeta",
+                "VERIFICATION\tbuild\texample-build --all",
+                "VERIFICATION\ttest\texample-test --all",
+                "VERIFICATION\tevidence\tverification/alpha.md",
+                "VERIFICATION\tverified_commit\tcurrent\t"
+                + self.git("rev-parse", "HEAD").stdout.strip(),
+            ],
+            result.stdout.splitlines(),
+        )
+
+    def test_project_context_reports_drifted_and_unavailable_verified_commit(self):
+        beta_card = self.ai / "kb/projects/beta.md"
+        beta_card.write_text("# Beta\n", encoding="utf-8")
+        beta = self.entry(
+            name="beta", path="beta", card="kb/projects/beta.md",
+            applications=[],
+        )
+        drifted_entry = self.verification_entry(verified_commit="a" * 40)
+        self.write_registry([drifted_entry, beta])
+        drifted = self.run_cli("project-context", "--project", "alpha")
+        self.assertEqual(0, drifted.returncode, drifted.stderr)
+        self.assertIn(
+            "VERIFICATION\tverified_commit\tdrifted\t" + "a" * 40,
+            drifted.stdout,
+        )
+
+        missing_entry = self.verification_entry(path="not-checked-out")
+        self.write_registry([missing_entry, beta])
+        unavailable = self.run_cli("project-context", "--project", "alpha")
+        self.assertEqual(0, unavailable.returncode, unavailable.stderr)
+        self.assertIn(
+            "VERIFICATION\tverified_commit\tunavailable\t"
+            + self.git("rev-parse", "HEAD").stdout.strip(),
+            unavailable.stdout,
+        )
+
+        declared_commit = self.git("rev-parse", "HEAD").stdout.strip()
+        non_git_entry = self.verification_entry(verified_commit=declared_commit)
+        self.write_registry([non_git_entry, beta])
+        shutil.rmtree(self.project / ".git")
+        non_git = self.run_cli("project-context", "--project", "alpha")
+        self.assertEqual(0, non_git.returncode, non_git.stderr)
+        self.assertIn(
+            "PROJECT\talpha\talpha\tmaven\tkb/projects/alpha.md\tavailable",
+            non_git.stdout,
+        )
+        self.assertIn(
+            "VERIFICATION\tverified_commit\tunavailable\t" + declared_commit,
+            non_git.stdout,
+        )
+
+    def test_registry_rejects_invalid_dependencies_and_verification(self):
+        beta_card = self.ai / "kb/projects/beta.md"
+        beta_card.write_text("# Beta\n", encoding="utf-8")
+        (self.ai / "verification").mkdir(exist_ok=True)
+        (self.ai / "verification/alpha.md").write_text(
+            "# Alpha verification evidence\n", encoding="utf-8"
+        )
+        beta = self.entry(
+            name="beta", path="beta", card="kb/projects/beta.md",
+            applications=[],
+        )
+        valid_verification = {
+            "build_command": "example-build --all",
+            "test_command": "example-test --all",
+            "evidence": "verification/alpha.md",
+            "verified_commit": "a" * 40,
+        }
+        invalid_entries = [
+            self.entry(dependencies=["unknown"]),
+            self.entry(dependencies=["alpha"]),
+            self.entry(dependencies=["beta", "beta"]),
+            self.entry(verification="invalid"),
+            self.entry(verification={}),
+            self.entry(verification={**valid_verification, "unexpected": "value"}),
+            self.entry(verification={**valid_verification, "build_command": ""}),
+            self.entry(verification={**valid_verification, "test_command": "x\ny"}),
+            self.entry(verification={**valid_verification, "evidence": "/tmp/evidence.md"}),
+            self.entry(verification={**valid_verification, "evidence": "../outside.md"}),
+            self.entry(verification={**valid_verification, "evidence": "verification/missing.md"}),
+            self.entry(verification={**valid_verification, "evidence": "verification/credentials.json"}),
+            self.entry(verification={**valid_verification, "verified_commit": "abc"}),
+        ]
+        for index, entry in enumerate(invalid_entries):
+            with self.subTest(index=index, entry=entry):
+                self.write_registry([entry, beta])
+                result = self.run_cli("project-context", "--project", "alpha")
+                self.assertEqual(2, result.returncode)
+                self.assertEqual("", result.stdout)
+                self.assertTrue(result.stderr.startswith("ERROR\t"), result.stderr)
+                self.assertEqual(1, len(result.stderr.splitlines()), result.stderr)
+
+    def test_registry_rejects_dependency_cycle(self):
+        beta_card = self.ai / "kb/projects/beta.md"
+        beta_card.write_text("# Beta\n", encoding="utf-8")
+        beta = self.entry(
+            name="beta", path="beta", card="kb/projects/beta.md",
+            dependencies=["alpha"], applications=[],
+        )
+        self.write_registry([self.entry(dependencies=["beta"]), beta])
+
+        result = self.run_cli("project-context", "--project", "alpha")
+
+        self.assertEqual(2, result.returncode)
+        self.assertEqual("", result.stdout)
+        self.assertIn("dependency cycle", result.stderr.lower())
+
+    def test_git_metadata_escape_is_rejected_for_context_and_search(self):
+        external = Path(self.tempdir.name) / "external-repository"
+        external.mkdir()
+        self.git("init", "-q", cwd=external)
+        self.git("config", "user.email", "external@example.invalid", cwd=external)
+        self.git("config", "user.name", "External", cwd=external)
+        self.git("commit", "-q", "--allow-empty", "-m", "external", cwd=external)
+        external_head = self.git("rev-parse", "HEAD", cwd=external).stdout.strip()
+
+        shutil.rmtree(self.project / ".git")
+        (self.project / ".git").symlink_to(
+            external / ".git", target_is_directory=True
+        )
+        (self.ai / "verification").mkdir(exist_ok=True)
+        (self.ai / "verification/alpha.md").write_text(
+            "# Alpha verification evidence\n", encoding="utf-8"
+        )
+        self.write_registry([
+            self.verification_entry(
+                verified_commit=external_head, dependencies=[]
+            )
+        ])
+
+        context = self.run_cli("project-context", "--project", "alpha")
+        search = self.run_cli(
+            "workspace-search", "--project", "alpha", "--text", "needle",
+            "--limit", "5", "--offset", "0",
+        )
+
+        for result in (context, search):
+            self.assertEqual(2, result.returncode)
+            self.assertEqual("", result.stdout)
+            self.assertIn("Git metadata", result.stderr)
+            self.assertIn("boundary", result.stderr.lower())
+
+        (self.project / ".git").unlink()
+        (self.project / ".git").mkdir()
+        (self.project / ".git/HEAD").write_text(
+            external_head + "\n", encoding="utf-8"
+        )
+        (self.project / ".git/commondir").write_text(
+            str(external / ".git") + "\n", encoding="utf-8"
+        )
+        common_context = self.run_cli("project-context", "--project", "alpha")
+        common_search = self.run_cli(
+            "workspace-search", "--project", "alpha", "--text", "needle",
+            "--limit", "5", "--offset", "0",
+        )
+        for result in (common_context, common_search):
+            self.assertEqual(2, result.returncode)
+            self.assertEqual("", result.stdout)
+            self.assertIn("Git commondir", result.stderr)
+            self.assertIn("boundary", result.stderr.lower())
+
+    def test_workspace_search_disables_git_config_fsmonitor_execution(self):
+        config_directory = self.workspace / "config-external"
+        config_directory.mkdir()
+        marker = self.workspace / "fsmonitor-marker"
+        script = config_directory / "fsmonitor.sh"
+        script.write_text(
+            f'#!/bin/sh\nprintf executed > {marker}\n',
+            encoding="utf-8",
+        )
+        script.chmod(0o755)
+        (config_directory / "config").write_text(
+            "[core]\n"
+            f"\tfsmonitor = {script}\n",
+            encoding="utf-8",
+        )
+        with (self.project / ".git/config").open("a", encoding="utf-8") as config:
+            config.write(f"\n[include]\n\tpath = {config_directory / 'config'}\n")
+
+        result = self.run_cli(
+            "workspace-search", "--project", "alpha", "--text", "needle",
+            "--limit", "5", "--offset", "0",
+        )
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertFalse(marker.exists())
+
+    def test_git_metadata_control_symlinks_are_rejected_before_read(self):
+        (self.ai / "verification").mkdir(exist_ok=True)
+        (self.ai / "verification/alpha.md").write_text(
+            "# Alpha verification evidence\n", encoding="utf-8"
+        )
+        self.write_registry([self.verification_entry(dependencies=[])])
+
+        external_control = Path(self.tempdir.name) / "invalid-control"
+        external_control.write_bytes(b"\xff\xfe\x00invalid")
+        (self.project / ".git/commondir").symlink_to(external_control)
+        common = self.run_cli("project-context", "--project", "alpha")
+
+        self.assertEqual(2, common.returncode)
+        self.assertEqual("", common.stdout)
+        self.assertTrue(common.stderr.startswith("ERROR\t"), common.stderr)
+        self.assertIn("Git metadata symlink", common.stderr)
+
+        (self.project / ".git/commondir").unlink()
+        info = self.project / ".git/objects/info"
+        info.mkdir(parents=True, exist_ok=True)
+        (info / "alternates").symlink_to(external_control)
+        alternate = self.run_cli("project-context", "--project", "alpha")
+
+        self.assertEqual(2, alternate.returncode)
+        self.assertEqual("", alternate.stdout)
+        self.assertTrue(alternate.stderr.startswith("ERROR\t"), alternate.stderr)
+        self.assertIn("Git metadata symlink", alternate.stderr)
+
+    def test_missing_git_binary_produces_stable_results(self):
+        (self.ai / "verification").mkdir(exist_ok=True)
+        (self.ai / "verification/alpha.md").write_text(
+            "# Alpha verification evidence\n", encoding="utf-8"
+        )
+        self.write_registry([self.verification_entry(dependencies=[])])
+        environment = os.environ.copy()
+        environment["PATH"] = ""
+
+        context = subprocess.run(
+            [
+                sys.executable, str(SCRIPT), "project-context",
+                "--workspace", str(self.workspace), "--project", "alpha",
+            ],
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            env=environment,
+        )
+        search = subprocess.run(
+            [
+                sys.executable, str(SCRIPT), "workspace-search",
+                "--workspace", str(self.workspace), "--project", "alpha",
+                "--text", "needle", "--limit", "5", "--offset", "0",
+            ],
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            env=environment,
+        )
+
+        self.assertEqual(0, context.returncode, context.stderr)
+        self.assertNotIn("Traceback", context.stderr)
+        self.assertIn(
+            "VERIFICATION\tverified_commit\tunavailable",
+            context.stdout,
+        )
+        self.assertEqual(2, search.returncode)
+        self.assertEqual("", search.stdout)
+        self.assertTrue(search.stderr.startswith("ERROR\t"), search.stderr)
 
     def test_unregistered_project_is_rejected(self):
         result = self.run_cli("project-context", "--project", "unknown")
@@ -488,7 +780,28 @@ class ProjectFactsTest(unittest.TestCase):
                 self.assertIn(reason, result.stderr.lower())
 
     def test_all_queries_leave_workspace_content_and_mtime_unchanged(self):
-        self.write_registry([self.business_entry()])
+        beta_card = self.ai / "kb/projects/beta.md"
+        beta_card.write_text("# Beta\n", encoding="utf-8")
+        beta = self.entry(
+            name="beta", path="beta", card="kb/projects/beta.md",
+            applications=[],
+        )
+        (self.ai / "verification").mkdir(exist_ok=True)
+        (self.ai / "verification/alpha.md").write_text(
+            "# Alpha verification evidence\n", encoding="utf-8"
+        )
+        self.write_registry([
+            self.business_entry(
+                dependencies=["beta"],
+                verification={
+                    "build_command": "example-build --all",
+                    "test_command": "example-test --all",
+                    "evidence": "verification/alpha.md",
+                    "verified_commit": self.git("rev-parse", "HEAD").stdout.strip(),
+                },
+            ),
+            beta,
+        ])
         before = self.snapshot()
         time.sleep(0.01)
         commands = [

@@ -181,3 +181,13 @@
 ## 2026-09-17 · 来源变更 align-workflow-semantics-and-business-context（archive-light 升级必须先分类）
 **坑**：wrapper 先跑轻量 core，之后发现语义 diff 才追加顶层契约套件，导致 core 没有收到 `--require-openspec`；`git diff ... 2>/dev/null || true` 会把非法 base/pathspec 吞成“无变化”，归档可假绿。
 **解**：在调用 core 前完成 archive diff 分类；Git 缺失或 diff 非零立即 exit 2，命中语义变化时把 `--require-openspec` 追加到 forwarded arguments，再执行 core 和顶层契约套件。回归必须同时断言 core 参数、diff fail-closed 和契约套件执行。
+
+## 2026-09-18 · 来源变更 extend-project-context-and-evidence-reuse（随包契约不得假设双助手共存）
+**坑**：新增 ProjectContextEvidenceContractTest 直接遍历 `.codex` 与 `.claude` 两侧 verification 技能；便携安装目标按设计只包含单侧适配，Claude-only/Codex-only 目标内该测试因缺失另一侧而失败。
+**解**：随包契约测试先枚举当前安装中实际存在的助手技能，至少一侧存在即可继续；只有源仓或双运行时安装才自然检查两侧。新增测试必须在单助手安装目标中跑通，不能把“另一侧不存在”当缺陷。
+
+## 2026-09-18 · 来源变更 extend-project-context-and-evidence-reuse（Git 元数据也必须锁定 workspace 边界）
+**坑**：只校验项目根落在 workspace 内还不够；项目根内 `.git` 符号链接或 gitdir 文件可把 `rev-parse` / `ls-files` 引导到外部仓库，`verified_commit=current` 可能来自 workspace 外 HEAD。
+**解**：在使用 Git 前校验 `.git` 元数据闭包：符号链接/gitdir/commondir/alternate object store/内部 symlink 的目标必须解析进声明 workspace，越界在输出前 fail-closed；Git 子进程移除外部 `GIT_*` 环境覆盖并固定 worktree。`project-context` 与 `workspace-search` 共用同一边界，并有外部仓库 symlink 与 commondir 回归。
+**坑**：即使 gitdir 边界留在 workspace，项目 `.git/config` 仍可通过 include + `core.fsmonitor` 让 `git ls-files` 执行脚本，破坏“只读查询”。
+**解**：所有 Git 子进程统一用命令行最高优先级配置禁用 `core.fsmonitor`、hooks、外部 attributes/excludes 和 pager，并把 global/system config 固定为 `/dev/null`；用 include + fsmonitor marker 回归证明脚本未执行。

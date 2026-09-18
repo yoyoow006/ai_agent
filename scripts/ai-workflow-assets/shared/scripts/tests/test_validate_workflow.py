@@ -2749,6 +2749,69 @@ class WorkflowSemanticSyncTest(unittest.TestCase):
                     )
 
 
+class ProjectContextEvidenceContractTest(unittest.TestCase):
+    """mutation: 项目上下文模板与验证证据复用边界不得漂移。"""
+
+    @property
+    def _is_source_repository(self) -> bool:
+        return (
+            REPOSITORY_ROOT / "scripts" / "lib" / "install_ai_workflow.py"
+        ).is_file()
+
+    def test_project_template_defines_complete_context(self) -> None:
+        path = REPOSITORY_ROOT / ".ai" / "kb" / "projects" / "_template.md"
+        self.assertTrue(path.is_file(), "missing generic project card template")
+        text = path.read_text(encoding="utf-8")
+        for token in (
+            "project: example-project", "职责", "高频入口", "跨仓库关系",
+            "搜索锚点", "验证入口", "verified_commit",
+        ):
+            self.assertIn(token, text, f"project template lacks {token}")
+
+    def test_verification_evidence_preserves_fresh_gate(self) -> None:
+        path = REPOSITORY_ROOT / ".ai" / "kb" / "verification-evidence.md"
+        self.assertTrue(path.is_file(), "missing verification evidence contract")
+        text = path.read_text(encoding="utf-8")
+        for token in (
+            "不是任务状态", "当前项目 HEAD 等于证据 commit", "环境类别",
+            "结果：", "不可复用条件",
+            "新鲜验证", "NOT_RUN", "UNKNOWN", "不替代",
+        ):
+            self.assertIn(token, text, f"verification evidence lacks {token}")
+        self.assertNotIn("，或与结论相关", text)
+
+    def test_verification_skills_route_evidence_contract(self) -> None:
+        skill_paths = [
+            REPOSITORY_ROOT / assistant / "skills" / "verification" / "SKILL.md"
+            for assistant in (".codex", ".claude")
+        ]
+        skill_paths = [path for path in skill_paths if path.is_file()]
+        self.assertTrue(skill_paths, "no verification skill is installed")
+        for path in skill_paths:
+            text = path.read_text(encoding="utf-8")
+            self.assertIn("verification-evidence.md", text)
+            self.assertIn("不表示当前任务通过", text)
+
+    def test_installer_assets_include_project_context_evidence(self) -> None:
+        if not self._is_source_repository:
+            self.skipTest("installer asset tree is source-repository only")
+        asset_root = (
+            REPOSITORY_ROOT / "scripts" / "ai-workflow-assets" / "shared" / ".ai"
+        )
+        template = asset_root / "kb" / "projects" / "_template.md"
+        evidence = asset_root / "kb" / "verification-evidence.md"
+        self.assertTrue(template.is_file(), "installer lacks project template")
+        self.assertTrue(evidence.is_file(), "installer lacks evidence contract")
+        self.assertEqual(
+            template.read_bytes(),
+            (REPOSITORY_ROOT / ".ai" / "kb" / "projects" / "_template.md").read_bytes(),
+        )
+        self.assertEqual(
+            evidence.read_bytes(),
+            (REPOSITORY_ROOT / ".ai" / "kb" / "verification-evidence.md").read_bytes(),
+        )
+
+
 class StrictSecondConfirmHardSetTest(unittest.TestCase):
     """mutation: AGENTS.md 严格模式节必须含硬风险集合 + 连续 Build 句。"""
 

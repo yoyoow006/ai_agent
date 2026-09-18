@@ -35,8 +35,9 @@ SKILL_NAMES = (
 EXPECTED_ASSET_PATHS = {
     "shared": (
         ".ai/README.md", ".ai/kb/README.md", ".ai/kb/overview.md",
-        ".ai/kb/projects/README.md", ".ai/kb/projects/registry.json",
-        ".ai/kb/repository-ignore-rules.md", ".ai/memory/README.md",
+        ".ai/kb/projects/README.md", ".ai/kb/projects/_template.md",
+        ".ai/kb/projects/registry.json", ".ai/kb/repository-ignore-rules.md",
+        ".ai/kb/verification-evidence.md", ".ai/memory/README.md",
         ".ai/prompts/agents/explorer.md", ".ai/prompts/agents/reviewer.md",
         ".ai/prompts/agents/test-worker.md", ".ai/rules/index.md",
         ".ai/rules/review.md", ".ai/tools/README.md",
@@ -575,7 +576,7 @@ if __name__ == "__main__":
 
                 with self.subTest(assistant=assistant, command="tools"):
                     self.assertEqual(tools.returncode, 0, tools.stdout)
-                    self.assertIn("Ran 57 tests", tools.stdout)
+                    self.assertIn("Ran 65 tests", tools.stdout)
                 with self.subTest(assistant=assistant, command="public"):
                     self.assertEqual(public.returncode, 0, public.stdout)
                     shipped_count = self._shipped_contract_test_count()
