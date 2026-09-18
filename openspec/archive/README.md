@@ -32,3 +32,4 @@
 - `speed-up-ci-validation` — GitHub Actions validate 提速：随包并行契约执行器＋required 参数转发＋安装器集成去重＋sentinel fail-closed 探针(严格)
 - `align-workflow-semantics-and-business-context` — 对齐双运行式流程语义并补齐声明式业务词路由；加固 archive-light required 升级与 fail-closed 边界(严格)
 - `install-codex-workflow-ai-hospital` — 安装 Codex 工作流到 ai_hospital 并固化 fuseblk 空父目录适配(严格)
+- `extend-project-context-and-evidence-reuse` — 扩展项目上下文模板、多仓依赖与验证声明，并固化证据复用和 Git 元数据安全边界(严格)

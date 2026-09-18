@@ -95,3 +95,11 @@
 - Critical：0 open / 1 resolved。
 - Important：0 open / 4 resolved。
 - Minor：0 open / 2 resolved。
+
+## 归档前最终审查身份
+
+- 最终 manifest ID：`61390e2c9488b9cc9720b230713c7ede0a0ee094882aad84fa93448ef8684fb0`
+- comparison base：`main` / merge-base `9122102074df77d02b385b3b31ac3143440735aa`
+- 审查 HEAD：`8557812`
+- finding 状态：Critical 0 open / 1 resolved；Important 0 open / 4 resolved；Minor 0 open / 2 resolved。
+- 未验证范围与残余风险：见上文对应章节。
