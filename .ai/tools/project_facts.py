@@ -361,6 +361,21 @@ def _git_metadata_target(
     return _within(target.resolve(), workspace, label)
 
 
+def _validate_metadata_path(path: Path, workspace: Path, label: str) -> None:
+    components: list[Path] = []
+    current = path
+    while current != current.parent:
+        components.append(current)
+        current = current.parent
+    for component in reversed(components):
+        if component.is_symlink():
+            _within(
+                component.resolve(),
+                workspace,
+                label,
+            )
+
+
 def _validated_git_entry(project: dict[str, Any]) -> Path | None:
     project_root = resolve_project_root(project)
     git_entry = project_root / ".git"
@@ -379,7 +394,7 @@ def _validated_git_entry(project: dict[str, Any]) -> Path | None:
     elif git_entry.is_file():
         try:
             content = git_entry.read_text(encoding="utf-8").strip()
-        except OSError as exc:
+        except (OSError, UnicodeError) as exc:
             raise InputError(
                 f"cannot read project {project['name']} Git metadata: {exc}"
             ) from exc
@@ -397,7 +412,15 @@ def _validated_git_entry(project: dict[str, Any]) -> Path | None:
     metadata_roots = [original_entry]
     current = original_entry
     seen_common: set[Path] = set()
-    while (current / "commondir").is_file():
+    while True:
+        commondir = current / "commondir"
+        _validate_metadata_path(
+            commondir,
+            workspace,
+            f"project {project['name']} Git metadata symlink",
+        )
+        if not commondir.is_file():
+            break
         if current in seen_common:
             raise InputError(
                 f"project {project['name']} Git commondir cycle"
@@ -407,7 +430,7 @@ def _validated_git_entry(project: dict[str, Any]) -> Path | None:
             raw_common = (current / "commondir").read_text(
                 encoding="utf-8"
             ).strip()
-        except OSError as exc:
+        except (OSError, UnicodeError) as exc:
             raise InputError(
                 f"cannot read project {project['name']} Git commondir: {exc}"
             ) from exc
@@ -421,10 +444,15 @@ def _validated_git_entry(project: dict[str, Any]) -> Path | None:
 
     for metadata_root in metadata_roots:
         alternates = metadata_root / "objects/info/alternates"
+        _validate_metadata_path(
+            alternates,
+            workspace,
+            f"project {project['name']} Git metadata symlink",
+        )
         if alternates.is_file():
             try:
                 alternate_lines = alternates.read_text(encoding="utf-8").splitlines()
-            except OSError as exc:
+            except (OSError, UnicodeError) as exc:
                 raise InputError(
                     f"cannot read project {project['name']} Git alternates: {exc}"
                 ) from exc
@@ -472,6 +500,23 @@ def _git_command(project_root: Path, *command: str) -> list[str]:
     ]
 
 
+def _current_git_head(project_root: Path) -> str | None:
+    try:
+        result = subprocess.run(
+            _git_command(project_root, "rev-parse", "HEAD"),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            env=_git_environment(),
+        )
+    except OSError:
+        return None
+    current = result.stdout.decode("utf-8", errors="replace").strip()
+    if result.returncode == 0 and COMMIT_PATTERN.fullmatch(current):
+        return current
+    return None
+
+
 def select_projects(projects: list[dict[str, Any]], names: list[str] | None) -> list[dict[str, Any]]:
     if not names:
         return projects
@@ -495,6 +540,7 @@ def project_context(projects: list[dict[str, Any]], name: str) -> int:
         if "verified_commit" in verification
         else None
     )
+    current_head = _current_git_head(project_root) if git_entry else None
     status = "available" if project_root.is_dir() else "missing"
     print("\t".join([
         "PROJECT", project["name"], project["path"], project["build"],
@@ -518,21 +564,12 @@ def project_context(projects: list[dict[str, Any]], name: str) -> int:
     if "verified_commit" in verification:
         declared = verification["verified_commit"]
         status = "unavailable"
-        if git_entry is not None:
-            result = subprocess.run(
-                _git_command(project_root, "rev-parse", "HEAD"),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                check=False,
-                env=_git_environment(),
+        if current_head is not None:
+            status = (
+                "current"
+                if current_head.lower() == declared.lower()
+                else "drifted"
             )
-            current = result.stdout.decode("utf-8", errors="replace").strip()
-            if result.returncode == 0 and COMMIT_PATTERN.fullmatch(current):
-                status = (
-                    "current"
-                    if current.lower() == declared.lower()
-                    else "drifted"
-                )
         print(f"VERIFICATION\tverified_commit\t{status}\t{declared}")
     return 0
 
@@ -579,13 +616,18 @@ def _git_candidates(
         "ls-files", "-z", "--cached", "--others",
         "--exclude-standard", "--", *roots,
     )
-    result = subprocess.run(
-        command,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-        env=_git_environment(),
-    )
+    try:
+        result = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            env=_git_environment(),
+        )
+    except OSError as exc:
+        raise InputError(
+            f"cannot execute Git for project {project['name']}: {exc}"
+        ) from exc
     if result.returncode:
         message = result.stderr.decode("utf-8", errors="replace").strip()
         raise InputError(f"cannot list project files: {message}")

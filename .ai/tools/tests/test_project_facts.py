@@ -113,6 +113,7 @@ class ProjectFactsTest(unittest.TestCase):
         return subprocess.run(
             [sys.executable, str(SCRIPT), command, "--workspace", str(self.workspace), *args],
             text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            env=None,
         )
 
     def snapshot(self):
@@ -434,6 +435,71 @@ class ProjectFactsTest(unittest.TestCase):
 
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertFalse(marker.exists())
+
+    def test_git_metadata_control_symlinks_are_rejected_before_read(self):
+        (self.ai / "verification").mkdir(exist_ok=True)
+        (self.ai / "verification/alpha.md").write_text(
+            "# Alpha verification evidence\n", encoding="utf-8"
+        )
+        self.write_registry([self.verification_entry(dependencies=[])])
+
+        external_control = Path(self.tempdir.name) / "invalid-control"
+        external_control.write_bytes(b"\xff\xfe\x00invalid")
+        (self.project / ".git/commondir").symlink_to(external_control)
+        common = self.run_cli("project-context", "--project", "alpha")
+
+        self.assertEqual(2, common.returncode)
+        self.assertEqual("", common.stdout)
+        self.assertTrue(common.stderr.startswith("ERROR\t"), common.stderr)
+        self.assertIn("Git metadata symlink", common.stderr)
+
+        (self.project / ".git/commondir").unlink()
+        info = self.project / ".git/objects/info"
+        info.mkdir(parents=True, exist_ok=True)
+        (info / "alternates").symlink_to(external_control)
+        alternate = self.run_cli("project-context", "--project", "alpha")
+
+        self.assertEqual(2, alternate.returncode)
+        self.assertEqual("", alternate.stdout)
+        self.assertTrue(alternate.stderr.startswith("ERROR\t"), alternate.stderr)
+        self.assertIn("Git metadata symlink", alternate.stderr)
+
+    def test_missing_git_binary_produces_stable_results(self):
+        (self.ai / "verification").mkdir(exist_ok=True)
+        (self.ai / "verification/alpha.md").write_text(
+            "# Alpha verification evidence\n", encoding="utf-8"
+        )
+        self.write_registry([self.verification_entry(dependencies=[])])
+        environment = os.environ.copy()
+        environment["PATH"] = ""
+
+        context = subprocess.run(
+            [
+                sys.executable, str(SCRIPT), "project-context",
+                "--workspace", str(self.workspace), "--project", "alpha",
+            ],
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            env=environment,
+        )
+        search = subprocess.run(
+            [
+                sys.executable, str(SCRIPT), "workspace-search",
+                "--workspace", str(self.workspace), "--project", "alpha",
+                "--text", "needle", "--limit", "5", "--offset", "0",
+            ],
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            env=environment,
+        )
+
+        self.assertEqual(0, context.returncode, context.stderr)
+        self.assertNotIn("Traceback", context.stderr)
+        self.assertIn(
+            "VERIFICATION\tverified_commit\tunavailable",
+            context.stdout,
+        )
+        self.assertEqual(2, search.returncode)
+        self.assertEqual("", search.stdout)
+        self.assertTrue(search.stderr.startswith("ERROR\t"), search.stderr)
 
     def test_unregistered_project_is_rejected(self):
         result = self.run_cli("project-context", "--project", "unknown")

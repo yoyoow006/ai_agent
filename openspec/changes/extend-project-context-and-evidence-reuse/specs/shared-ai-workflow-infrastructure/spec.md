@@ -57,7 +57,7 @@
 
 #### Scenario: 已验证 commit 漂移或不可用
 
-- **WHEN** verified_commit 不等于当前 HEAD、项目未检出或项目不是 Git 工作树
+- **WHEN** verified_commit 不等于当前 HEAD、项目未检出、项目不是 Git 工作树或 Git 命令不可用
 - **THEN** `project-context` 分别输出 drifted 或 unavailable
 - **AND** 不得沿用该证据声称当前代码通过
 
