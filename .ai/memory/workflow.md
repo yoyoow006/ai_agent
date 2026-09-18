@@ -185,3 +185,7 @@
 ## 2026-09-18 · 来源变更 extend-project-context-and-evidence-reuse（随包契约不得假设双助手共存）
 **坑**：新增 ProjectContextEvidenceContractTest 直接遍历 `.codex` 与 `.claude` 两侧 verification 技能；便携安装目标按设计只包含单侧适配，Claude-only/Codex-only 目标内该测试因缺失另一侧而失败。
 **解**：随包契约测试先枚举当前安装中实际存在的助手技能，至少一侧存在即可继续；只有源仓或双运行时安装才自然检查两侧。新增测试必须在单助手安装目标中跑通，不能把“另一侧不存在”当缺陷。
+
+## 2026-09-18 · 来源变更 extend-project-context-and-evidence-reuse（Git 元数据也必须锁定 workspace 边界）
+**坑**：只校验项目根落在 workspace 内还不够；项目根内 `.git` 符号链接或 gitdir 文件可把 `rev-parse` / `ls-files` 引导到外部仓库，`verified_commit=current` 可能来自 workspace 外 HEAD。
+**解**：在使用 Git 前校验 `.git` 实体：符号链接目标或 gitdir 文件目标必须解析进声明 workspace，越界在输出前 fail-closed；`project-context` 与 `workspace-search` 共用同一边界，并有外部仓库 symlink 回归。

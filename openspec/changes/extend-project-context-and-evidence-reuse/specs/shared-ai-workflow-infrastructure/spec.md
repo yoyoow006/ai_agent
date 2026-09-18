@@ -61,6 +61,12 @@
 - **THEN** `project-context` 分别输出 drifted 或 unavailable
 - **AND** 不得沿用该证据声称当前代码通过
 
+#### Scenario: Git 元数据越界
+
+- **WHEN** 项目 `.git` 符号链接或 gitdir 文件解析到声明 workspace 外
+- **THEN** `project-context` 与 `workspace-search` 在输出结果前以输入错误拒绝
+- **AND** 不得读取外部 Git 元数据或输出外部 HEAD
+
 #### Scenario: 验证声明非法
 
 - **WHEN** verification 命令为空或多行、evidence 是绝对路径、包含 `..`、指向 `.ai` 边界外或文件不存在，或 verified_commit 不是 40/64 位十六进制

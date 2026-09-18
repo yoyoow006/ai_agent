@@ -2773,10 +2773,12 @@ class ProjectContextEvidenceContractTest(unittest.TestCase):
         self.assertTrue(path.is_file(), "missing verification evidence contract")
         text = path.read_text(encoding="utf-8")
         for token in (
-            "不是任务状态", "代码基线", "环境类别", "结果：", "不可复用条件",
+            "不是任务状态", "当前项目 HEAD 等于证据 commit", "环境类别",
+            "结果：", "不可复用条件",
             "新鲜验证", "NOT_RUN", "UNKNOWN", "不替代",
         ):
             self.assertIn(token, text, f"verification evidence lacks {token}")
+        self.assertNotIn("，或与结论相关", text)
 
     def test_verification_skills_route_evidence_contract(self) -> None:
         skill_paths = [

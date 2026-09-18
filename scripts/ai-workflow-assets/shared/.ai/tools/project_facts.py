@@ -351,6 +351,42 @@ def resolve_project_root(project: dict[str, Any]) -> Path:
     return project_root
 
 
+def _validated_git_entry(project: dict[str, Any]) -> Path | None:
+    project_root = resolve_project_root(project)
+    git_entry = project_root / ".git"
+    if not git_entry.exists():
+        return None
+
+    workspace: Path = project["_workspace"]
+    if git_entry.is_symlink():
+        _within(
+            git_entry.resolve(),
+            workspace,
+            f"project {project['name']} Git metadata",
+        )
+        return git_entry
+    if git_entry.is_file():
+        try:
+            content = git_entry.read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            raise InputError(
+                f"cannot read project {project['name']} Git metadata: {exc}"
+            ) from exc
+        if not content.startswith("gitdir:"):
+            raise InputError(
+                f"invalid project {project['name']} Git metadata file"
+            )
+        target = Path(content.removeprefix("gitdir:").strip())
+        if not target.is_absolute():
+            target = git_entry.parent / target
+        _within(
+            target.resolve(),
+            workspace,
+            f"project {project['name']} Git metadata",
+        )
+    return git_entry
+
+
 def select_projects(projects: list[dict[str, Any]], names: list[str] | None) -> list[dict[str, Any]]:
     if not names:
         return projects
@@ -368,6 +404,12 @@ def select_projects(projects: list[dict[str, Any]], names: list[str] | None) -> 
 def project_context(projects: list[dict[str, Any]], name: str) -> int:
     project = select_projects(projects, [name])[0]
     project_root = resolve_project_root(project)
+    verification = project.get("verification", {})
+    git_entry = (
+        _validated_git_entry(project)
+        if "verified_commit" in verification
+        else None
+    )
     status = "available" if project_root.is_dir() else "missing"
     print("\t".join([
         "PROJECT", project["name"], project["path"], project["build"],
@@ -380,7 +422,6 @@ def project_context(projects: list[dict[str, Any]], name: str) -> int:
         ]))
     for dependency in project.get("dependencies", []):
         print(f"DEPENDENCY\t{dependency}")
-    verification = project.get("verification", {})
     for field, label in (
         ("build_command", "build"),
         ("test_command", "test"),
@@ -392,7 +433,7 @@ def project_context(projects: list[dict[str, Any]], name: str) -> int:
     if "verified_commit" in verification:
         declared = verification["verified_commit"]
         status = "unavailable"
-        if project_root.is_dir() and (project_root / ".git").exists():
+        if git_entry is not None:
             result = subprocess.run(
                 ["git", "-C", str(project_root), "rev-parse", "HEAD"],
                 stdout=subprocess.PIPE,
@@ -442,8 +483,10 @@ def server_registry(
     return 0
 
 
-def _git_candidates(project_root: Path, roots: list[str]) -> list[str]:
-    if not (project_root / ".git").exists():
+def _git_candidates(
+    project: dict[str, Any], project_root: Path, roots: list[str]
+) -> list[str]:
+    if _validated_git_entry(project) is None:
         raise InputError(f"project is not a Git working tree: {project_root.name}")
     command = [
         "git", "--literal-pathspecs", "-C", str(project_root), "ls-files", "-z", "--cached", "--others",
@@ -541,7 +584,7 @@ def workspace_search(
                 raise InputError(f"project is not checked out: {project['name']}")
             continue
         roots = project["search_roots"]
-        for relative in _git_candidates(project_root, roots):
+        for relative in _git_candidates(project, project_root, roots):
             if _has_symlink_component(project_root, relative):
                 continue
             candidate = _validated_child(

@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -338,6 +339,41 @@ class ProjectFactsTest(unittest.TestCase):
         self.assertEqual(2, result.returncode)
         self.assertEqual("", result.stdout)
         self.assertIn("dependency cycle", result.stderr.lower())
+
+    def test_git_metadata_escape_is_rejected_for_context_and_search(self):
+        external = Path(self.tempdir.name) / "external-repository"
+        external.mkdir()
+        self.git("init", "-q", cwd=external)
+        self.git("config", "user.email", "external@example.invalid", cwd=external)
+        self.git("config", "user.name", "External", cwd=external)
+        self.git("commit", "-q", "--allow-empty", "-m", "external", cwd=external)
+        external_head = self.git("rev-parse", "HEAD", cwd=external).stdout.strip()
+
+        shutil.rmtree(self.project / ".git")
+        (self.project / ".git").symlink_to(
+            external / ".git", target_is_directory=True
+        )
+        (self.ai / "verification").mkdir(exist_ok=True)
+        (self.ai / "verification/alpha.md").write_text(
+            "# Alpha verification evidence\n", encoding="utf-8"
+        )
+        self.write_registry([
+            self.verification_entry(
+                verified_commit=external_head, dependencies=[]
+            )
+        ])
+
+        context = self.run_cli("project-context", "--project", "alpha")
+        search = self.run_cli(
+            "workspace-search", "--project", "alpha", "--text", "needle",
+            "--limit", "5", "--offset", "0",
+        )
+
+        for result in (context, search):
+            self.assertEqual(2, result.returncode)
+            self.assertEqual("", result.stdout)
+            self.assertIn("Git metadata", result.stderr)
+            self.assertIn("boundary", result.stderr.lower())
 
     def test_unregistered_project_is_rejected(self):
         result = self.run_cli("project-context", "--project", "unknown")
