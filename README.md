@@ -12,7 +12,7 @@
 - **13 个原生技能**：5 个阶段编排器 + 8 个支撑技能（TDD、代码审查、系统化调试、完成前验证、worktree、并行代理、子代理驱动、技能写作），无需安装任何插件
 - **共享审查契约**：manifest 冻结 + STALE 双检杜绝"审旧代码报新结论"，finding 台账固定字段，最小修复沿用授权
 - **`.ai/` 共享知识层**：kb（架构）/ memory（踩坑）/ rules（路由与审查契约）/ prompts（角色契约）/ tools（事实工具），双运行时共用，坑即时记录、归档时三写沉淀
-- **声明式业务上下文路由**：目标项目可在 registry 中登记项目卡、源码搜索范围、服务入口和业务词/同义词；`business-terms` 只做有界只读路由，不携带或泄露源仓库业务事实
+- **声明式项目上下文与证据复用**：目标项目可在 registry 中登记项目卡、直接依赖、源码搜索范围、服务入口、业务词/同义词、构建/测试入口、证据文档和验证基线 commit；事实工具只做有界只读查询，不携带源仓库业务事实，也不执行登记命令
 - **双运行时镜像校验**：Claude 与 Codex 技能字节级镜像比对，流程语义分叉即校验失败；旧版"一刀切重流程"的回归同样会被拦截
 - **一键安装器**：把整套工作流装进任意目标项目，装后自检全绿才退出；升级走台账驱动事务路径，失败自动回滚
 
@@ -55,7 +55,7 @@ bash scripts/install-workflow.sh /path/to/your-project --force # 覆盖升级（
 bash scripts/install-ai-workflow.sh --help                      # 便携安装器（--upgrade 台账驱动升级）
 ```
 
-装完自检全绿后，填写目标项目 `openspec/project.md` 的项目上下文，并按需登记 `.ai/kb/projects/registry.json`、项目卡和业务词路由，重启 AI 会话即可使用。
+装完自检全绿后，填写目标项目 `openspec/project.md` 的项目上下文，并按需登记 `.ai/kb/projects/registry.json`、项目卡、直接依赖、业务词路由和验证证据，重启 AI 会话即可使用。
 
 ## 目录结构
 
@@ -69,7 +69,7 @@ bash scripts/install-ai-workflow.sh --help                      # 便携安装�
 │   ├── agents/             #   角色适配
 │   └── README.md           #   Claude→Codex 工具映射与派发契约
 ├── .ai/                    # 共享知识层（唯一正文来源，双运行时共用）
-│   ├── kb/                 #   架构事实、项目卡、registry 与业务词路由
+│   ├── kb/                 #   架构事实、项目卡、registry、业务词路由与验证证据
 │   ├── memory/             #   踩坑记录（按模块一文件，追加式）
 │   ├── rules/              #   路由表 index.md 与审查契约 review.md
 │   ├── prompts/agents/     #   共享角色契约（explorer/reviewer/test-worker）

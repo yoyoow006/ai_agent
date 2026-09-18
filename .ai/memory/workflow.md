@@ -181,3 +181,7 @@
 ## 2026-09-17 · 来源变更 align-workflow-semantics-and-business-context（archive-light 升级必须先分类）
 **坑**：wrapper 先跑轻量 core，之后发现语义 diff 才追加顶层契约套件，导致 core 没有收到 `--require-openspec`；`git diff ... 2>/dev/null || true` 会把非法 base/pathspec 吞成“无变化”，归档可假绿。
 **解**：在调用 core 前完成 archive diff 分类；Git 缺失或 diff 非零立即 exit 2，命中语义变化时把 `--require-openspec` 追加到 forwarded arguments，再执行 core 和顶层契约套件。回归必须同时断言 core 参数、diff fail-closed 和契约套件执行。
+
+## 2026-09-18 · 来源变更 extend-project-context-and-evidence-reuse（随包契约不得假设双助手共存）
+**坑**：新增 ProjectContextEvidenceContractTest 直接遍历 `.codex` 与 `.claude` 两侧 verification 技能；便携安装目标按设计只包含单侧适配，Claude-only/Codex-only 目标内该测试因缺失另一侧而失败。
+**解**：随包契约测试先枚举当前安装中实际存在的助手技能，至少一侧存在即可继续；只有源仓或双运行时安装才自然检查两侧。新增测试必须在单助手安装目标中跑通，不能把“另一侧不存在”当缺陷。

@@ -179,11 +179,19 @@
       },
       {
          "mode" : "0644",
+         "path" : ".ai/kb/projects/_template.md"
+      },
+      {
+         "mode" : "0644",
          "path" : ".ai/kb/projects/registry.json"
       },
       {
          "mode" : "0644",
          "path" : ".ai/kb/repository-ignore-rules.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/kb/verification-evidence.md"
       },
       {
          "mode" : "0644",

@@ -75,7 +75,7 @@
 
 `.ai/` 三层知识：`kb/`（稳定架构与项目卡）、`memory/`（踩坑记录，坑解决后即时追加）、`rules/`（路由表与审查契约）。归档时执行知识三写（memory 归整、kb 同步、rules 更新），踩过的坑自动变成下次会话的起点。
 
-目标项目还可在 registry 中登记业务词、同义词和相对源码路径。`business-terms` 只做有界只读路由，帮助助手从业务说法定位项目和代码入口；命中后仍要读取当前源码或项目卡核实，查询本身不联网、不 clone、不写目标项目，也不输出匹配正文。
+目标项目还可在 registry 中登记直接依赖、业务词、同义词、相对源码路径、构建/测试入口、证据文档和验证基线 commit。`project-context` 与 `business-terms` 只做有界只读路由，帮助助手从项目、业务说法和依赖关系定位代码入口；命中后仍要读取当前源码或项目卡核实，查询本身不联网、不 clone、不写目标项目，也不输出匹配正文。验证证据只有在代码基线、输入、命令、环境和覆盖范围等价时才可复用，且不能替代当前任务的新鲜验证。
 
 ### 8. 用户保护与显式授权底线（所有模式不可削弱）
 
@@ -102,7 +102,7 @@ bash scripts/install-workflow.sh /path/to/your-project --force   # 覆盖升级�
 bash scripts/install-ai-workflow.sh --help                       # 便携安装器（支持 --upgrade 台账驱动升级）
 ```
 
-装完后填写目标项目 `openspec/project.md` 的项目上下文，并按需登记 `.ai/kb/projects/registry.json`、项目卡和业务词路由，重启 AI 会话即可。
+装完后填写目标项目 `openspec/project.md` 的项目上下文，并按需登记 `.ai/kb/projects/registry.json`、项目卡、直接依赖、业务词路由和验证证据，重启 AI 会话即可。
 
 ### 2. 发起变更：你只需要自然语言
 

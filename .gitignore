@@ -8,6 +8,7 @@ __pycache__/
 /.ai/kb/contracts/
 /.ai/kb/projects/*
 !/.ai/kb/projects/README.md
+!/.ai/kb/projects/_template.md
 !/.ai/kb/projects/registry.json
 /.ai/memory/*
 !/.ai/memory/README.md

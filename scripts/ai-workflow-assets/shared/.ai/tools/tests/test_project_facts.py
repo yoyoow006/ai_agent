@@ -80,6 +80,28 @@ class ProjectFactsTest(unittest.TestCase):
         value.update(overrides)
         return value
 
+    def verification_entry(self, verified_commit=None, **overrides):
+        if verified_commit is None:
+            verified_commit = self.git("rev-parse", "HEAD").stdout.strip()
+        (self.ai / "verification").mkdir(exist_ok=True)
+        (self.ai / "verification/alpha.md").write_text(
+            "# Alpha verification evidence\n", encoding="utf-8"
+        )
+        (self.ai / "verification/credentials.json").write_text(
+            "{}\n", encoding="utf-8"
+        )
+        value = self.entry(
+            dependencies=["beta"],
+            verification={
+                "build_command": "example-build --all",
+                "test_command": "example-test --all",
+                "evidence": "verification/alpha.md",
+                "verified_commit": verified_commit,
+            },
+        )
+        value.update(overrides)
+        return value
+
     def write_registry(self, projects, schema_version=1):
         (self.ai / "kb/projects/registry.json").write_text(
             json.dumps({"schema_version": schema_version, "projects": projects}),
@@ -208,6 +230,114 @@ class ProjectFactsTest(unittest.TestCase):
             "APPLICATION\talpha-server\tserver\texample.App\tsrc/App.java\n",
             result.stdout,
         )
+
+    def test_project_context_outputs_dependencies_and_verification(self):
+        beta_card = self.ai / "kb/projects/beta.md"
+        beta_card.write_text("# Beta\n", encoding="utf-8")
+        beta = self.entry(
+            name="beta", path="beta", card="kb/projects/beta.md",
+            applications=[],
+        )
+        self.write_registry([self.verification_entry(), beta])
+
+        result = self.run_cli("project-context", "--project", "alpha")
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(
+            [
+                "PROJECT\talpha\talpha\tmaven\tkb/projects/alpha.md\tavailable",
+                "APPLICATION\talpha-server\tserver\texample.App\tsrc/App.java",
+                "DEPENDENCY\tbeta",
+                "VERIFICATION\tbuild\texample-build --all",
+                "VERIFICATION\ttest\texample-test --all",
+                "VERIFICATION\tevidence\tverification/alpha.md",
+                "VERIFICATION\tverified_commit\tcurrent\t"
+                + self.git("rev-parse", "HEAD").stdout.strip(),
+            ],
+            result.stdout.splitlines(),
+        )
+
+    def test_project_context_reports_drifted_and_unavailable_verified_commit(self):
+        beta_card = self.ai / "kb/projects/beta.md"
+        beta_card.write_text("# Beta\n", encoding="utf-8")
+        beta = self.entry(
+            name="beta", path="beta", card="kb/projects/beta.md",
+            applications=[],
+        )
+        drifted_entry = self.verification_entry(verified_commit="a" * 40)
+        self.write_registry([drifted_entry, beta])
+        drifted = self.run_cli("project-context", "--project", "alpha")
+        self.assertEqual(0, drifted.returncode, drifted.stderr)
+        self.assertIn(
+            "VERIFICATION\tverified_commit\tdrifted\t" + "a" * 40,
+            drifted.stdout,
+        )
+
+        missing_entry = self.verification_entry(path="not-checked-out")
+        self.write_registry([missing_entry, beta])
+        unavailable = self.run_cli("project-context", "--project", "alpha")
+        self.assertEqual(0, unavailable.returncode, unavailable.stderr)
+        self.assertIn(
+            "VERIFICATION\tverified_commit\tunavailable\t"
+            + self.git("rev-parse", "HEAD").stdout.strip(),
+            unavailable.stdout,
+        )
+
+    def test_registry_rejects_invalid_dependencies_and_verification(self):
+        beta_card = self.ai / "kb/projects/beta.md"
+        beta_card.write_text("# Beta\n", encoding="utf-8")
+        (self.ai / "verification").mkdir(exist_ok=True)
+        (self.ai / "verification/alpha.md").write_text(
+            "# Alpha verification evidence\n", encoding="utf-8"
+        )
+        beta = self.entry(
+            name="beta", path="beta", card="kb/projects/beta.md",
+            applications=[],
+        )
+        valid_verification = {
+            "build_command": "example-build --all",
+            "test_command": "example-test --all",
+            "evidence": "verification/alpha.md",
+            "verified_commit": "a" * 40,
+        }
+        invalid_entries = [
+            self.entry(dependencies=["unknown"]),
+            self.entry(dependencies=["alpha"]),
+            self.entry(dependencies=["beta", "beta"]),
+            self.entry(verification="invalid"),
+            self.entry(verification={}),
+            self.entry(verification={**valid_verification, "unexpected": "value"}),
+            self.entry(verification={**valid_verification, "build_command": ""}),
+            self.entry(verification={**valid_verification, "test_command": "x\ny"}),
+            self.entry(verification={**valid_verification, "evidence": "/tmp/evidence.md"}),
+            self.entry(verification={**valid_verification, "evidence": "../outside.md"}),
+            self.entry(verification={**valid_verification, "evidence": "verification/missing.md"}),
+            self.entry(verification={**valid_verification, "evidence": "verification/credentials.json"}),
+            self.entry(verification={**valid_verification, "verified_commit": "abc"}),
+        ]
+        for index, entry in enumerate(invalid_entries):
+            with self.subTest(index=index, entry=entry):
+                self.write_registry([entry, beta])
+                result = self.run_cli("project-context", "--project", "alpha")
+                self.assertEqual(2, result.returncode)
+                self.assertEqual("", result.stdout)
+                self.assertTrue(result.stderr.startswith("ERROR\t"), result.stderr)
+                self.assertEqual(1, len(result.stderr.splitlines()), result.stderr)
+
+    def test_registry_rejects_dependency_cycle(self):
+        beta_card = self.ai / "kb/projects/beta.md"
+        beta_card.write_text("# Beta\n", encoding="utf-8")
+        beta = self.entry(
+            name="beta", path="beta", card="kb/projects/beta.md",
+            dependencies=["alpha"], applications=[],
+        )
+        self.write_registry([self.entry(dependencies=["beta"]), beta])
+
+        result = self.run_cli("project-context", "--project", "alpha")
+
+        self.assertEqual(2, result.returncode)
+        self.assertEqual("", result.stdout)
+        self.assertIn("dependency cycle", result.stderr.lower())
 
     def test_unregistered_project_is_rejected(self):
         result = self.run_cli("project-context", "--project", "unknown")
@@ -488,7 +618,28 @@ class ProjectFactsTest(unittest.TestCase):
                 self.assertIn(reason, result.stderr.lower())
 
     def test_all_queries_leave_workspace_content_and_mtime_unchanged(self):
-        self.write_registry([self.business_entry()])
+        beta_card = self.ai / "kb/projects/beta.md"
+        beta_card.write_text("# Beta\n", encoding="utf-8")
+        beta = self.entry(
+            name="beta", path="beta", card="kb/projects/beta.md",
+            applications=[],
+        )
+        (self.ai / "verification").mkdir(exist_ok=True)
+        (self.ai / "verification/alpha.md").write_text(
+            "# Alpha verification evidence\n", encoding="utf-8"
+        )
+        self.write_registry([
+            self.business_entry(
+                dependencies=["beta"],
+                verification={
+                    "build_command": "example-build --all",
+                    "test_command": "example-test --all",
+                    "evidence": "verification/alpha.md",
+                    "verified_commit": self.git("rev-parse", "HEAD").stdout.strip(),
+                },
+            ),
+            beta,
+        ])
         before = self.snapshot()
         time.sleep(0.01)
         commands = [

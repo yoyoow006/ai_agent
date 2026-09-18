@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path, PurePosixPath
@@ -23,6 +24,10 @@ REQUIRED_APPLICATION_FIELDS = {
 REQUIRED_BUSINESS_TERM_FIELDS = {
     "term", "source_paths"
 }
+VERIFICATION_FIELDS = {
+    "build_command", "test_command", "evidence", "verified_commit"
+}
+COMMIT_PATTERN = re.compile(r"[0-9a-fA-F]{40}|[0-9a-fA-F]{64}")
 SENSITIVE_SUFFIXES = {
     ".key", ".pem", ".p12", ".pfx", ".crt", ".cer", ".jks", ".keystore"
 }
@@ -127,6 +132,113 @@ def _business_terms(
     return checked_terms
 
 
+def _verification(
+    raw_verification: Any, project_name: str, ai_root: Path
+) -> dict[str, str]:
+    if not isinstance(raw_verification, dict):
+        raise InputError(f"project {project_name} verification must be an object")
+    unknown_fields = set(raw_verification) - VERIFICATION_FIELDS
+    if unknown_fields:
+        raise InputError(
+            f"project {project_name} verification has unknown fields: "
+            + ", ".join(sorted(unknown_fields))
+        )
+    if not raw_verification:
+        raise InputError(
+            f"project {project_name} verification must declare at least one field"
+        )
+
+    checked = dict(raw_verification)
+    for field in ("build_command", "test_command"):
+        if field in checked:
+            checked[field] = _string(
+                checked[field], f"project {project_name} verification {field}"
+            )
+    if "evidence" in checked:
+        checked["evidence"] = _relative(
+            checked["evidence"],
+            f"project {project_name} verification evidence",
+        )
+        evidence_path = _validated_child(
+            ai_root,
+            checked["evidence"],
+            f"project {project_name} verification evidence",
+        )
+        if not evidence_path.is_file():
+            raise InputError(
+                f"missing verification evidence for project {project_name}: "
+                f"{checked['evidence']}"
+            )
+        if _is_sensitive(checked["evidence"]):
+            raise InputError(
+                f"project {project_name} verification evidence path is sensitive: "
+                f"{checked['evidence']}"
+            )
+    if "verified_commit" in checked:
+        commit = _string(
+            checked["verified_commit"],
+            f"project {project_name} verification verified_commit",
+        )
+        if COMMIT_PATTERN.fullmatch(commit) is None:
+            raise InputError(
+                f"project {project_name} verified_commit must be "
+                "40 or 64 hexadecimal characters"
+            )
+        checked["verified_commit"] = commit
+    return checked
+
+
+def _validate_dependencies(projects: list[dict[str, Any]]) -> None:
+    names = {project["name"] for project in projects}
+    graph: dict[str, list[str]] = {}
+    for project in projects:
+        name = project["name"]
+        if "dependencies" not in project:
+            continue
+        dependencies = project["dependencies"]
+        if not isinstance(dependencies, list):
+            raise InputError(f"project {name} dependencies must be a list")
+        checked: list[str] = []
+        seen: set[str] = set()
+        for dependency in dependencies:
+            dependency = _string(dependency, f"project {name} dependency")
+            if dependency not in names:
+                raise InputError(
+                    f"unregistered dependency for project {name}: {dependency}"
+                )
+            if dependency == name:
+                raise InputError(f"project {name} must not depend on itself")
+            if dependency in seen:
+                raise InputError(
+                    f"duplicate dependency for project {name}: {dependency}"
+                )
+            seen.add(dependency)
+            checked.append(dependency)
+        graph[name] = checked
+
+    visiting: set[str] = set()
+    visited: set[str] = set()
+    cycle_path: list[str] = []
+
+    def visit(name: str) -> None:
+        if name in visited:
+            return
+        if name in visiting:
+            cycle_at = cycle_path.index(name)
+            cycle = cycle_path[cycle_at:] + [name]
+            raise InputError("dependency cycle: " + " -> ".join(cycle))
+        visiting.add(name)
+        cycle_path.append(name)
+        for dependency in graph.get(name, []):
+            visit(dependency)
+        cycle_path.pop()
+        visiting.remove(name)
+        visited.add(name)
+
+    for name in sorted(graph):
+        visit(name)
+
+
 def load_registry(workspace_arg: str) -> tuple[Path, list[dict[str, Any]]]:
     workspace_path = Path(workspace_arg)
     if not workspace_path.is_absolute():
@@ -197,12 +309,25 @@ def load_registry(workspace_arg: str) -> tuple[Path, list[dict[str, Any]]]:
             )
             checked_apps.append(app)
         project["applications"] = checked_apps
+        if "dependencies" in project:
+            raw_dependencies = project["dependencies"]
+            if not isinstance(raw_dependencies, list):
+                raise InputError(f"project {name} dependencies must be a list")
+            project["dependencies"] = [
+                _string(dependency, f"project {name} dependency")
+                for dependency in raw_dependencies
+            ]
+        if "verification" in project:
+            project["verification"] = _verification(
+                project["verification"], name, ai_root
+            )
         if "business_terms" in project:
             project["business_terms"] = _business_terms(
                 project["business_terms"], name
             )
         project["_workspace"] = workspace
         validated.append(project)
+    _validate_dependencies(validated)
     return workspace, validated
 
 
@@ -253,6 +378,35 @@ def project_context(projects: list[dict[str, Any]], name: str) -> int:
             "APPLICATION", app["server"], app["module"], app["main_class"],
             app["source_path"],
         ]))
+    for dependency in project.get("dependencies", []):
+        print(f"DEPENDENCY\t{dependency}")
+    verification = project.get("verification", {})
+    for field, label in (
+        ("build_command", "build"),
+        ("test_command", "test"),
+    ):
+        if field in verification:
+            print(f"VERIFICATION\t{label}\t{verification[field]}")
+    if "evidence" in verification:
+        print(f"VERIFICATION\tevidence\t{verification['evidence']}")
+    if "verified_commit" in verification:
+        declared = verification["verified_commit"]
+        status = "unavailable"
+        if project_root.is_dir() and (project_root / ".git").exists():
+            result = subprocess.run(
+                ["git", "-C", str(project_root), "rev-parse", "HEAD"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            current = result.stdout.decode("utf-8", errors="replace").strip()
+            if result.returncode == 0 and COMMIT_PATTERN.fullmatch(current):
+                status = (
+                    "current"
+                    if current.lower() == declared.lower()
+                    else "drifted"
+                )
+        print(f"VERIFICATION\tverified_commit\t{status}\t{declared}")
     return 0
 
 
