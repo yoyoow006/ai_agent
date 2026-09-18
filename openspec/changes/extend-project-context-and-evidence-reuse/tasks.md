@@ -6,7 +6,7 @@
 - [x] 4. 新增 `.ai/kb/verification-evidence.md`，定义证据字段、等价复用条件、失效条件、脱敏要求和“不得替代 OpenSpec/新鲜验证”的边界。
 - [x] 5. 更新项目登记 README、`.ai/kb/README.md`、`.ai/README.md`、`.ai/tools/README.md`、`.ai/rules/index.md` 和双侧 verification 技能，使项目上下文和证据复用路由可达。
 - [x] 6. 更新 shared infrastructure delta/main spec、安装资产 manifest 和源/资产字节同步测试，确保新增模板与证据文档随包分发且源 registry 仍为空。
-- [ ] 7. 运行事实工具测试、workflow mutation/契约测试、便携安装器测试、一键安装器测试、`bash scripts/validate-workflow.sh --require-openspec`、OpenSpec strict 与 diff 检查。
+- [x] 7. 运行事实工具测试、workflow mutation/契约测试、便携安装器测试、一键安装器测试、`bash scripts/validate-workflow.sh --require-openspec`、OpenSpec strict 与 diff 检查。
 - [ ] 8. 执行严格任务级审查和 Verify 双阶段独立审查，重点审查 registry 边界/只读性、证据复用不削弱完成门禁、安装资产同步与源仓库知识分层。
 
 ## 验收标准
