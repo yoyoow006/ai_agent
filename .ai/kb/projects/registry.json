@@ -1,4 +1,36 @@
 {
   "schema_version": 1,
-  "projects": []
+  "projects": [
+    {
+      "name": "yuxiaor-pms",
+      "path": "yuxiaor-pms",
+      "build": "maven",
+      "card": "kb/projects/yuxiaor-pms.md",
+      "search_roots": [
+        "AGENTS.md",
+        "README.md",
+        "pom.xml",
+        "build.sh",
+        "build-and-test.sh",
+        "docs",
+        "sql",
+        "yuxiaor-api/src/main",
+        "yuxiaor-risk-control/src/main",
+        "yuxiaor-schedule/src/main",
+        "yuxiaor-server/src/main"
+      ],
+      "applications": [
+        {
+          "server": "yuxiaor-server",
+          "module": "yuxiaor-server",
+          "main_class": "com.dream.yuxiaor.YuxiaorServiceApp",
+          "source_path": "yuxiaor-server/src/main/java/com/dream/yuxiaor/YuxiaorServiceApp.java"
+        }
+      ],
+      "verification": {
+        "build_command": "cd yuxiaor-pms && mvn -T1C clean validate compile -P dev,env-actuator,nexus-dailybuild -Denforcer.skip=true -am",
+        "test_command": "cd yuxiaor-pms && mvn -T2C test -P dev,env-actuator,nexus-dailybuild -Denforcer.skip=true"
+      }
+    }
+  ]
 }
