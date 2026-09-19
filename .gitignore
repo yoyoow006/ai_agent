@@ -1,0 +1,11 @@
+# >>> portable-ai-workflow installer >>>
+/.ai-local/
+/.codex/sdd/
+__pycache__/
+*.py[cod]
+# <<< portable-ai-workflow installer <<<
+
+/.idea
+# 业务项目
+/yuxiaor-pms
+/yuxiaor-xxljob
