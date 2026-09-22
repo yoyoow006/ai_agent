@@ -45,5 +45,14 @@ status: resolved
 minimal fix: Keep test dependencies unchanged; adapt test source API usage and stale call sites only.
 verification: Final baseline aggregate is 476 run, 12 failures, 7 errors, 2 skipped; `EsignHttpFeignContractBaselineTest` is green with 3/3.
 
+id: module-skeleton-architecture-gate
+severity: Important
+repo/path: yuxiaor-esign/src/test/java/com/dream/yuxiaor/esign/EsignModuleArchitectureTest.java:1
+evidence: The new module skeleton is gated by six tests covering Maven direction, bounded-context packages, server-internal import denial, domain technology denial, and application-to-adapter/infrastructure denial. A temporary forbidden application-to-infrastructure import produced the expected failure, and removal restored 6/6 green.
+observable impact: The new module cannot silently reintroduce a server dependency, server internals into yuxiaor-esign, or forbidden technology imports in domain/application layers.
+status: resolved
+minimal fix: Keep the architecture test in the module and extend denylists only when delta spec explicitly changes an architectural rule.
+verification: Module test exits 0 with 6 run, 0 failures, 0 errors, 0 skipped; joint Reactor validate exits 0 with yuxiaor-esign before yuxiaor-server.
+
 unverified（未验证范围）: the individual causes of the 12 failures, 7 errors, and 2 skips are recorded as baseline facts but not diagnosed; transaction boundaries, callback idempotency, MQ delivery, and executor behavior behind passing tests remain uncharacterized.
 residual risk（残余风险）: Maven `SNAPSHOT` dependencies are configured with `updatePolicy=always`; later remote artifact changes can alter dependency resolution even without source changes.

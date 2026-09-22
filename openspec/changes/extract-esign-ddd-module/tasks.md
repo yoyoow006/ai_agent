@@ -11,13 +11,13 @@
     - 已用新克隆 `yuxiaor-e-signature`、本地匹配 `acc-bill-api` 快照恢复生产编译，并将相关测试适配到当前 JUnit 4 / Mockito 2.15 基线。
     - 最终原命令进入 Surefire：476 run / 12 failures / 7 errors / 2 skipped；完整失败/错误清单与日志哈希记录在 `yuxiaor-server/src/test/resources/esign-baseline/existing-test-baseline.md`。
 
-- [ ] 2. 新增模块骨架与分层门禁
-  - [ ] 2.1 修改 `yuxiaor-pms/pom.xml`，增加 `yuxiaor-esign` module。
-  - [ ] 2.2 新增 `yuxiaor-pms/yuxiaor-esign/pom.xml`，声明 JDK 8、`yuxiaor-api`、`elc-signature-api`、`yuxiaor-e-signature-api`、Spring/MyBatis/测试所需最小依赖，不依赖 `yuxiaor-server`。
-  - [ ] 2.3 创建 `com.dream.yuxiaor.esign.{subject,face,contractsign,shared}` 及各自 domain/application/infrastructure/adapter 目录。
-  - [ ] 2.4 增加模块层依赖测试，禁止 domain 导入 Spring Web/MyBatis/Feign/Redis/MQ/供应商SDK，禁止模块导入 server 内部 service/mapper/entity。
-  - [ ] 2.5 修改 `yuxiaor-pms/yuxiaor-server/pom.xml` 依赖 `yuxiaor-esign`。
-  - [ ] 2.6 验证：`cd yuxiaor-pms && mvn -s settings-work.xml -pl yuxiaor-esign,yuxiaor-server -am validate -P dev,env-actuator -Denforcer.skip=true`。
+- [x] 2. 新增模块骨架与分层门禁
+  - [x] 2.1 修改 `yuxiaor-pms/pom.xml`，增加 `yuxiaor-esign` module。
+  - [x] 2.2 新增 `yuxiaor-pms/yuxiaor-esign/pom.xml`，声明 JDK 8、`yuxiaor-api`、`elc-signature-api`、`yuxiaor-e-signature-api`、Spring/MyBatis/测试所需最小依赖，不依赖 `yuxiaor-server`。
+  - [x] 2.3 创建 `com.dream.yuxiaor.esign.{subject,face,contractsign,shared}` 及各自 domain/application/infrastructure/adapter 目录。
+  - [x] 2.4 增加模块层依赖测试，禁止 domain 导入 Spring Web/MyBatis/Feign/Redis/MQ/供应商SDK，禁止模块导入 server 内部 service/mapper/entity。
+  - [x] 2.5 修改 `yuxiaor-pms/yuxiaor-server/pom.xml` 依赖 `yuxiaor-esign`。
+  - [x] 2.6 验证：`cd yuxiaor-pms && mvn -s settings-work.xml -pl yuxiaor-esign,yuxiaor-server -am validate -P dev,env-actuator -Denforcer.skip=true`。
 
 - [ ] 3. 签署主体与实名上下文
   - [ ] 3.1 建立SignSubject聚合、证件类型值对象、主体状态机和账号ID映射领域模型，先写港澳台/护照/身份证映射领域测试。
