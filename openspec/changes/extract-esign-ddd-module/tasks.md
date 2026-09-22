@@ -8,7 +8,7 @@
   - [x] 1.3 梳理旧FQCN、Spring Bean type/name、`@Async`、MQ binding、事务提交后动作清单，形成兼容映射表。
   - [x] 1.4 运行现有相关测试基线：`cd yuxiaor-pms && mvn -s settings-work.xml -pl yuxiaor-server test -P dev,env-actuator -Denforcer.skip=true -Dtest='*Esign*,*WillingSign*,*Face*,*Flatmate*,*Subsidiary*,*Certification*'`。
   - [ ] 1.5 记录基线结果、失败/跳过测试和不可复现环境，后续迁移不得改变既有失败集合。
-    - 阻塞：Maven 在 compile 阶段失败，0 个测试进入 Surefire；`com.yuxiaor.pms.esign.dto.WillingSignRejectResultDTO` 在 `elc-signature-api`/`yuxiaor-e-signature-api` 当前 SNAPSHOT 及本地缓存中均不存在，需先恢复配套外部 API 构件。已将命令、环境、退出码和证据哈希记录在 `yuxiaor-server/src/test/resources/esign-baseline/existing-test-baseline.md`。
+    - 阻塞：已用新克隆 `yuxiaor-e-signature` 与本地匹配 `acc-bill-api` 快照恢复生产编译；Maven 现在推进到 `testCompile` 后失败，0 个测试进入 Surefire。根因是4个与电子签署无关的既有测试使用 JUnit 5 / Mockito 新 API，而项目解析 JUnit 4.12 / Mockito 2.15.0。已将命令、依赖恢复、哈希、退出码和当前阻塞记录在 `yuxiaor-server/src/test/resources/esign-baseline/existing-test-baseline.md`。
 
 - [ ] 2. 新增模块骨架与分层门禁
   - [ ] 2.1 修改 `yuxiaor-pms/pom.xml`，增加 `yuxiaor-esign` module。

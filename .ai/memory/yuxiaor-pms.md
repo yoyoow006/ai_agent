@@ -1,3 +1,3 @@
 ## 2026-09-22 · 来源变更 extract-esign-ddd-module
-**坑**：`yuxiaor-server@fb6b634b7a` 编译在 `WillingSignRejectResultDTO` 五处引用失败；当前及本地缓存的 `elc-signature-api`、`yuxiaor-e-signature-api` SNAPSHOT 均无该类，仓库本地/远端分支也无源码。该依赖由提交 `783c5cfe26` 引入。
-**解**：不要在迁移分支内补 DTO 或改生产代码；先恢复/发布配套外部 API 构件，再按 `yuxiaor-server/src/test/resources/esign-baseline/existing-test-baseline.md` 的原命令重跑基线。API 契约断言可用 Maven 测试 classpath 单独编译/运行，验证不受该生产编译缺失类影响。
+**坑**：`yuxiaor-server@fb6b634b7a` 最初在 `WillingSignRejectResultDTO` 五处引用处生产编译失败；远端 API SNAPSHOT 未包含该类，且继续重试又暴露 `acc-bill-api` 缺少 `ContractReverseDetailReq/Dto`。
+**解**：新克隆 `yuxiaor-e-signature@6c679be` 后，先 `package` API 模块，再用 `install:install-file` 本地安装（父 POM 会给库模块绑定错误的 Spring Boot start，不要直接 install）；`acc-bill-api` 可用本地 `1.0.0-20260901.062458-16` 快照恢复。此后生产 compile 已通过，但 full test 卡在4个无关 JUnit5/Mockito 测试，详见 `yuxiaor-server/src/test/resources/esign-baseline/existing-test-baseline.md`。

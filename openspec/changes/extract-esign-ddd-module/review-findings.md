@@ -30,11 +30,20 @@ verification: Test source compiles with project test classpath; API-only route/p
 id: external-api-missing-dto
 severity: Important
 repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/service/elcsignature/WillingSignRejectService.java:6
-evidence: Required Maven commands exit 1 during production `compile`; local/remote repository refs and all relevant cached API snapshots lack `WillingSignRejectResultDTO`.
-observable impact: No Surefire behavior tests can run at the selected baseline, so task 1.5 cannot record real failure/skip identifiers yet.
-status: open
-minimal fix: Restore/publish the external API artifact containing `WillingSignRejectResultDTO`; rerun both documented Maven commands and update the baseline record.
-verification: `existing-test-baseline.md` records command, Java/Maven versions, exit 1, 0 tests, blocker, and log SHA-256.
+evidence: The original required Maven command exited 1 during production `compile`; `WillingSignRejectResultDTO` was absent from the then-resolved API artifact. The newly cloned `yuxiaor-e-signature@6c679be` contains it, and the API JAR was installed locally with SHA-256 `148d2d7ddcbeb9b92ad8a5c1811cdda28bc7d1b77f26d0d9c25cee26d195ce31`.
+observable impact: The original production compilation blocker is removed and production compile now succeeds.
+status: resolved
+minimal fix: Build `yuxiaor-e-signature-api` from the matching clone and install it locally; additionally restore the matching `acc-bill-api` local snapshot.
+verification: Retry reaches `testCompile`, proving all previously missing production symbols are resolved.
 
-unverified（未验证范围）: production implementation behavior, transaction boundaries, callback idempotency, MQ delivery, executor pool behavior, and full Surefire test statistics remain unverified until the external API artifact is restored.
+id: unrelated-test-dependency-mismatch
+severity: Important
+repo/path: yuxiaor-server/src/test/java/com/dream/yuxiaor/service/contract/multihouse/service/MultiHouseSnapshotServiceTest.java:12
+evidence: After dependency recovery, required Maven commands exit 1 during `testCompile`; four unrelated tests use JUnit 5 / Mockito APIs while the resolved dependencies are JUnit 4.12 and Mockito 2.15.0.
+observable impact: No Surefire behavior tests can run at the selected baseline, so task 1.5 still cannot record real failure/skip identifiers.
+status: open
+minimal fix: Repair the pre-existing test dependency/source mismatch in an independently authorized change, then rerun both documented Maven commands and update the baseline record.
+verification: `existing-test-baseline.md` records the four files, resolved versions, exit 1, and zero Surefire tests.
+
+unverified（未验证范围）: production implementation behavior, transaction boundaries, callback idempotency, MQ delivery, executor pool behavior, and full Surefire test statistics remain unverified until the unrelated JUnit 5/Mockito test compilation mismatch is repaired.
 residual risk（残余风险）: Maven `SNAPSHOT` dependencies are configured with `updatePolicy=always`; later remote artifact changes can alter dependency resolution even without source changes.
