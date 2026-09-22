@@ -2,13 +2,14 @@
 
 > 当前仅处于严格模式 Open 阶段，以下任务未开始实施。四件套确认后才进入独立 Design/实现计划。
 
-- [ ] 1. 契约与行为基线
+- [x] 1. 契约与行为基线
   - [x] 1.1 在目标项目从 `master@fb6b634b7a` 创建严格模式隔离 worktree，确认工作区干净且不带用户未提交修改。
   - [x] 1.2 抓取并保存HTTP/Feign契约快照，覆盖 `yuxiaor-api` 中 company auth、face auth、renter face sign、contract sign method、company subsidiary、flatmate sign 相关接口和 server 中电子签署 controller。
   - [x] 1.3 梳理旧FQCN、Spring Bean type/name、`@Async`、MQ binding、事务提交后动作清单，形成兼容映射表。
   - [x] 1.4 运行现有相关测试基线：`cd yuxiaor-pms && mvn -s settings-work.xml -pl yuxiaor-server test -P dev,env-actuator -Denforcer.skip=true -Dtest='*Esign*,*WillingSign*,*Face*,*Flatmate*,*Subsidiary*,*Certification*'`。
-  - [ ] 1.5 记录基线结果、失败/跳过测试和不可复现环境，后续迁移不得改变既有失败集合。
-    - 阻塞：已用新克隆 `yuxiaor-e-signature` 与本地匹配 `acc-bill-api` 快照恢复生产编译；Maven 现在推进到 `testCompile` 后失败，0 个测试进入 Surefire。根因是4个与电子签署无关的既有测试使用 JUnit 5 / Mockito 新 API，而项目解析 JUnit 4.12 / Mockito 2.15.0。已将命令、依赖恢复、哈希、退出码和当前阻塞记录在 `yuxiaor-server/src/test/resources/esign-baseline/existing-test-baseline.md`。
+  - [x] 1.5 记录基线结果、失败/跳过测试和不可复现环境，后续迁移不得改变既有失败集合。
+    - 已用新克隆 `yuxiaor-e-signature`、本地匹配 `acc-bill-api` 快照恢复生产编译，并将相关测试适配到当前 JUnit 4 / Mockito 2.15 基线。
+    - 最终原命令进入 Surefire：476 run / 12 failures / 7 errors / 2 skipped；完整失败/错误清单与日志哈希记录在 `yuxiaor-server/src/test/resources/esign-baseline/existing-test-baseline.md`。
 
 - [ ] 2. 新增模块骨架与分层门禁
   - [ ] 2.1 修改 `yuxiaor-pms/pom.xml`，增加 `yuxiaor-esign` module。

@@ -1,5 +1,5 @@
 模式: 标准
-状态: 构建中
+状态: 待归档
 
 # 将4个无关 PMS 测试恢复为当前 JUnit 4 / Mockito 2.15 兼容基线
 
@@ -18,6 +18,9 @@
   - 保持测试数据、stub、断言和验证不变。
 - 将 `CustomerServiceImplDataMaskingTest` 和 `YuxiaorPaymentServiceImpl2PaymentInfoTest` 中 Mockito 3 的 `verifyNoInteractions(...)` 替换为 Mockito 2 兼容且语义等价的 `verifyZeroInteractions(...)`。
 - `SmartDeviceVisibilityResolverTest` 已经是 JUnit 4 / Mockito 2 兼容代码，仅其注释包含 `verifyNoInteractions` 字符串；不修改该文件，改为验收扫描排除注释影响。
+- 为让全量 `testCompile` 和原电子签署基线命令进入 Surefire，另做两个最小补充：
+  - 修正3个电子签署既有测试对当前生产签名的过期调用：`WillingSignRejectServiceTest` 的 `markCompanyBatchRejected` 参数，以及两个意愿签署 benchmark 中 `TenantContractWillingSignManager` 构造器依赖注入方式；不修改生产代码。
+  - 修正 `EsignHttpFeignContractBaselineTest` 的反射提取：沿接口继承读取 root mapping 和方法注解，并稳定空注解/byte[]/参数分隔的快照；不改变对外契约源码。
 - 不修改 POM、生产源码、测试数据、断言期望或电子签署行为。
 
 ## Impact
@@ -31,7 +34,7 @@
 
 ### 包含
 
-- 目标仓库 `.worktrees/extract-esign-ddd-module` 中3个测试源文件的框架 API 适配。
+- 目标仓库 `.worktrees/extract-esign-ddd-module` 中3个框架不兼容测试、3个过期电子签署测试调用和契约快照测试提取逻辑的适配。
 - 重新运行契约基线测试和既有相关测试基线命令。
 
 ### 不包含

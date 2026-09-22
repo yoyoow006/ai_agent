@@ -39,11 +39,11 @@ verification: Retry reaches `testCompile`, proving all previously missing produc
 id: unrelated-test-dependency-mismatch
 severity: Important
 repo/path: yuxiaor-server/src/test/java/com/dream/yuxiaor/service/contract/multihouse/service/MultiHouseSnapshotServiceTest.java:12
-evidence: After dependency recovery, required Maven commands exit 1 during `testCompile`; four unrelated tests use JUnit 5 / Mockito APIs while the resolved dependencies are JUnit 4.12 and Mockito 2.15.0.
-observable impact: No Surefire behavior tests can run at the selected baseline, so task 1.5 still cannot record real failure/skip identifiers.
-status: open
-minimal fix: Repair the pre-existing test dependency/source mismatch in an independently authorized change, then rerun both documented Maven commands and update the baseline record.
-verification: `existing-test-baseline.md` records the four files, resolved versions, exit 1, and zero Surefire tests.
+evidence: The independently authorized test adaptation changed the incompatible framework APIs to JUnit 4 / Mockito 2.15 and repaired the remaining stale electronic-signature test constructor/mapper signatures. Full `test-compile` exits 0.
+observable impact: The required electronic-signature baseline command now reaches Surefire and records a real result set.
+status: resolved
+minimal fix: Keep test dependencies unchanged; adapt test source API usage and stale call sites only.
+verification: Final baseline aggregate is 476 run, 12 failures, 7 errors, 2 skipped; `EsignHttpFeignContractBaselineTest` is green with 3/3.
 
-unverified（未验证范围）: production implementation behavior, transaction boundaries, callback idempotency, MQ delivery, executor pool behavior, and full Surefire test statistics remain unverified until the unrelated JUnit 5/Mockito test compilation mismatch is repaired.
+unverified（未验证范围）: the individual causes of the 12 failures, 7 errors, and 2 skips are recorded as baseline facts but not diagnosed; transaction boundaries, callback idempotency, MQ delivery, and executor behavior behind passing tests remain uncharacterized.
 residual risk（残余风险）: Maven `SNAPSHOT` dependencies are configured with `updatePolicy=always`; later remote artifact changes can alter dependency resolution even without source changes.
