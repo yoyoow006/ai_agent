@@ -3,11 +3,12 @@
 > 当前仅处于严格模式 Open 阶段，以下任务未开始实施。四件套确认后才进入独立 Design/实现计划。
 
 - [ ] 1. 契约与行为基线
-  - [ ] 1.1 在目标项目从 `master@fb6b634b7a` 创建严格模式隔离 worktree，确认工作区干净且不带用户未提交修改。
-  - [ ] 1.2 抓取并保存HTTP/Feign契约快照，覆盖 `yuxiaor-api` 中 company auth、face auth、renter face sign、contract sign method、company subsidiary、flatmate sign 相关接口和 server 中电子签署 controller。
-  - [ ] 1.3 梳理旧FQCN、Spring Bean type/name、`@Async`、MQ binding、事务提交后动作清单，形成兼容映射表。
-  - [ ] 1.4 运行现有相关测试基线：`cd yuxiaor-pms && mvn -s settings-work.xml -pl yuxiaor-server test -P dev,env-actuator -Denforcer.skip=true -Dtest='*Esign*,*WillingSign*,*Face*,*Flatmate*,*Subsidiary*,*Certification*'`。
+  - [x] 1.1 在目标项目从 `master@fb6b634b7a` 创建严格模式隔离 worktree，确认工作区干净且不带用户未提交修改。
+  - [x] 1.2 抓取并保存HTTP/Feign契约快照，覆盖 `yuxiaor-api` 中 company auth、face auth、renter face sign、contract sign method、company subsidiary、flatmate sign 相关接口和 server 中电子签署 controller。
+  - [x] 1.3 梳理旧FQCN、Spring Bean type/name、`@Async`、MQ binding、事务提交后动作清单，形成兼容映射表。
+  - [x] 1.4 运行现有相关测试基线：`cd yuxiaor-pms && mvn -s settings-work.xml -pl yuxiaor-server test -P dev,env-actuator -Denforcer.skip=true -Dtest='*Esign*,*WillingSign*,*Face*,*Flatmate*,*Subsidiary*,*Certification*'`。
   - [ ] 1.5 记录基线结果、失败/跳过测试和不可复现环境，后续迁移不得改变既有失败集合。
+    - 阻塞：Maven 在 compile 阶段失败，0 个测试进入 Surefire；`com.yuxiaor.pms.esign.dto.WillingSignRejectResultDTO` 在 `elc-signature-api`/`yuxiaor-e-signature-api` 当前 SNAPSHOT 及本地缓存中均不存在，需先恢复配套外部 API 构件。已将命令、环境、退出码和证据哈希记录在 `yuxiaor-server/src/test/resources/esign-baseline/existing-test-baseline.md`。
 
 - [ ] 2. 新增模块骨架与分层门禁
   - [ ] 2.1 修改 `yuxiaor-pms/pom.xml`，增加 `yuxiaor-esign` module。
