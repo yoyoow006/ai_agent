@@ -1,0 +1,61 @@
+# 任务清单
+
+> 当前仅处于严格模式 Open 阶段，以下任务未开始实施。四件套确认后才进入独立 Design/实现计划。
+
+- [ ] 1. 契约与行为基线
+  - [ ] 1.1 在目标项目从 `master@fb6b634b7a` 创建严格模式隔离 worktree，确认工作区干净且不带用户未提交修改。
+  - [ ] 1.2 抓取并保存HTTP/Feign契约快照，覆盖 `yuxiaor-api` 中 company auth、face auth、renter face sign、contract sign method、company subsidiary、flatmate sign 相关接口和 server 中电子签署 controller。
+  - [ ] 1.3 梳理旧FQCN、Spring Bean type/name、`@Async`、MQ binding、事务提交后动作清单，形成兼容映射表。
+  - [ ] 1.4 运行现有相关测试基线：`cd yuxiaor-pms && mvn -s settings-work.xml -pl yuxiaor-server test -P dev,env-actuator -Denforcer.skip=true -Dtest='*Esign*,*WillingSign*,*Face*,*Flatmate*,*Subsidiary*,*Certification*'`。
+  - [ ] 1.5 记录基线结果、失败/跳过测试和不可复现环境，后续迁移不得改变既有失败集合。
+
+- [ ] 2. 新增模块骨架与分层门禁
+  - [ ] 2.1 修改 `yuxiaor-pms/pom.xml`，增加 `yuxiaor-esign` module。
+  - [ ] 2.2 新增 `yuxiaor-pms/yuxiaor-esign/pom.xml`，声明 JDK 8、`yuxiaor-api`、`elc-signature-api`、`yuxiaor-e-signature-api`、Spring/MyBatis/测试所需最小依赖，不依赖 `yuxiaor-server`。
+  - [ ] 2.3 创建 `com.dream.yuxiaor.esign.{subject,face,contractsign,shared}` 及各自 domain/application/infrastructure/adapter 目录。
+  - [ ] 2.4 增加模块层依赖测试，禁止 domain 导入 Spring Web/MyBatis/Feign/Redis/MQ/供应商SDK，禁止模块导入 server 内部 service/mapper/entity。
+  - [ ] 2.5 修改 `yuxiaor-pms/yuxiaor-server/pom.xml` 依赖 `yuxiaor-esign`。
+  - [ ] 2.6 验证：`cd yuxiaor-pms && mvn -s settings-work.xml -pl yuxiaor-esign,yuxiaor-server -am validate -P dev,env-actuator -Denforcer.skip=true`。
+
+- [ ] 3. 签署主体与实名上下文
+  - [ ] 3.1 建立SignSubject聚合、证件类型值对象、主体状态机和账号ID映射领域模型，先写港澳台/护照/身份证映射领域测试。
+  - [ ] 3.2 抽取公寓实名、签署主体实名、C端企业/个人实名、主体驳回/作废/删除用例端口。
+  - [ ] 3.3 将 `EsignChannelUtil` 中账号ID、渠道、账号创建、实名URL、证件类型映射拆到模块端口与infrastructure适配器。
+  - [ ] 3.4 为合同、公寓、租客上下文建立出站端口，并在 `yuxiaor-server` 提供适配器；共享表写入先经端口收敛。
+  - [ ] 3.5 迁移 `service/orgsign/FlatmateSignService`、`service/certification`、`service/elcsignature/realname` 中业务规则到用例，保留兼容门面。
+  - [ ] 3.6 迁移/新增主体、实名、港澳台映射测试，并运行模块测试。
+
+- [ ] 4. 刷脸认证上下文
+  - [ ] 4.1 建立FaceAuthentication聚合和FlowId幂等键，先写成功、失败、取消、重复回调、次数不足、结果查询测试。
+  - [ ] 4.2 抽取刷脸URL、支付宝刷脸、TAPP结果、配置、最大次数和服务次数扣减端口。
+  - [ ] 4.3 迁移 `PersonFaceAuthServiceImpl`、`RenterFaceSignServiceImpl`、`FaceAuthRealNameCallBackProcess` 业务逻辑到application use case。
+  - [ ] 4.4 保留本地REST适配层的路由和签名，将其内部实现改为调用use case；不得改变 `/local/faceAuth/**`、`/local/renterFaceSign/**` 契约。
+  - [ ] 4.5 迁移刷脸状态/流水mapper与XML到模块owned持久化，验证MyBatis扫描和数据源不变。
+
+- [ ] 5. 合同签署、盖章与意愿签署上下文
+  - [ ] 5.1 建立ContractSigning聚合、ContentRevision、任务状态机和签署方式决策领域模型，先写状态机与内容版本测试。
+  - [ ] 5.2 抽取PDF准备、文件存储、合同上下文、供应商签署、事件发布、流程恢复端口。
+  - [ ] 5.3 分批迁移 `helper/esign`、`service/elcsignature/contractsign`、`service/remote/elcsignature` 中PDF、签署、盖章、平安同步和回调处理逻辑。
+  - [ ] 5.4 迁移公寓批量意愿签署、租客意愿签署、拒签、DLQ告警和补偿逻辑，保留任务表单一写入方。
+  - [ ] 5.5 将 `/api/elcsign/**` 回调controller和 `/api/v1/contract-willing-sign/**` controller的依赖切换到兼容门面或use case，冻结注解和路由。
+  - [ ] 5.6 迁移既有意愿签署、回调、PDF、性能基线测试到模块或联合测试位置，并补充缺失的幂等/拒签/内容版本测试。
+
+- [ ] 6. 旧实现收敛与兼容清理
+  - [ ] 6.1 将server中电子签署调用方切换到兼容门面或application端口，保持旧调用行为不变。
+  - [ ] 6.2 删除已由模块替代的旧业务实现、重复mapper访问和无效依赖；仅删除电子签署路径，不触碰非本范围业务。
+  - [ ] 6.3 检查Spring容器中相关Bean无重复主实现，`@Async`、线程池、MQ binding、事务后动作与基线一致。
+  - [ ] 6.4 保持 `yuxiaor-api` 对外契约文件无契约性diff；如出现必须回退并重新设计。
+
+- [ ] 7. 验证与严格门禁
+  - [ ] 7.1 模块测试：`cd yuxiaor-pms && mvn -s settings-work.xml -pl yuxiaor-esign test -P dev,env-actuator -Denforcer.skip=true`。
+  - [ ] 7.2 联合编译：`cd yuxiaor-pms && mvn -s settings-work.xml -pl yuxiaor-esign,yuxiaor-server -am clean validate compile -P dev,env-actuator -Denforcer.skip=true`。
+  - [ ] 7.3 联合测试：`cd yuxiaor-pms && mvn -s settings-work.xml -pl yuxiaor-esign,yuxiaor-server -am test -P dev,env-actuator -Denforcer.skip=true`。
+  - [ ] 7.4 HTTP/Feign契约快照测试与迁移前基线逐项一致。
+  - [ ] 7.5 分层依赖、Maven无循环、无共享表双写检查通过。
+  - [ ] 7.6 执行严格模式任务级审查和Verify双阶段审查；Critical/Important归零后才可归档。
+
+## 本地整合策略
+
+- 严格模式确认后在 `yuxiaor-pms` 内创建 feature branch 和隔离 worktree，不混入当前根仓库或目标仓库用户修改。
+- 每个阶段独立提交，保持契约基线、模块骨架、主体/实名、刷脸、合同签署、清理和验证可分别回滚。
+- 迁移期间不得提交生产配置或外部环境副作用；所有Maven命令仅本地执行。
