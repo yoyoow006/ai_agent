@@ -54,5 +54,14 @@ status: resolved
 minimal fix: Keep the architecture test in the module and extend denylists only when delta spec explicitly changes an architectural rule.
 verification: Module test exits 0 with 6 run, 0 failures, 0 errors, 0 skipped; joint Reactor validate exits 0 with yuxiaor-esign before yuxiaor-server.
 
+id: subject-first-slice-architecture
+severity: Important
+repo/path: yuxiaor-esign/src/main/java/com/dream/yuxiaor/esign/subject/domain/model/ElectronicSignAccountId.java:1
+evidence: First subject-context slice adds pure-JDK domain models, application ports, a repair-account use case, infrastructure mappers, and a server anti-corruption adapter. A temporary application-to-infrastructure import made the architecture test fail; after removal, 16 module tests passed.
+observable impact: Account prefixes, Hong Kong/Macao distinction, subject status mapping, and the first MQ account-repair flow are now guarded without importing server internals from the module.
+status: resolved
+minimal fix: Keep domain/application pure, implement outbound ports in yuxiaor-server, and wire pure use cases through server configuration.
+verification: Module tests: 16 run / 0 fail; ElectronicSignAccountNormalFlowTest: 4 run / 0 fail; joint validate succeeds.
+
 unverified（未验证范围）: the individual causes of the 12 failures, 7 errors, and 2 skips are recorded as baseline facts but not diagnosed; transaction boundaries, callback idempotency, MQ delivery, and executor behavior behind passing tests remain uncharacterized.
 residual risk（残余风险）: Maven `SNAPSHOT` dependencies are configured with `updatePolicy=always`; later remote artifact changes can alter dependency resolution even without source changes.

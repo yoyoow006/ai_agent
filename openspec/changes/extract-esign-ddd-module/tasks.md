@@ -20,7 +20,8 @@
   - [x] 2.6 验证：`cd yuxiaor-pms && mvn -s settings-work.xml -pl yuxiaor-esign,yuxiaor-server -am validate -P dev,env-actuator -Denforcer.skip=true`。
 
 - [ ] 3. 签署主体与实名上下文
-  - [ ] 3.1 建立SignSubject聚合、证件类型值对象、主体状态机和账号ID映射领域模型，先写港澳台/护照/身份证映射领域测试。
+  - [x] 3.1 建立SignSubject聚合、证件类型值对象、主体状态机和账号ID映射领域模型，先写港澳台/护照/身份证映射领域测试。
+    - 已完成首批：纯 JDK SignSubject/CertificateType/ElectronicSignAccountId/SubjectAuthStatus 领域模型，覆盖港澳台/护照/身份证映射和 4/3/6/7/8 账号前缀；模块测试 16/16 绿。
   - [ ] 3.2 抽取公寓实名、签署主体实名、C端企业/个人实名、主体驳回/作废/删除用例端口。
   - [ ] 3.3 将 `EsignChannelUtil` 中账号ID、渠道、账号创建、实名URL、证件类型映射拆到模块端口与infrastructure适配器。
   - [ ] 3.4 为合同、公寓、租客上下文建立出站端口，并在 `yuxiaor-server` 提供适配器；共享表写入先经端口收敛。
