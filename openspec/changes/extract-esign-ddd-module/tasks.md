@@ -27,6 +27,7 @@
   - [ ] 3.4 为合同、公寓、租客上下文建立出站端口，并在 `yuxiaor-server` 提供适配器；共享表写入先经端口收敛。
   - [ ] 3.5 迁移 `service/orgsign/FlatmateSignService`、`service/certification`、`service/elcsignature/realname` 中业务规则到用例，保留兼容门面。
     - 第二批已完成：`CompanyStatusCheckEventProcess` 与 `CompanySubsidiaryStatusEventProcess` 变更为兼容监听器，核心守卫与账号创建决策迁移至 `MaintainCompanyAccountUseCase`；既有 `ElectronicSignAccountNormalFlowTest` 4/4 绿。
+    - 第三批已完成：公寓/签署主体/租客企业/业主个人 4 个实名回调处理器改为兼容门面，路由与状态传播决策迁移至 `HandleSubjectRealNameCallbackUseCase`，server 侧状态、事件、默认主体和用户同步副作用集中在 `SubjectRealNameCallbackServerAdapter`；模块 27/27、回调 characterization 10/10、回归 14/14、联合 validate 绿。
   - [ ] 3.6 迁移/新增主体、实名、港澳台映射测试，并运行模块测试。
 
 - [ ] 4. 刷脸认证上下文

@@ -72,5 +72,14 @@ status: resolved
 minimal fix: Keep listeners as compatibility adapters; keep repository/vendor assembly in EsignSubjectServerAdapter and decision orchestration in MaintainCompanyAccountUseCaseImpl.
 verification: Module tests 20/20 green; ElectronicSignAccountNormalFlowTest 4/4 green; joint validate succeeds; yuxiaor-api has no diff.
 
-unverified（未验证范围）: the individual causes of the 12 failures, 7 errors, and 2 skips are recorded as baseline facts but not diagnosed; transaction boundaries, callback idempotency, MQ delivery, and executor behavior behind passing tests remain uncharacterized.
+id: subject-third-slice-callback-migration
+severity: Important
+repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/service/elcsignature/realname/SubjectRealNameCallbackServerAdapter.java:63
+evidence: Four legacy callback processors were first frozen by SubjectRealNameCallbackProcessorTest (initial compile-red followed by legacy green), then converted to compatibility facades. The pure callback use case only propagates non-null routing IDs and success/failure outcomes; the server sink preserves apartment events, subject DB update/default recalculation/todo push, C-end enterprise/person status events and user synchronization, including the personal missing-user short-circuit. A manifest STALE caused by a minimal null-routing fix was discarded and re-frozen before review conclusion.
+observable impact: Legacy FQCNs, Bean names, callback routing and terminal vendor-status propagation remain observable while callback decisions move into yuxiaor-esign.
+status: resolved
+minimal fix: Keep processors as compatibility adapters; keep all server persistence/events in SubjectRealNameCallbackServerAdapter and routing/status policy in HandleSubjectRealNameCallbackUseCaseImpl.
+verification: Module tests 27/27; SubjectRealNameCallbackProcessorTest 10/10; combined server callback/normal-flow tests 14/14; joint validate succeeds; yuxiaor-api has no diff; manifest dbf11e25121f15cc000e5523dce6e55ab57deb6632c9f0c4bd208895bda765d8 remains VALID.
+
+unverified（未验证范围）: the individual causes of the 12 failures, 7 errors, and 2 skips are recorded as baseline facts but not diagnosed; transaction boundaries, MQ delivery, executor behavior, callback ack timing, and callback idempotency behind passing tests remain uncharacterized.
 residual risk（残余风险）: Maven `SNAPSHOT` dependencies are configured with `updatePolicy=always`; later remote artifact changes can alter dependency resolution even without source changes.
