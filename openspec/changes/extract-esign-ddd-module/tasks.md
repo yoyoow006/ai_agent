@@ -26,6 +26,7 @@
   - [ ] 3.3 将 `EsignChannelUtil` 中账号ID、渠道、账号创建、实名URL、证件类型映射拆到模块端口与infrastructure适配器。
   - [ ] 3.4 为合同、公寓、租客上下文建立出站端口，并在 `yuxiaor-server` 提供适配器；共享表写入先经端口收敛。
   - [ ] 3.5 迁移 `service/orgsign/FlatmateSignService`、`service/certification`、`service/elcsignature/realname` 中业务规则到用例，保留兼容门面。
+    - 第二批已完成：`CompanyStatusCheckEventProcess` 与 `CompanySubsidiaryStatusEventProcess` 变更为兼容监听器，核心守卫与账号创建决策迁移至 `MaintainCompanyAccountUseCase`；既有 `ElectronicSignAccountNormalFlowTest` 4/4 绿。
   - [ ] 3.6 迁移/新增主体、实名、港澳台映射测试，并运行模块测试。
 
 - [ ] 4. 刷脸认证上下文

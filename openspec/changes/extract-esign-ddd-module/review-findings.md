@@ -63,5 +63,14 @@ status: resolved
 minimal fix: Keep domain/application pure, implement outbound ports in yuxiaor-server, and wire pure use cases through server configuration.
 verification: Module tests: 16 run / 0 fail; ElectronicSignAccountNormalFlowTest: 4 run / 0 fail; joint validate succeeds.
 
+id: subject-second-slice-event-migration
+severity: Important
+repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/service/elcsignature/realname/CompanyStatusCheckEventProcess.java:17
+evidence: Two subject real-name event listeners now delegate to a pure application use case. The server adapter preserves subject/company authentication guards, certificate matching, vendor-account existence checks, and exact legacy AccountDTO assembly. A temporary application-to-infrastructure import failed the architecture gate before removal.
+observable impact: Apartment real-name and subject-passed account maintenance events remain externally compatible while subject business decisions move into yuxiaor-esign.
+status: resolved
+minimal fix: Keep listeners as compatibility adapters; keep repository/vendor assembly in EsignSubjectServerAdapter and decision orchestration in MaintainCompanyAccountUseCaseImpl.
+verification: Module tests 20/20 green; ElectronicSignAccountNormalFlowTest 4/4 green; joint validate succeeds; yuxiaor-api has no diff.
+
 unverified（未验证范围）: the individual causes of the 12 failures, 7 errors, and 2 skips are recorded as baseline facts but not diagnosed; transaction boundaries, callback idempotency, MQ delivery, and executor behavior behind passing tests remain uncharacterized.
 residual risk（残余风险）: Maven `SNAPSHOT` dependencies are configured with `updatePolicy=always`; later remote artifact changes can alter dependency resolution even without source changes.
