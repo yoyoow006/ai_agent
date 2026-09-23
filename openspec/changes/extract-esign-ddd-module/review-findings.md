@@ -81,6 +81,15 @@ status: resolved
 minimal fix: Keep FlatmateSignService as a compatibility facade; keep identity/vendor/cache side effects only in EsignPersonalRealNameServerAdapter and policy/order in the pure use cases.
 verification: Module tests 41/41; FlatmateSignServicePersonalRealNameTest 6/6; combined callback/personal/normal-flow tests 20/20; joint validate succeeds; yuxiaor-api has no diff; manifest ca2a5ecd0087ab3aadb9f721f7f8d0189c9b793470e4900f08aa4e21669f61e4 remains VALID.
 
+id: subject-fifth-slice-enterprise-realname
+severity: Important
+repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/service/orgsign/FlatmateSignService.java:160
+evidence: C-end enterprise URL and revocation behavior was frozen before migration with 9 characterization tests covering missing/approved/incomplete profiles, 20-day URL caching plus DO_AUTH transition, live cache reuse, vendor-approved local transition, and vendor-delete failure ordering. The pure policy/use case now makes those decisions; the server adapter preserves exact legacy profile filtering, vendor account checks, URL creation, cache key/TTL, status-row re-read before update, successful-update cache removal, null vendor-result behavior, and deleted-profile write after successful vendor deletion.
+observable impact: `/local/flatmate-realname-auth/**` enterprise URL and revocation behavior remains externally compatible while enterprise real-name decisions move into yuxiaor-esign.
+status: resolved
+minimal fix: Keep FlatmateSignService as the compatibility facade; keep profile/vendor/cache/persistence side effects in EsignEnterpriseRealNameServerAdapter and state/reuse/revoke ordering in the pure use case.
+verification: Module tests 57/57; FlatmateSignServiceEnterpriseRealNameTest 9/9; combined enterprise/personal/callback/normal-flow tests 29/29; joint validate succeeds; yuxiaor-api has no diff; manifest b23579e053b104cd68b527ffc6bea65f4992f073b137f944094fe3f7ed18c7ce remains VALID.
+
 id: subject-third-slice-callback-migration
 severity: Important
 repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/service/elcsignature/realname/SubjectRealNameCallbackServerAdapter.java:63

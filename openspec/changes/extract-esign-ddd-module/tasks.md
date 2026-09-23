@@ -29,6 +29,7 @@
     - 第二批已完成：`CompanyStatusCheckEventProcess` 与 `CompanySubsidiaryStatusEventProcess` 变更为兼容监听器，核心守卫与账号创建决策迁移至 `MaintainCompanyAccountUseCase`；既有 `ElectronicSignAccountNormalFlowTest` 4/4 绿。
     - 第三批已完成：公寓/签署主体/租客企业/业主个人 4 个实名回调处理器改为兼容门面，路由与状态传播决策迁移至 `HandleSubjectRealNameCallbackUseCase`，server 侧状态、事件、默认主体和用户同步副作用集中在 `SubjectRealNameCallbackServerAdapter`；模块 27/27、回调 characterization 10/10、回归 14/14、联合 validate 绿。
     - 第四批已完成：`FlatmateSignService.getPSRealNameUrl` 与 `revokePSFlatmateSign` 改为兼容门面，C 端个人实名资格、缓存复用、流程创建、撤销与本地状态清理决策迁移至 `StartPersonalRealNameUseCase` / `RevokePersonalRealNameUseCase`；server 侧身份、供应商账号、Redis TTL 和状态事件副作用集中在 `EsignPersonalRealNameServerAdapter`；模块 41/41、门面 6/6、相关回归 20/20、联合 validate 绿。
+    - 第五批已完成：`FlatmateSignService.getRealNameUrl` 与 `revokeFlatmateSign` 改为兼容门面，C 端企业资料守卫、认证中缓存复用、供应商通过推进和撤销顺序迁移至 `ManageEnterpriseRealNameUseCase`；server 侧企业资料、供应商 URL、20 天认证缓存和本地状态写入集中在 `EsignEnterpriseRealNameServerAdapter`；模块 57/57、企业实名 characterization 9/9、相关回归 29/29、联合 validate 绿。
   - [ ] 3.6 迁移/新增主体、实名、港澳台映射测试，并运行模块测试。
 
 - [ ] 4. 刷脸认证上下文
