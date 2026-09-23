@@ -72,6 +72,15 @@ status: resolved
 minimal fix: Keep listeners as compatibility adapters; keep repository/vendor assembly in EsignSubjectServerAdapter and decision orchestration in MaintainCompanyAccountUseCaseImpl.
 verification: Module tests 20/20 green; ElectronicSignAccountNormalFlowTest 4/4 green; joint validate succeeds; yuxiaor-api has no diff.
 
+id: subject-fourth-slice-personal-realname
+severity: Important
+repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/service/orgsign/FlatmateSignService.java:145
+evidence: C-end personal real-name eligibility, cache reuse, vendor-result validity, revocation ordering, Redis routing key/TTL and clear-state semantics were frozen by tests before migration. The facade now delegates start/revoke to pure use cases; the server adapter preserves exact legacy vendor request assembly, 15-minute process cache, DO_AUTH event, C-account type 1, missing-account no-op deletion, local clear only after successful vendor deletion, and flow-cache removal. The initial pure-policy test was compile-red, then green; a remote yuxiaor-api SNAPSHOT drift caused unrelated production compile failures and was recorded as an environmental risk, not treated as a code regression.
+observable impact: `/local/flatmate-realname-auth/**` facade behavior and error messages remain observable while personal real-name decisions move into yuxiaor-esign.
+status: resolved
+minimal fix: Keep FlatmateSignService as a compatibility facade; keep identity/vendor/cache side effects only in EsignPersonalRealNameServerAdapter and policy/order in the pure use cases.
+verification: Module tests 41/41; FlatmateSignServicePersonalRealNameTest 6/6; combined callback/personal/normal-flow tests 20/20; joint validate succeeds; yuxiaor-api has no diff; manifest ca2a5ecd0087ab3aadb9f721f7f8d0189c9b793470e4900f08aa4e21669f61e4 remains VALID.
+
 id: subject-third-slice-callback-migration
 severity: Important
 repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/service/elcsignature/realname/SubjectRealNameCallbackServerAdapter.java:63
@@ -82,4 +91,4 @@ minimal fix: Keep processors as compatibility adapters; keep all server persiste
 verification: Module tests 27/27; SubjectRealNameCallbackProcessorTest 10/10; combined server callback/normal-flow tests 14/14; joint validate succeeds; yuxiaor-api has no diff; manifest dbf11e25121f15cc000e5523dce6e55ab57deb6632c9f0c4bd208895bda765d8 remains VALID.
 
 unverified（未验证范围）: the individual causes of the 12 failures, 7 errors, and 2 skips are recorded as baseline facts but not diagnosed; transaction boundaries, MQ delivery, executor behavior, callback ack timing, and callback idempotency behind passing tests remain uncharacterized.
-residual risk（残余风险）: Maven `SNAPSHOT` dependencies are configured with `updatePolicy=always`; later remote artifact changes can alter dependency resolution even without source changes.
+residual risk（残余风险）: Maven `SNAPSHOT` dependencies are configured with `updatePolicy=always`; later remote artifact changes can alter dependency resolution even without source changes. During this slice a newly published `yuxiaor-api-1.0.0-20260923.050913-4773` transiently caused unrelated Lombok-generated accessors to disappear from compilation, confirming that remote SNAPSHOT movement can block verification independently of this diff.
