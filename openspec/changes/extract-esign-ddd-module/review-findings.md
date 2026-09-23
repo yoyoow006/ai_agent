@@ -81,6 +81,15 @@ status: resolved
 minimal fix: Keep FlatmateSignService as a compatibility facade; keep identity/vendor/cache side effects only in EsignPersonalRealNameServerAdapter and policy/order in the pure use cases.
 verification: Module tests 41/41; FlatmateSignServicePersonalRealNameTest 6/6; combined callback/personal/normal-flow tests 20/20; joint validate succeeds; yuxiaor-api has no diff; manifest ca2a5ecd0087ab3aadb9f721f7f8d0189c9b793470e4900f08aa4e21669f61e4 remains VALID.
 
+id: subject-sixth-slice-certification-authorization
+severity: Important
+repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/service/certification/CertificationAPI.java:73
+evidence: Real-name service gate, quota exhaustion, billing exemption for company 64043 and company electronic contract type 1, invalid-user no-billing, and third-party one-count billing behavior were first frozen by CertificationAuthorizationApiTest. The decisions now live in a pure policy/use case; the adapter preserves the exact legacy consume DTO. The method retains @Transactional(REQUIRES_NEW), quota access is skipped for exempt paths, local/invalid results do not consume quota, and only a positive third-party result consumes one count.
+observable impact: Real-name authorization responses, error codes and service-count consumption remain externally compatible while gate/quota/billing decisions move into yuxiaor-esign.
+status: resolved
+minimal fix: Keep CertificationAPI as the transactional compatibility facade; keep quota persistence only in EsignCertificationAuthorizationServerAdapter and gate/billing ordering in the pure use case.
+verification: Module tests 65/65; CertificationAuthorizationApiTest 6/6; combined certification/enterprise/personal/callback/normal-flow tests 35/35; joint validate succeeds; yuxiaor-api has no diff; manifest 60933b709562ae142a71728bbde21b534045bba4601507254dd436aff13aa73f remains VALID.
+
 id: subject-fifth-slice-enterprise-realname
 severity: Important
 repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/service/orgsign/FlatmateSignService.java:160
