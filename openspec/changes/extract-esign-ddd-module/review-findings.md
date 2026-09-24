@@ -81,6 +81,15 @@ status: resolved
 minimal fix: Keep FlatmateSignService as a compatibility facade; keep identity/vendor/cache side effects only in EsignPersonalRealNameServerAdapter and policy/order in the pure use cases.
 verification: Module tests 41/41; FlatmateSignServicePersonalRealNameTest 6/6; combined callback/personal/normal-flow tests 20/20; joint validate succeeds; yuxiaor-api has no diff; manifest ca2a5ecd0087ab3aadb9f721f7f8d0189c9b793470e4900f08aa4e21669f61e4 remains VALID.
 
+id: subject-ninth-slice-company-account-assembly
+severity: Important
+repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/service/elcsignature/esign/EsignSubjectServerAdapter.java:78
+evidence: Apartment account field selection and fallback were frozen by module/server tests before delegation. Company type 3 now selects legal fields and falls back to link-man fields; personal type selects legal identity/link-man mobile according to legacy behavior. AssembleCompanyAccountUseCase owns request assembly, and server vendor DTO conversion consumes CompanyAccountAssemblyPolicy.SelectedFields rather than independently duplicating fallback rules.
+observable impact: Vendor account requests keep the same names, certificates, mobiles, licences and fallback order while assembly decisions move into yuxiaor-esign.
+status: resolved
+minimal fix: Keep EsignSubjectServerAdapter as the vendor DTO adapter; keep fallback/classification rules in CompanyAccountAssemblyPolicy and request construction in the module use case.
+verification: Module tests 85/85; EsignCompanyAccountAssemblyTest 2/2; combined assembly/identity/lifecycle/certification/realname/callback/normal-flow tests 65/65; joint validate succeeds; yuxiaor-api has no diff; manifest ff4051c5f7a752548e7e79e8c03f486b7394d4d9302b81998fa53c8aac15c874 remains VALID.
+
 id: subject-eighth-slice-account-identity-port
 severity: Important
 repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/helper/EsignChannelUtil.java:259
