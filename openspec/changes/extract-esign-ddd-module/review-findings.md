@@ -81,6 +81,15 @@ status: resolved
 minimal fix: Keep FlatmateSignService as a compatibility facade; keep identity/vendor/cache side effects only in EsignPersonalRealNameServerAdapter and policy/order in the pure use cases.
 verification: Module tests 41/41; FlatmateSignServicePersonalRealNameTest 6/6; combined callback/personal/normal-flow tests 20/20; joint validate succeeds; yuxiaor-api has no diff; manifest ca2a5ecd0087ab3aadb9f721f7f8d0189c9b793470e4900f08aa4e21669f61e4 remains VALID.
 
+id: subject-seventh-slice-lifecycle
+severity: Important
+repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/service/elcsignature/esign/EsignSubjectLifecycleServerAdapter.java:1
+evidence: Reject, unAuth and void lifecycle ordering was guarded by characterization/module tests before delegation. The pure policy checks requested-company ownership, sign-info existence, approved-plus-closed state for void, and pending willing tasks. The server adapter preserves reject auth reset to 0, unbind, default recalculation, after-commit vendor deletion, unAuth cancel status 4 plus subject deletion, and void-only local status 4 without vendor deletion. Existing void tests were extended only to inject the new use case while retaining their assertions.
+observable impact: Legacy FQCNs, transactional facades, error messages, local state writes and after-commit vendor ordering remain externally compatible.
+status: resolved
+minimal fix: Keep CompanySubsidiaryOutService and CompanySubsidiaryServiceAdapter as transactional facades; keep persistence/events in EsignSubjectLifecycleServerAdapter and guard ordering in the pure lifecycle use case.
+verification: Module tests 75/75; CompanySubsidiaryLifecycleFacadeTest 5/5; existing void tests 11/11; combined lifecycle/certification/realname/callback/normal-flow tests 59/59; joint validate succeeds; yuxiaor-api has no diff; manifest 69044ab102045c1ee33827f5d1f37b36f4cc0bba7ce64becd6d5877f42d26eec remains VALID.
+
 id: subject-sixth-slice-certification-authorization
 severity: Important
 repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/service/certification/CertificationAPI.java:73
@@ -109,4 +118,4 @@ minimal fix: Keep processors as compatibility adapters; keep all server persiste
 verification: Module tests 27/27; SubjectRealNameCallbackProcessorTest 10/10; combined server callback/normal-flow tests 14/14; joint validate succeeds; yuxiaor-api has no diff; manifest dbf11e25121f15cc000e5523dce6e55ab57deb6632c9f0c4bd208895bda765d8 remains VALID.
 
 unverified（未验证范围）: the individual causes of the 12 failures, 7 errors, and 2 skips are recorded as baseline facts but not diagnosed; transaction boundaries, MQ delivery, executor behavior, callback ack timing, and callback idempotency behind passing tests remain uncharacterized.
-residual risk（残余风险）: Maven `SNAPSHOT` dependencies are configured with `updatePolicy=always`; later remote artifact changes can alter dependency resolution even without source changes. During this slice a newly published `yuxiaor-api-1.0.0-20260923.050913-4773` transiently caused unrelated Lombok-generated accessors to disappear from compilation, confirming that remote SNAPSHOT movement can block verification independently of this diff.
+residual risk（残余风险）: Maven `SNAPSHOT` dependencies are configured with `updatePolicy=always`; later remote artifact changes can alter dependency resolution even without source changes. `yuxiaor-api-20260924.060501-4779` again removed unrelated checkout APIs and blocked the default local repository; verification used an isolated copy pinned to compatible `yuxiaor-api-20260923.074928-4775`, without changing source dependencies or yuxiaor-api/src.
