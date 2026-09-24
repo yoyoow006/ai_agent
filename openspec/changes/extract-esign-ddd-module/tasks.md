@@ -34,6 +34,7 @@
     - 第七批已完成：主体驳回、取消认证与作废守卫迁移至 `ManageSubjectLifecycleUseCase`；`rejectCompanySubsidiary`、`unAuth`、`voidCompanySubsidiary` 保持事务门面，server 侧本地状态、解绑、默认主体重算与事务提交后供应商删除集中在 `EsignSubjectLifecycleServerAdapter`；模块 75/75、生命周期门面 5/5、既有 void 11/11、相关回归 59/59、联合 validate 绿。
     - 第八批已完成：`EsignChannelUtil` 中公寓、租客刷脸、租客个人、业主个人的账号 ID 编码/反解/类型判断切换到 `SubjectAccountIdentityPort`，由模块领域 `ElectronicSignAccountId` 提供唯一映射；模块 80/80、账号 ID 门面 4/4、相关回归 63/63、联合 validate 绿。
     - 第九批已完成：公寓账号组装决策收敛到 `CompanyAccountAssemblyPolicy` 与 `AssembleCompanyAccountUseCase`，server 侧供应商 DTO 转换使用同一字段回退规则；模块 85/85、组装 characterization 2/2、相关回归 65/65、联合 validate 绿。
+    - 第十批已完成：公寓主体/签署信息共享表读取收敛到 `EsignCompanySubjectContextService`，`EsignSubjectServerAdapter` 不再直接访问 `CompanySubsidiaryMapper`；模块 85/85、相关回归 65/65、联合 validate 绿。
   - [ ] 3.6 迁移/新增主体、实名、港澳台映射测试，并运行模块测试。
 
 - [ ] 4. 刷脸认证上下文

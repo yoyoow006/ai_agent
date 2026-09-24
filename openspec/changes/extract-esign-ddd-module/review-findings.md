@@ -81,6 +81,15 @@ status: resolved
 minimal fix: Keep FlatmateSignService as a compatibility facade; keep identity/vendor/cache side effects only in EsignPersonalRealNameServerAdapter and policy/order in the pure use cases.
 verification: Module tests 41/41; FlatmateSignServicePersonalRealNameTest 6/6; combined callback/personal/normal-flow tests 20/20; joint validate succeeds; yuxiaor-api has no diff; manifest ca2a5ecd0087ab3aadb9f721f7f8d0189c9b793470e4900f08aa4e21669f61e4 remains VALID.
 
+id: subject-tenth-slice-company-context-read-boundary
+severity: Important
+repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/service/elcsignature/esign/EsignCompanySubjectContextService.java:1
+evidence: The subject adapter previously combined a service abstraction with direct CompanySubsidiaryMapper access for subject-by-certificate reads. A dedicated server context service now provides subjectByIdNum and signInfo reads, and EsignSubjectServerAdapter consumes that boundary instead of importing the shared mapper. Existing normal-flow tests were updated only at the injection boundary and retained all behavioral assertions.
+observable impact: No response or persistence behavior changes; shared apartment/subject read ownership is explicit and module adapters no longer bypass the server context boundary.
+status: resolved
+minimal fix: Keep shared company/subject reads in EsignCompanySubjectContextService; keep EsignSubjectServerAdapter as module port implementation without direct mapper access.
+verification: Module tests 85/85; combined assembly/identity/lifecycle/certification/realname/callback/normal-flow tests 65/65; joint validate succeeds; yuxiaor-api has no diff; manifest 49b0aef9bdbd9e04b92a8e520e1cdd13ba82ceca2b3aba9979c0a93a378d2376 remains VALID.
+
 id: subject-ninth-slice-company-account-assembly
 severity: Important
 repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/service/elcsignature/esign/EsignSubjectServerAdapter.java:78
