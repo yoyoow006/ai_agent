@@ -32,6 +32,7 @@
     - 第五批已完成：`FlatmateSignService.getRealNameUrl` 与 `revokeFlatmateSign` 改为兼容门面，C 端企业资料守卫、认证中缓存复用、供应商通过推进和撤销顺序迁移至 `ManageEnterpriseRealNameUseCase`；server 侧企业资料、供应商 URL、20 天认证缓存和本地状态写入集中在 `EsignEnterpriseRealNameServerAdapter`；模块 57/57、企业实名 characterization 9/9、相关回归 29/29、联合 validate 绿。
     - 第六批已完成：`CertificationAPI.getCertification` 保持 `REQUIRES_NEW` 门面，实名开关、城方/电子合同免计费、余额不足、本地/第三方结果和扣费决策迁移至 `AuthorizeCertificationUseCase`；server 侧服务次数扣减集中在 `EsignCertificationAuthorizationServerAdapter`；模块 65/65、实名 characterization 6/6、相关回归 35/35、联合 validate 绿。
     - 第七批已完成：主体驳回、取消认证与作废守卫迁移至 `ManageSubjectLifecycleUseCase`；`rejectCompanySubsidiary`、`unAuth`、`voidCompanySubsidiary` 保持事务门面，server 侧本地状态、解绑、默认主体重算与事务提交后供应商删除集中在 `EsignSubjectLifecycleServerAdapter`；模块 75/75、生命周期门面 5/5、既有 void 11/11、相关回归 59/59、联合 validate 绿。
+    - 第八批已完成：`EsignChannelUtil` 中公寓、租客刷脸、租客个人、业主个人的账号 ID 编码/反解/类型判断切换到 `SubjectAccountIdentityPort`，由模块领域 `ElectronicSignAccountId` 提供唯一映射；模块 80/80、账号 ID 门面 4/4、相关回归 63/63、联合 validate 绿。
   - [ ] 3.6 迁移/新增主体、实名、港澳台映射测试，并运行模块测试。
 
 - [ ] 4. 刷脸认证上下文

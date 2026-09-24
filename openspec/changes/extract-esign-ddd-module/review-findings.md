@@ -81,6 +81,15 @@ status: resolved
 minimal fix: Keep FlatmateSignService as a compatibility facade; keep identity/vendor/cache side effects only in EsignPersonalRealNameServerAdapter and policy/order in the pure use cases.
 verification: Module tests 41/41; FlatmateSignServicePersonalRealNameTest 6/6; combined callback/personal/normal-flow tests 20/20; joint validate succeeds; yuxiaor-api has no diff; manifest ca2a5ecd0087ab3aadb9f721f7f8d0189c9b793470e4900f08aa4e21669f61e4 remains VALID.
 
+id: subject-eighth-slice-account-identity-port
+severity: Important
+repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/helper/EsignChannelUtil.java:259
+evidence: Account identity scalar behavior was frozen by EsignChannelIdentityFacadeTest before delegation. Apartment, renter-face, renter-personal and owner-personal encode/decode/type checks now delegate to SubjectAccountIdentityPort backed by ElectronicSignAccountId, preserving legacy widths 4/6/8/7, malformed zero fallback and wrong-type false result. Legacy renter organization remains 18-digit and stays in the compatibility helper until the contract-signing context migrates.
+observable impact: External account IDs and callback routing remain unchanged while the module owns all non-legacy organization identity mappings.
+status: resolved
+minimal fix: Keep EsignChannelUtil as compatibility helper; use SubjectAccountIdentityPort for all subject identity conversions and keep the legacy 3-prefix local until its wider callers migrate.
+verification: Module tests 80/80; EsignChannelIdentityFacadeTest 4/4; combined identity/lifecycle/certification/realname/callback/normal-flow tests 63/63; joint validate succeeds; yuxiaor-api has no diff; manifest 7a56c5c3d7ef6715c25a0e015e2331c220db17f244691e1d387227980b793516 remains VALID.
+
 id: subject-seventh-slice-lifecycle
 severity: Important
 repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/service/elcsignature/esign/EsignSubjectLifecycleServerAdapter.java:1
