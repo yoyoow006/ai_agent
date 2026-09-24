@@ -81,6 +81,15 @@ status: resolved
 minimal fix: Keep FlatmateSignService as a compatibility facade; keep identity/vendor/cache side effects only in EsignPersonalRealNameServerAdapter and policy/order in the pure use cases.
 verification: Module tests 41/41; FlatmateSignServicePersonalRealNameTest 6/6; combined callback/personal/normal-flow tests 20/20; joint validate succeeds; yuxiaor-api has no diff; manifest ca2a5ecd0087ab3aadb9f721f7f8d0189c9b793470e4900f08aa4e21669f61e4 remains VALID.
 
+id: subject-eleventh-slice-active-channel
+severity: Important
+repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/helper/EsignChannelUtil.java:108
+evidence: Active channel behavior was first frozen by EsignActiveChannelFacadeTest. Exact Redis flag value 2 selects Junzi channel index 2; null, blank, or other values default to E-Sign Bo index 3. The decision now lives in ElectronicSignChannelPolicy and ResolveElectronicSignChannelUseCase; Redis flag access is isolated in EsignActiveChannelServerAdapter and the legacy helper only adapts the resolved channel.
+observable impact: Account source channel indexes and Junzi detection remain byte-compatible while channel selection moves into yuxiaor-esign.
+status: resolved
+minimal fix: Keep EsignChannelUtil as the compatibility helper; keep flag storage in EsignActiveChannelServerAdapter and channel selection in the pure module policy.
+verification: Module tests 89/89; EsignActiveChannelFacadeTest 3/3; combined channel/assembly/identity/lifecycle/certification/realname/callback/normal-flow tests 68/68; joint validate succeeds; yuxiaor-api has no diff; manifest bfa822f5c379c291b1b749b6ffbc0d785c689f7249d46c75d120b4815d0cb792 remains VALID.
+
 id: subject-tenth-slice-company-context-read-boundary
 severity: Important
 repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/service/elcsignature/esign/EsignCompanySubjectContextService.java:1

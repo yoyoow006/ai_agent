@@ -35,6 +35,7 @@
     - 第八批已完成：`EsignChannelUtil` 中公寓、租客刷脸、租客个人、业主个人的账号 ID 编码/反解/类型判断切换到 `SubjectAccountIdentityPort`，由模块领域 `ElectronicSignAccountId` 提供唯一映射；模块 80/80、账号 ID 门面 4/4、相关回归 63/63、联合 validate 绿。
     - 第九批已完成：公寓账号组装决策收敛到 `CompanyAccountAssemblyPolicy` 与 `AssembleCompanyAccountUseCase`，server 侧供应商 DTO 转换使用同一字段回退规则；模块 85/85、组装 characterization 2/2、相关回归 65/65、联合 validate 绿。
     - 第十批已完成：公寓主体/签署信息共享表读取收敛到 `EsignCompanySubjectContextService`，`EsignSubjectServerAdapter` 不再直接访问 `CompanySubsidiaryMapper`；模块 85/85、相关回归 65/65、联合 validate 绿。
+    - 第十一批已完成：当前电子签渠道选择迁移到 `ElectronicSignChannelPolicy` 与 `ResolveElectronicSignChannelUseCase`，`EsignChannelUtil.isJunzi/setChannelType` 改为兼容门面，Redis flag 由 `EsignActiveChannelServerAdapter` 出站读取；模块 89/89、渠道门面 3/3、相关回归 68/68、联合 validate 绿。
   - [ ] 3.6 迁移/新增主体、实名、港澳台映射测试，并运行模块测试。
 
 - [ ] 4. 刷脸认证上下文
