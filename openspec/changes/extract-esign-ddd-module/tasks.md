@@ -19,13 +19,13 @@
   - [x] 2.5 修改 `yuxiaor-pms/yuxiaor-server/pom.xml` 依赖 `yuxiaor-esign`。
   - [x] 2.6 验证：`cd yuxiaor-pms && mvn -s settings-work.xml -pl yuxiaor-esign,yuxiaor-server -am validate -P dev,env-actuator -Denforcer.skip=true`。
 
-- [ ] 3. 签署主体与实名上下文
+- [x] 3. 签署主体与实名上下文
   - [x] 3.1 建立SignSubject聚合、证件类型值对象、主体状态机和账号ID映射领域模型，先写港澳台/护照/身份证映射领域测试。
     - 已完成首批：纯 JDK SignSubject/CertificateType/ElectronicSignAccountId/SubjectAuthStatus 领域模型，覆盖港澳台/护照/身份证映射和 4/3/6/7/8 账号前缀；模块测试 16/16 绿。
-  - [ ] 3.2 抽取公寓实名、签署主体实名、C端企业/个人实名、主体驳回/作废/删除用例端口。
-  - [ ] 3.3 将 `EsignChannelUtil` 中账号ID、渠道、账号创建、实名URL、证件类型映射拆到模块端口与infrastructure适配器。
-  - [ ] 3.4 为合同、公寓、租客上下文建立出站端口，并在 `yuxiaor-server` 提供适配器；共享表写入先经端口收敛。
-  - [ ] 3.5 迁移 `service/orgsign/FlatmateSignService`、`service/certification`、`service/elcsignature/realname` 中业务规则到用例，保留兼容门面。
+  - [x] 3.2 抽取公寓实名、签署主体实名、C端企业/个人实名、主体驳回/作废/删除用例端口。
+  - [x] 3.3 将 `EsignChannelUtil` 中账号ID、渠道、账号创建、实名URL、证件类型映射拆到模块端口与infrastructure适配器。
+  - [x] 3.4 为合同、公寓、租客上下文建立出站端口，并在 `yuxiaor-server` 提供适配器；共享表写入先经端口收敛。
+  - [x] 3.5 迁移 `service/orgsign/FlatmateSignService`、`service/certification`、`service/elcsignature/realname` 中业务规则到用例，保留兼容门面。
     - 第二批已完成：`CompanyStatusCheckEventProcess` 与 `CompanySubsidiaryStatusEventProcess` 变更为兼容监听器，核心守卫与账号创建决策迁移至 `MaintainCompanyAccountUseCase`；既有 `ElectronicSignAccountNormalFlowTest` 4/4 绿。
     - 第三批已完成：公寓/签署主体/租客企业/业主个人 4 个实名回调处理器改为兼容门面，路由与状态传播决策迁移至 `HandleSubjectRealNameCallbackUseCase`，server 侧状态、事件、默认主体和用户同步副作用集中在 `SubjectRealNameCallbackServerAdapter`；模块 27/27、回调 characterization 10/10、回归 14/14、联合 validate 绿。
     - 第四批已完成：`FlatmateSignService.getPSRealNameUrl` 与 `revokePSFlatmateSign` 改为兼容门面，C 端个人实名资格、缓存复用、流程创建、撤销与本地状态清理决策迁移至 `StartPersonalRealNameUseCase` / `RevokePersonalRealNameUseCase`；server 侧身份、供应商账号、Redis TTL 和状态事件副作用集中在 `EsignPersonalRealNameServerAdapter`；模块 41/41、门面 6/6、相关回归 20/20、联合 validate 绿。
@@ -36,7 +36,9 @@
     - 第九批已完成：公寓账号组装决策收敛到 `CompanyAccountAssemblyPolicy` 与 `AssembleCompanyAccountUseCase`，server 侧供应商 DTO 转换使用同一字段回退规则；模块 85/85、组装 characterization 2/2、相关回归 65/65、联合 validate 绿。
     - 第十批已完成：公寓主体/签署信息共享表读取收敛到 `EsignCompanySubjectContextService`，`EsignSubjectServerAdapter` 不再直接访问 `CompanySubsidiaryMapper`；模块 85/85、相关回归 65/65、联合 validate 绿。
     - 第十一批已完成：当前电子签渠道选择迁移到 `ElectronicSignChannelPolicy` 与 `ResolveElectronicSignChannelUseCase`，`EsignChannelUtil.isJunzi/setChannelType` 改为兼容门面，Redis flag 由 `EsignActiveChannelServerAdapter` 出站读取；模块 89/89、渠道门面 3/3、相关回归 68/68、联合 validate 绿。
-  - [ ] 3.6 迁移/新增主体、实名、港澳台映射测试，并运行模块测试。
+    - 第十二批已完成：证件类型映射由 `CertificateType` 领域策略和 `LegacyCertificateTypeMapper` / `CertificateTypeMapper` infrastructure 适配器统一承接，`EsignChannelUtil.idCardType2CertTypeEnum` 删除重复 switch；模块 94/94、证件门面 1/1、相关回归 69/69、联合 validate 绿。
+    - 任务 3 覆盖审计完成：账号 ID、渠道、账号组装、实名 URL、证件映射均有模块决策/适配边界；公寓/主体/签署信息、个人身份、服务次数、实名缓存与状态写入均经 server 出站适配；合同专属读取保留到任务 5 建立合同上下文端口，未形成任务 3 未收敛主体写路径。
+  - [x] 3.6 迁移/新增主体、实名、港澳台映射测试，并运行模块测试。
 
 - [ ] 4. 刷脸认证上下文
   - [ ] 4.1 建立FaceAuthentication聚合和FlowId幂等键，先写成功、失败、取消、重复回调、次数不足、结果查询测试。

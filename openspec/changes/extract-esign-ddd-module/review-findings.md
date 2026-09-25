@@ -81,6 +81,24 @@ status: resolved
 minimal fix: Keep FlatmateSignService as a compatibility facade; keep identity/vendor/cache side effects only in EsignPersonalRealNameServerAdapter and policy/order in the pure use cases.
 verification: Module tests 41/41; FlatmateSignServicePersonalRealNameTest 6/6; combined callback/personal/normal-flow tests 20/20; joint validate succeeds; yuxiaor-api has no diff; manifest ca2a5ecd0087ab3aadb9f721f7f8d0189c9b793470e4900f08aa4e21669f61e4 remains VALID.
 
+id: subject-twelfth-slice-certificate-mapping
+severity: Important
+repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/helper/EsignChannelUtil.java:182
+evidence: Legacy certificate switch behavior was frozen by EsignCertificateMappingFacadeTest and module mapper tests before delegation. Legacy codes 1/unknown default to mainland ID, 2 maps passport, 3 maps Hong Kong unless the certificate begins M/m which maps Macao, and 4 maps Taiwan. EsignChannelUtil now delegates through LegacyCertificateTypeMapper and CertificateTypeMapper instead of duplicating the switch.
+observable impact: Vendor certificate names remain unchanged while certificate mapping becomes module-owned infrastructure.
+status: resolved
+minimal fix: Keep vendor enum conversion in CertificateTypeMapper and legacy scalar conversion in LegacyCertificateTypeMapper; do not reintroduce certificate switch logic in server helpers.
+verification: Module tests 94/94; EsignCertificateMappingFacadeTest 1/1; combined certificate/channel/identity/assembly/lifecycle/certification/realname/callback/normal-flow tests 69/69; joint validate succeeds; yuxiaor-api has no diff; manifest 39202b6477dc19e36044400e708ce546efbe00ff99f75569fc535f84042243c4 remains VALID.
+
+id: subject-task-completion-audit
+severity: Important
+repo/path: openspec/changes/extract-esign-ddd-module/tasks.md:22
+evidence: Task 3 checklist was audited against the implemented ports and tests. Apartment/account maintenance, real-name callbacks, C-end enterprise/personal real-name, certification authorization, subject lifecycle, account identity, channel, assembly and certificate mapping have module-owned decisions with server adapters. Shared reads/writes for apartment subject rows, identity rows, service quota, process caches and status rows pass through server adapters. Contract-specific reads intentionally remain for task 5's contract-signing context and are not unowned subject-lifecycle writes.
+observable impact: Task 3 can be marked complete without claiming contract-signing migration scheduled for task 5.
+status: resolved
+minimal fix: Keep task 3 and task 5 boundaries separate; do not remove remaining contract-context helpers until task 5 establishes its ports and tests.
+verification: Module tests 94/94; task-related server regression selection 69/69; joint validate succeeds; yuxiaor-api has no diff; openspec strict validation passes.
+
 id: subject-eleventh-slice-active-channel
 severity: Important
 repo/path: yuxiaor-server/src/main/java/com/dream/yuxiaor/helper/EsignChannelUtil.java:108
