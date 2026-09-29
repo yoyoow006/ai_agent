@@ -9,6 +9,7 @@
 | 共享知识层 | `.ai/` | kb、memory、rules、prompts、tools | 路由、踩坑、项目卡、知识沉淀、事实查询 |
 | 项目登记 | `.ai/kb/projects/registry.json`, `.ai/kb/projects/` | registry、项目卡、项目模板、业务词、依赖、验证入口 | project-context、server-registry、workspace-search、business-terms、dependencies、verification |
 | 寓小二 PMS | `yuxiaor-pms/` | PMS、寓小二、业务核心服务 | JDK 1.8、Spring Boot 2.0.4、Spring Cloud Finchley.SR1、Redis 主从/Cluster、yuxiaor-api、yuxiaor-server、风控规则、xxl-job 迁移 |
+| 电子签署服务 | `yuxiaor-e-signature/` | 电子签署项目、yuxiaor-e-sign、电子签服务 | yuxiaor-e-sign-server、yuxiaor-e-sign-bo、yuxiaor-e-sign-junzi（已废弃）、yuxiaor-e-sign-base、yuxiaor-e-signature-api、EsignatureService、EsignatureFeignService、实名认证、刷脸认证、合同签署、电子签署回调、渠道路由 |
 | 验证证据 | `.ai/kb/verification-evidence.md` | 证据复用、验证基线 | verified_commit、等价输入、证据失效、NOT_RUN、UNKNOWN、新鲜验证 |
 | 安装器知识分层 | `.gitignore`, `.ai/kb/projects/README.md`, `openspec/specs/installer-knowledge-separation/` | 源仓库业务知识、目标项目登记 | 空白 registry、通用骨架、业务项目卡、防回流 |
 | 便携安装器契约 | `openspec/specs/portable-ai-workflow-installer/`, `scripts/install-ai-workflow.sh`, `scripts/lib/install_ai_workflow.py`, `.ai/installer-ledger.json`(安装目标侧运行时产物,源仓库不存在) | 安装器、跨 Python 兼容、资产契约、升级路径、台账 | 加载时类型别名、Path 包含 helper、入口契约、preview/--help、事务回滚、--upgrade、installer-ledger、SHA-256 判定 |

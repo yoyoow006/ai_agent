@@ -31,6 +31,106 @@
         "build_command": "cd yuxiaor-pms && mvn -T1C clean validate compile -P dev,env-actuator,nexus-dailybuild -Denforcer.skip=true -am",
         "test_command": "cd yuxiaor-pms && mvn -T2C test -P dev,env-actuator,nexus-dailybuild -Denforcer.skip=true"
       }
+    },
+    {
+      "name": "yuxiaor-e-signature",
+      "path": "yuxiaor-e-signature",
+      "build": "maven",
+      "card": "kb/projects/yuxiaor-e-signature.md",
+      "search_roots": [
+        "README.md",
+        "pom.xml",
+        "build.sh",
+        "build-and-test.sh",
+        "fastbuild.sh",
+        "masterbuild.sh",
+        "yuxiaor-e-signature-api/src/main",
+        "yuxiaor-e-sign-base/src/main",
+        "yuxiaor-e-sign-bo/src/main",
+        "yuxiaor-e-sign-junzi/src/main",
+        "yuxiaor-e-sign-server/src/main"
+      ],
+      "applications": [
+        {
+          "server": "yuxiaor-e-sign-server",
+          "module": "yuxiaor-e-sign-server",
+          "main_class": "com.yuxiaor.pms.esign.YuxiaorEsignApplication",
+          "source_path": "yuxiaor-e-sign-server/src/main/java/com/yuxiaor/pms/esign/YuxiaorEsignApplication.java"
+        }
+      ],
+      "business_terms": [
+        {
+          "term": "电子签署",
+          "source_paths": [
+            "yuxiaor-e-sign-server/src/main/java/com/yuxiaor/pms/esign/domain/EsignatureDomainService.java",
+            "yuxiaor-e-sign-server/src/main/java/com/yuxiaor/pms/esign/controller/EsignatureController.java"
+          ]
+        },
+        {
+          "term": "实名认证",
+          "source_paths": [
+            "yuxiaor-e-sign-base/src/main/java/com/yuxiaor/pms/esign/base/domain/IEsignatureProcess.java",
+            "yuxiaor-e-signature-api/src/main/java/com/yuxiaor/pms/esign/api/EsignatureService.java"
+          ]
+        },
+        {
+          "term": "刷脸认证",
+          "source_paths": [
+            "yuxiaor-e-signature-api/src/main/java/com/yuxiaor/pms/esign/api/EsignatureService.java",
+            "yuxiaor-e-sign-bo/src/main/java/com/yuxiaor/pms/esign/po/event/process/FaceAuthProcessor.java"
+          ]
+        },
+        {
+          "term": "合同签署",
+          "source_paths": [
+            "yuxiaor-e-sign-base/src/main/java/com/yuxiaor/pms/esign/base/domain/IEsignatureProcess.java",
+            "yuxiaor-e-sign-bo/src/main/java/com/yuxiaor/pms/esign/po/service/impl/EsignatureServiceImpl.java"
+          ]
+        },
+        {
+          "term": "电子签署回调",
+          "source_paths": [
+            "yuxiaor-e-sign-server/src/main/java/com/yuxiaor/pms/esign/controller/EsignatureCallbackController.java",
+            "yuxiaor-e-sign-base/src/main/java/com/yuxiaor/pms/esign/base/domain/IEsignatureCallBackService.java"
+          ]
+        },
+        {
+          "term": "渠道路由",
+          "source_paths": [
+            "yuxiaor-e-sign-server/src/main/java/com/yuxiaor/pms/esign/service/gw/EsignatureProcessRoute.java",
+            "yuxiaor-e-sign-server/src/main/java/com/yuxiaor/pms/esign/service/rule/DefaultEsignatureProcessRule.java"
+          ]
+        },
+        {
+          "term": "电子签署账号",
+          "source_paths": [
+            "yuxiaor-e-sign-base/src/main/java/com/yuxiaor/pms/esign/base/service/ElectronicSignAccountService.java",
+            "yuxiaor-e-sign-base/src/main/java/com/yuxiaor/pms/esign/base/mapper/ElectronicSignAccountMapper.java"
+          ]
+        },
+        {
+          "term": "E签宝",
+          "synonyms": [
+            "e签宝",
+            "E-Sign Bo"
+          ],
+          "source_paths": [
+            "yuxiaor-e-sign-bo/src/main/java/com/yuxiaor/pms/esign/po/service/EsignPoSdk.java",
+            "yuxiaor-e-sign-bo/src/main/java/com/yuxiaor/pms/esign/po/service/impl/EsignatureServiceImpl.java"
+          ]
+        },
+        {
+          "term": "君子签",
+          "source_paths": [
+            "yuxiaor-e-sign-junzi/src/main/java/com/yuxiaor/pms/esign/vo/junzi/service/JunziSignSdk.java",
+            "yuxiaor-e-sign-junzi/src/main/java/com/yuxiaor/pms/esign/vo/junzi/service/impl/JunziEsignatureServiceImpl.java"
+          ]
+        }
+      ],
+      "verification": {
+        "build_command": "cd yuxiaor-e-signature && ./build.sh",
+        "test_command": "cd yuxiaor-e-signature && mvn -s settings-work.xml -T2C test -P dev,env-actuator"
+      }
     }
   ]
 }
