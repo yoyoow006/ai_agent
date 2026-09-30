@@ -62,6 +62,13 @@
 - **S1 标准**：实际 OpenSpec 产物未获一次明确确认，不得实现；tasks/测试未全绿或综合审查仍有 Critical/Important，不得归档。
 - **G1–G4 严格**：四件套未确认不写计划；命中硬风险的计划未确认不实现；tasks/测试/证据不全不交 Verify；任务级和双阶段审查未通过不归档。
 
+### 验证层级与标准产物入口
+
+- `bash scripts/validate-workflow.sh --fast` 只运行 core，可复用 `.ai-local/rules-cache/` 中输入未变的 PASS；缓存命中仍显示 PASS，不构成第四种状态。
+- `bash scripts/validate-workflow.sh --standard`（或默认全量入口）运行 core、顶层契约套件和变更目标测试；命中工作流入口、技能、校验器、模板或安装资产时必须升级 required。
+- `bash scripts/validate-workflow.sh --require-openspec` 强制 OpenSpec strict 与全部必需测试实际执行，禁止读取或写入任何验证缓存。
+- 新变更可用 `python3 scripts/new-openspec-change.py create <变更名> --mode standard|strict` 生成标准产物，用 `... check <变更目录>` 做只读结构预检；目标目录非空或仍含占位符时失败。
+
 ## 共享审查与有限角色
 
 - 标准/严格完整审查执行 `.ai/rules/review.md`：主会话 freeze，reviewer 读取前和结论前各运行 `review_manifest.py verify`；任一 `STALE` 立即停止。快速模式不创建 manifest、不派角色代理。
