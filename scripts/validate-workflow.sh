@@ -5,6 +5,22 @@ set -u
 cd "$(dirname "$0")/.."
 export PYTHONDONTWRITEBYTECODE=1
 
+run_id="$(python3 -B -c 'import uuid; print(uuid.uuid4().hex)')"
+jsonl_path="${WORKFLOW_JSONL_PATH:-}"
+if test "${WORKFLOW_OUTPUT:-}" = "jsonl" && test -z "$jsonl_path"; then
+  jsonl_path=".ai-local/workflow-events.jsonl"
+fi
+run_started_ns="$(python3 -B -c 'import time; print(time.monotonic_ns())')"
+emit_event() {
+  test -n "$jsonl_path" || return 0
+  python3 -B scripts/lib/workflow_event_cli.py "$jsonl_path" "$run_id" "${validation_layer:-standard}" "$1" "$2" "${3:-}" "${4:-}" >/dev/null 2>&1 || printf '[INFO] output_parse_error\n' >&2
+}
+conflict_exit() {
+  emit_event summary FAIL conflict 0
+  printf 'PASS=0 FAIL=1 SKIP=0\n'
+  exit 2
+}
+
 fast_mode=0
 standard_mode=0
 archive_light=0
@@ -45,6 +61,15 @@ while test "$#" -gt 0; do
       forwarded_arguments+=("$argument")
       shift
       ;;
+    --output-jsonl)
+      shift
+      if test "$#" -eq 0 || test -z "$1"; then
+        printf '[FAIL] --output-jsonl 需要路径（conflict）\n' >&2
+        exit 2
+      fi
+      jsonl_path="$1"
+      shift
+      ;;
     --print-external-commands)
       # 诊断模式直接透传 core(只读、无汇总语义),不进入门禁流程。
       exec bash scripts/lib/validate-workflow-core.sh --print-external-commands
@@ -56,22 +81,24 @@ while test "$#" -gt 0; do
   esac
 done
 
+validation_layer=standard
+
 # --archive-light 与 --require-openspec 互斥（语义冲突：前者跳过契约套件、后者强制契约套件）
 if test "$archive_light" -eq 1 && test "$require_openspec_user" -eq 1; then
   printf "[FAIL] --archive-light 与 --require-openspec 冲突（conflict）：归档轻量门禁与强制完整门禁不能同时启用\n" >&2
-  exit 2
+  conflict_exit
 fi
 if test "$fast_mode" -eq 1 && test "$require_openspec_user" -eq 1; then
   printf "[FAIL] --fast 与 --require-openspec 冲突（conflict）：快速分层不能替代强制完整门禁\n" >&2
-  exit 2
+  conflict_exit
 fi
 if test "$fast_mode" -eq 1 && test "$archive_light" -eq 1; then
   printf "[FAIL] --fast 与 --archive-light 冲突（conflict）：两种轻量入口语义不能叠加\n" >&2
-  exit 2
+  conflict_exit
 fi
 if test "$standard_mode" -eq 1 && { test "$fast_mode" -eq 1 || test "$archive_light" -eq 1 || test "$require_openspec_user" -eq 1; }; then
   printf "[FAIL] --standard 与其他验证层参数冲突（conflict）：一次调用只能选择一个层级\n" >&2
-  exit 2
+  conflict_exit
 fi
 
 if test "$standard_mode" -eq 1; then
@@ -92,6 +119,11 @@ if test "$standard_mode" -eq 1; then
     fi
   fi
 fi
+
+if test "$fast_mode" -eq 1; then validation_layer=fast; fi
+if test "$require_openspec_user" -eq 1; then validation_layer=required; fi
+if test "$archive_light" -eq 1; then validation_layer=archive-light; fi
+emit_event plan INFO validation_plan
 
 # --archive-light 单独使用 = 纯轻量（仅跑 core，不做 diff 分类）
 #   配合 --archive-files + WORKFLOW_ARCHIVE_GATE=1 才做 diff 分类自动升级
@@ -145,7 +177,38 @@ contract_output="$(mktemp)"
 cleanup() {
   rm -f -- "$core_output" "$contract_output"
 }
-trap cleanup EXIT
+finalize() {
+  local code="$?"
+  local now duration=0
+  now="$(python3 -B -c 'import time; print(time.monotonic_ns())')"
+  duration=$(( (now - run_started_ns) / 1000000 ))
+  if test "$code" -eq 0; then
+    emit_event summary PASS "exit_code_0" "$duration"
+  else
+    emit_event summary FAIL "exit_code_$code" "$duration"
+  fi
+  if test -n "$jsonl_path" || test -d .ai-local; then
+    METRICS_DIR="${METRICS_DIR:-.ai-local/metrics}" METRICS_RUN_ID="$run_id" METRICS_DURATION="$duration" \
+      METRICS_LAYER="$validation_layer" METRICS_PASS="${pass_count:-0}" \
+      METRICS_FAIL="${fail_count:-0}" METRICS_SKIP="${skip_count:-0}" \
+      python3 -B - <<'PY' >/dev/null 2>&1 || printf '[INFO] metrics_write_failed\n' >&2
+import json, os, tempfile
+from pathlib import Path
+d=Path(os.environ["METRICS_DIR"])
+try:
+    d.mkdir(parents=True, exist_ok=True)
+    payload={"schema_version":1,"run_id":os.environ["METRICS_RUN_ID"],"layer":os.environ["METRICS_LAYER"],"duration_ms":int(os.environ.get("METRICS_DURATION","0")),"counts":{"PASS":int(os.environ["METRICS_PASS"]),"FAIL":int(os.environ["METRICS_FAIL"]),"SKIP":int(os.environ["METRICS_SKIP"])},"agent_allowed":0,"agent_denied":0,"cache_reused":0,"output_parse_errors":0}
+    fd,tmp=tempfile.mkstemp(prefix=".metrics.",dir=d); os.close(fd)
+    with open(tmp,"w",encoding="utf-8") as h: json.dump(payload,h,sort_keys=True); h.write("\n")
+    os.replace(tmp,d/(payload["run_id"]+".json"))
+except (OSError, ValueError, TypeError):
+    raise SystemExit(1)
+PY
+  fi
+  cleanup
+  exit "$code"
+}
+trap finalize EXIT
 
 # 顶层契约套件只在此函数内出现一次,便于静态检查与 mutation 测试。
 run_contract_suite() {
@@ -219,11 +282,24 @@ if test -n "$internal_result"; then
   pass_count="${pass_field#PASS=}"
   fail_count="${fail_field#FAIL=}"
   skip_count="${skip_field#SKIP=}"
+  if test "$fail_count" -gt 0; then
+    emit_event check FAIL core_failed
+  else
+    emit_event check PASS core_passed
+  fi
 else
   pass_count=0
   fail_count=1
   skip_count=0
   printf "[FAIL] 内部验证 core 未返回可解析结果\n"
+  emit_event check FAIL core_result_unparseable
+fi
+
+if test "$fail_count" -gt 0 || test "$core_status" -ne 0; then
+  emit_event check SKIP dependent_layer_blocked
+  printf '[SKIP] 依赖层因 core 失败未执行\n'
+  printf "PASS=%d FAIL=%d SKIP=%d\n" "$pass_count" "$fail_count" "$skip_count"
+  exit 1
 fi
 
 # 参数错误保持 CLI 退出码 2；有效调用永远继续运行顶层契约套件。

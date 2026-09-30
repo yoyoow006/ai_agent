@@ -1,5 +1,5 @@
 模式: 严格
-状态: 设计中
+状态: 待验证
 
 # 验证分层、代理门控、输出协议与轻量度量
 
@@ -41,7 +41,7 @@
 
 ## Unverified scope
 
-实现前待确认；尚未运行本变更目标测试。
+目标测试、fast、required、OpenSpec strict 和 diff 校验已运行；完整标准层因 required 升级路径等价由 required 覆盖。
 
 ## Residual risk
 
