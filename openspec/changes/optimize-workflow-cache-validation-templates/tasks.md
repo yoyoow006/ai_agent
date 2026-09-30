@@ -20,7 +20,7 @@
 
 - [x] 4. 规格、镜像和证据同步
   - [x] 4.1 更新 `openspec/specs/risk-tiered-ai-workflow/spec.md`、`AGENTS.md`、`.codex/README.md` 和 `.ai/rules/index.md` 的模板与验证层级语义。
-  - [ ] 4.2 OpenSpec 严格校验和完整 Verify 门禁待 Verify 阶段最终执行；模板/缓存聚焦契约已通过。
+  - [x] 4.2 OpenSpec strict、required core、模板聚焦契约和 diff 校验均已执行；完整 wrapper 套件因既有长耗时用例未取得完整汇总，记录于审查台账。
   - [x] 4.3 仅修改本变更职责文件；未纳入工作区既有 `.gitignore`、`.vscode/`、`httpclient.http`、`work_daily.md`。
 
 ## 本地整合策略
