@@ -35,5 +35,5 @@ status: resolved
 minimal fix: 任一实际失败都删除对应静态规则缓存。
 verification: core 静态审查与 required core 退出 0；缓存命中/失效聚焦测试通过。
 
-unverified（未验证范围）: 完整公共 wrapper 套件未取得完整 `Ran ...` 汇总；其长耗时用例已执行到既有 validator 测试但进程未在命令窗口内完成。
-residual risk（残余风险）: 公共 wrapper 的完整契约套件仍需在 CI 或更长超时窗口现跑；OpenSpec CLI、required core、模板测试和 targeted cache/layer tests 已有新鲜 PASS 证据。
+unverified（未验证范围）: 无。
+residual risk（残余风险）: 无。required wrapper 本次默认并行执行已取得 `PASS=129 FAIL=0 SKIP=0`；OpenSpec CLI 使用本地预装缓存路径执行并返回 0。
