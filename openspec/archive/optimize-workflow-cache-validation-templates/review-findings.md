@@ -2,8 +2,8 @@
 
 ## full-review · 2026-09-30
 
-- manifest: `d4376453bf9cc415e94d4ba45c717ae0246001e459e3f6869bb8a1a9d31e6f76`
-- comparison base: `feature/optimize-workflow-cache-validation-templates@ad101d3`
+- manifest: `cb29445d22c68210f269569246cd21fd24f32bdb1d731a564d073a24cfb08fbe`
+- comparison base: `feature/optimize-workflow-cache-validation-templates@f139740`
 - 规格阶段结论：初次发现的两个 Important 已修复并复验。
 
 ### Findings
