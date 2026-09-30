@@ -12,6 +12,8 @@
 
 风险分类、状态与共享底线以根 [AGENTS.md](../AGENTS.md) 为准；阶段细节以 `.codex/skills/<名>/SKILL.md` 为准。行为回归场景在 `scripts/workflow-pressure-scenarios.md`。
 
+验证入口分为 `--fast`、`--standard` 和 `--require-openspec` 三层。fast 只复用输入未变的静态规则 PASS；standard 运行全量本地契约并按变更类型升级；required 禁止缓存并强制严格校验。标准 OpenSpec 产物可由 `scripts/new-openspec-change.py` 生成和预检。
+
 ## 目录
 
 | 路径 | 用途 |
