@@ -47,6 +47,40 @@ class OpenSpecTemplateTests(unittest.TestCase):
             result = self.run_tool("create", "sample-change", "--mode", "standard", "--target", str(target))
             self.assertNotEqual(0, result.returncode)
 
+    def test_create_requires_explicit_empty_target_and_is_transactional(self):
+        result = self.run_tool("create", "sample-change", "--mode", "standard")
+        self.assertNotEqual(0, result.returncode)
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "change"
+            target.mkdir()
+            (target / "old").write_text("x")
+            result = self.run_tool("create", "sample-change", "--mode", "standard", "--target", str(target))
+            self.assertNotEqual(0, result.returncode)
+            self.assertEqual(["old"], [p.name for p in target.iterdir()])
+
+    def test_create_rejects_symlink_target(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            real = root / "real"; real.mkdir()
+            link = root / "link"; link.symlink_to(real, target_is_directory=True)
+            result = self.run_tool("create", "sample-change", "--mode", "standard", "--target", str(link))
+            self.assertNotEqual(0, result.returncode)
+            self.assertFalse((real / "proposal.md").exists())
+
+    def test_strict_requires_design_and_check_validates_content(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "change"
+            created = self.run_tool("create", "sample-change", "--mode", "strict", "--target", str(target))
+            self.assertEqual(0, created.returncode, created.stderr)
+            self.assertTrue((target / "design.md").exists())
+            checked = self.run_tool("check", str(target))
+            self.assertNotEqual(0, checked.returncode)
+            self.assertIn("占位符", checked.stderr)
+
+    def test_check_templates_subcommand(self):
+        result = self.run_tool("check-templates")
+        self.assertEqual(0, result.returncode, result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -423,7 +423,7 @@ template_assets_ok() {
     test -f "$file" || return 1
     grep -Fq '{{' "$file" || return 1
   done
-  python3 -B scripts/new-openspec-change.py --help >/dev/null 2>&1
+  python3 -B scripts/new-openspec-change.py check-templates >/dev/null 2>&1
 }
 
 python_cache_paths_ignored() {

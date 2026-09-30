@@ -1,6 +1,7 @@
+模板版本: 1
 # {{CAPABILITY}}
 
-## Requirements
+## ADDED Requirements
 
 ### Requirement: {{REQUIREMENT}}
 
