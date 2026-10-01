@@ -245,6 +245,7 @@ check_required_test() {
 # --fast 输入指纹缓存：仅当 wrapper 显式注入 WORKFLOW_FAST_CACHE=1 时启用。
 # 任何缺失、格式异常、指纹漂移或历史非 PASS 都按未命中处理并实际执行。
 validation_cache_dir=".ai-local/validation-cache"
+static_rules_cache_dir=".ai-local/rules-cache"
 cached_timestamp=""
 
 fast_cache_enabled() {
@@ -350,6 +351,87 @@ check_cached_required_test() {
     rm -f "$validation_cache_dir/$id.cache"
   fi
   return 1
+}
+
+# Static rule cache is separate from test-result cache so required gates can
+# disable it without changing historical validation-cache records.
+static_rules_cache_hit() {
+  local cache_file="$1" expected_id="$2" fingerprint="$3" command_fp="$4" implementation_fp="$5"
+  local stored timestamp schema check_id status input_fp stored_command_fp stored_implementation_fp extra
+  cached_timestamp=""
+  test -r "$cache_file" || return 1
+  {
+    IFS= read -r schema && IFS= read -r check_id && IFS= read -r status &&
+      IFS= read -r input_fp && IFS= read -r stored_command_fp &&
+      IFS= read -r stored_implementation_fp && IFS= read -r timestamp &&
+      ! IFS= read -r extra
+  } < "$cache_file" || return 1
+  test "$schema" = "schema_version=1" && test "$check_id" = "check_id=$expected_id" &&
+    test "$status" = "status=PASS" || return 1
+  test "$input_fp" = "input_fingerprint=$fingerprint" || return 1
+  test "$stored_command_fp" = "command_fingerprint=$command_fp" || return 1
+  test "$stored_implementation_fp" = "implementation_fingerprint=$implementation_fp" || return 1
+  case "$timestamp" in
+    [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]Z) ;;
+    *) return 1 ;;
+  esac
+  cached_timestamp="$timestamp"
+}
+
+write_static_rules_cache() {
+  local id="$1" input_fp="$2" command_fp="$3" implementation_fp="$4" cache_file tmp timestamp
+  mkdir -p "$static_rules_cache_dir" 2>/dev/null || return 0
+  timestamp="$(validation_cache_timestamp)" || return 0
+  cache_file="$static_rules_cache_dir/$id.cache"
+  tmp="$cache_file.tmp.$$"
+  if printf 'schema_version=1\ncheck_id=%s\nstatus=PASS\ninput_fingerprint=%s\ncommand_fingerprint=%s\nimplementation_fingerprint=%s\n%s\n' \
+      "$id" "$input_fp" "$command_fp" "$implementation_fp" "$timestamp" >"$tmp" 2>/dev/null; then
+    mv -f -- "$tmp" "$cache_file" 2>/dev/null || rm -f -- "$tmp"
+  else
+    rm -f -- "$tmp"
+  fi
+}
+
+check_cached_static_rule() {
+  local id="$1" label="$2" command_text="$3" fingerprint
+  local command_fp implementation_fp inputs=()
+  shift 3
+  while test "$#" -gt 0 && test "$1" != "--"; do
+    inputs+=("$1")
+    shift
+  done
+  test "$#" -gt 0 || { report_fail "$label（内部错误：缺少命令分隔符）"; return 1; }
+  shift
+  if fast_cache_enabled && test "$require_openspec" -eq 0; then
+    command_fp="$(compute_validation_fingerprint "$command_text")" || command_fp=""
+    implementation_fp="$(compute_validation_fingerprint "static-rule-cache-implementation-v1" scripts/lib/validate-workflow-core.sh)" || implementation_fp=""
+    fingerprint="$(compute_validation_fingerprint "static-rule-cache-v1|$command_text" ${inputs[@]+"${inputs[@]}"})" || fingerprint=""
+    if test -n "$fingerprint" && test -n "$command_fp" && test -n "$implementation_fp" &&
+      static_rules_cache_hit "$static_rules_cache_dir/$id.cache" "$id" "$fingerprint" "$command_fp" "$implementation_fp"; then
+      report_pass "$label（规则指纹 $(fingerprint_prefix "$fingerprint") 未变，沿用 $cached_timestamp）"
+      return 0
+    fi
+  fi
+  if "$@" >/dev/null 2>&1; then
+    report_pass "$label"
+    if fast_cache_enabled && test "$require_openspec" -eq 0 && test -n "${fingerprint:-}"; then
+      write_static_rules_cache "$id" "$fingerprint" "$command_fp" "$implementation_fp"
+    fi
+    return 0
+  fi
+  rm -f -- "$static_rules_cache_dir/$id.cache"
+  report_fail "$label"
+  return 1
+}
+
+template_assets_ok() {
+  test -f scripts/new-openspec-change.py || return 1
+  for file in openspec/templates/proposal.md openspec/templates/spec.md \
+              openspec/templates/tasks.md openspec/templates/design.md; do
+    test -f "$file" || return 1
+    grep -Fq '{{' "$file" || return 1
+  done
+  python3 -B scripts/new-openspec-change.py check-templates >/dev/null 2>&1
 }
 
 python_cache_paths_ignored() {
@@ -869,6 +951,15 @@ check "无每任务机械提交规则" no_mechanical_commit_rule "${mechanical_f
 if assistant_required codex; then
   check "Codex 工具映射" contains_all .codex/README.md "spawn_agent" "fork_turns" "update_plan" "apply_patch"
 fi
+
+check_cached_static_rule "workflow-template-assets" \
+  "OpenSpec 标准产物模板与生成入口" \
+  "python3 -B scripts/new-openspec-change.py --help" \
+  scripts/new-openspec-change.py \
+  openspec/templates/proposal.md openspec/templates/spec.md \
+  openspec/templates/tasks.md openspec/templates/design.md \
+  scripts/lib/validate-workflow-core.sh \
+  -- template_assets_ok
 
 # 内部 core 不运行顶层 contract；公共 wrapper 必须无条件执行该套件。
 check_cached_required_test "project-facts-required-tests" \

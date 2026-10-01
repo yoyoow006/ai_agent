@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.."
 export PYTHONDONTWRITEBYTECODE=1
 
 fast_mode=0
+standard_mode=0
 archive_light=0
 require_openspec_user=0
 archive_files=()
@@ -15,6 +16,10 @@ while test "$#" -gt 0; do
   case "$argument" in
     --fast)
       fast_mode=1
+      shift
+      ;;
+    --standard)
+      standard_mode=1
       shift
       ;;
     --archive-light)
@@ -63,6 +68,29 @@ fi
 if test "$fast_mode" -eq 1 && test "$archive_light" -eq 1; then
   printf "[FAIL] --fast 与 --archive-light 冲突（conflict）：两种轻量入口语义不能叠加\n" >&2
   exit 2
+fi
+if test "$standard_mode" -eq 1 && { test "$fast_mode" -eq 1 || test "$archive_light" -eq 1 || test "$require_openspec_user" -eq 1; }; then
+  printf "[FAIL] --standard 与其他验证层参数冲突（conflict）：一次调用只能选择一个层级\n" >&2
+  exit 2
+fi
+
+if test "$standard_mode" -eq 1; then
+  printf '[INFO] validation layer: standard\n'
+  if test "${#archive_files[@]}" -gt 0; then
+    standard_promoted=0
+    for validation_file in "${archive_files[@]}"; do
+      case "$validation_file" in
+        AGENTS.md|CLAUDE.md|.ai/*|.codex/*|.claude/*|openspec/*|scripts/validate-workflow.sh|scripts/lib/validate-workflow-core.sh|scripts/new-openspec-change.py|scripts/ai-workflow-assets/*)
+          standard_promoted=1
+          printf '[INFO] standard gate promoted to --require-openspec: %s\n' "$validation_file"
+          ;;
+      esac
+    done
+    if test "$standard_promoted" -eq 1; then
+      require_openspec_user=1
+      forwarded_arguments+=(--require-openspec)
+    fi
+  fi
 fi
 
 # --archive-light 单独使用 = 纯轻量（仅跑 core，不做 diff 分类）

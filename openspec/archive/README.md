@@ -33,3 +33,4 @@
 - `align-workflow-semantics-and-business-context` — 对齐双运行式流程语义并补齐声明式业务词路由；加固 archive-light required 升级与 fail-closed 边界(严格)
 - `install-codex-workflow-ai-hospital` — 安装 Codex 工作流到 ai_hospital 并固化 fuseblk 空父目录适配(严格)
 - `extend-project-context-and-evidence-reuse` — 扩展项目上下文模板、多仓依赖与验证声明，并固化证据复用和 Git 元数据安全边界(严格)
+- `optimize-workflow-cache-validation-templates` — 静态规则缓存、分层验证策略与标准 OpenSpec 产物模板化（严格）

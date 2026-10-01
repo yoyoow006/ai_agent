@@ -433,6 +433,21 @@ Archive SHALL 对归档后的主规格、目录结构、OpenSpec、diff 与 Git 
 - **THEN** 系统保留该 review 目录
 - **AND** 不把缓存清理当作关闭 finding 的手段
 
+### Requirement: 标准 OpenSpec 产物必须可模板化生成并预检
+
+系统 SHALL 提供统一的 proposal、delta spec、tasks 模板，并在需要独立设计决策时提供 design 模板；生成入口 SHALL 只写入空的变更目录，预检 SHALL 拒绝未替换占位符、缺少模式/状态、WHEN/THEN 场景、精确验证命令或本地整合策略的产物。模板生成与预检 SHALL NOT 创建分支、提交、worktree 或外部副作用。
+
+#### Scenario: 从模板生成标准变更
+
+- **WHEN** 维护者使用安全变更名和标准模式调用生成入口
+- **THEN** 生成 proposal、delta spec 和 tasks，并填入标准状态字段
+- **AND** 非空目标目录以非零退出且不覆盖既有文件
+
+#### Scenario: 预检拒绝未完成产物
+
+- **WHEN** 活跃变更仍包含模板占位符或缺少 WHEN/THEN、验证命令、本地整合策略
+- **THEN** 只读预检返回非零并指出具体文件与缺失项
+
 ### Requirement: 流程语义必须在双运行时文档和安装资产中保持一致
 
 Codex 与 Claude 根入口、用户文档、共享知识总览、阶段技能和便携安装资产 SHALL 表达同一套风险分级语义：标准模式三件套加条件 design、严格模式第二次确认由硬风险触发、任务级审查按高风险实现单元组织，以及 Archive 按 Verify 后变化选择轻量或完整门禁。自动化回归 SHALL 覆盖双入口、关键文档和安装资产中的旧口径回归。
