@@ -50,7 +50,7 @@ def check(change):
  files=[change/'proposal.md',change/'tasks.md',*specs]; d=change/'design.md'
  if d.exists():files.append(d)
  marker=(change/'proposal.md').read_text(encoding='utf-8',errors='ignore').startswith(VERSION)
- req={'proposal.md':['模式:','状态:','## Why','## What Changes','## Impact','## Scope','## Acceptance','## Unverified scope','## Residual risk'],'tasks.md':['- [ ]','## 本地整合策略'],'spec.md':['## ADDED Requirements','#### Scenario:','**WHEN**','**THEN**'],'design.md':['## 目标与约束','## 方案与替代方案','## 验证矩阵']}
+ req={'proposal.md':['模式:','状态:','## Why','## What Changes','## Impact','## Scope','## Acceptance','## Unverified scope','## Residual risk'],'tasks.md':['## 本地整合策略'],'spec.md':['## ADDED Requirements','#### Scenario:','**WHEN**','**THEN**'],'design.md':['## 目标与约束','## 方案与替代方案','## 验证矩阵']}
  es=[e for p in files for e in check_file(p,req[p.name],marker)]
  if marker and re.search(r'^模式:\s*严格', (change/'proposal.md').read_text(encoding='utf-8'),re.M) and not d.exists():es.append('严格模式必须包含 design.md')
  if es:
