@@ -297,7 +297,15 @@ fi
 
 if test "$fail_count" -gt 0 || test "$core_status" -ne 0; then
   emit_event check SKIP dependent_layer_blocked
-  printf '[SKIP] 依赖层因 core 失败未执行\n'
+  if test "$fast_mode" -eq 0 && test "$archive_light" -eq 0 && test "$core_status" -eq 1; then
+    if run_contract_suite; then
+      report_contract_suite_success || true
+    else
+      printf "[FAIL] 工作流顶层契约测试（core failed）\n" >&2
+    fi
+  else
+    printf '[SKIP] 依赖层因 core 失败未执行\n'
+  fi
   printf "PASS=%d FAIL=%d SKIP=%d\n" "$pass_count" "$fail_count" "$skip_count"
   exit 1
 fi

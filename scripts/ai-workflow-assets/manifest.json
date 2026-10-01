@@ -274,8 +274,40 @@
          "path" : "openspec/specs/shared-ai-workflow-infrastructure/spec.md"
       },
       {
+         "mode" : "0644",
+         "path" : "openspec/templates/design.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : "openspec/templates/proposal.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : "openspec/templates/spec.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : "openspec/templates/tasks.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : "scripts/lib/agent_dispatch.py"
+      },
+      {
          "mode" : "0755",
          "path" : "scripts/lib/validate-workflow-core.sh"
+      },
+      {
+         "mode" : "0644",
+         "path" : "scripts/lib/workflow_event_cli.py"
+      },
+      {
+         "mode" : "0644",
+         "path" : "scripts/lib/workflow_events.py"
+      },
+      {
+         "mode" : "0755",
+         "path" : "scripts/new-openspec-change.py"
       },
       {
          "mode" : "0644",
@@ -287,7 +319,19 @@
       },
       {
          "mode" : "0644",
+         "path" : "scripts/tests/test_agent_dispatch.py"
+      },
+      {
+         "mode" : "0644",
          "path" : "scripts/tests/test_validate_workflow.py"
+      },
+      {
+         "mode" : "0644",
+         "path" : "scripts/tests/test_workflow_events.py"
+      },
+      {
+         "mode" : "0644",
+         "path" : "scripts/tests/test_workflow_wrapper.py"
       },
       {
          "mode" : "0755",

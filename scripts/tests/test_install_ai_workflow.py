@@ -48,9 +48,16 @@ EXPECTED_ASSET_PATHS = {
         "openspec/plan/.gitkeep", "openspec/project.md", "openspec/specs/.gitkeep",
         "openspec/specs/risk-tiered-ai-workflow/spec.md",
         "openspec/specs/shared-ai-workflow-infrastructure/spec.md",
-        "scripts/lib/validate-workflow-core.sh", "scripts/tests/__init__.py",
+        "openspec/templates/design.md", "openspec/templates/proposal.md",
+        "openspec/templates/spec.md", "openspec/templates/tasks.md",
+        "scripts/lib/agent_dispatch.py", "scripts/lib/validate-workflow-core.sh",
+        "scripts/lib/workflow_event_cli.py", "scripts/lib/workflow_events.py",
+        "scripts/new-openspec-change.py", "scripts/tests/__init__.py",
         "scripts/tests/run_validate_workflow_parallel.py",
-        "scripts/tests/test_validate_workflow.py", "scripts/validate-workflow.sh",
+        "scripts/tests/test_agent_dispatch.py",
+        "scripts/tests/test_validate_workflow.py",
+        "scripts/tests/test_workflow_events.py",
+        "scripts/tests/test_workflow_wrapper.py", "scripts/validate-workflow.sh",
         "scripts/workflow-pressure-scenarios.md",
     ),
     "codex": (
@@ -214,7 +221,10 @@ class PortableAssetManifestTests(unittest.TestCase):
             self.assertEqual(physical, paths, group)
 
     def test_manifest_modes_are_exact_and_match_files(self):
-        executable = {"scripts/validate-workflow.sh", "scripts/lib/validate-workflow-core.sh"}
+        executable = {
+            "scripts/validate-workflow.sh", "scripts/lib/validate-workflow-core.sh",
+            "scripts/new-openspec-change.py",
+        }
         for group in EXPECTED_ASSET_PATHS:
             for entry in self.manifest[group]:
                 expected = "0755" if group == "shared" and entry["path"] in executable else "0644"

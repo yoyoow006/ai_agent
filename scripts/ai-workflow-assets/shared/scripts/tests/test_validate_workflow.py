@@ -3213,5 +3213,16 @@ class ArchiveLightGateTest(unittest.TestCase):
                           msg=combined)
 
 
+class StandardLayerContractTest(unittest.TestCase):
+    def test_explicit_standard_layer_and_static_cache_contract(self) -> None:
+        wrapper = (REPOSITORY_ROOT / "scripts" / "validate-workflow.sh").read_text(encoding="utf-8")
+        core = (REPOSITORY_ROOT / "scripts" / "lib" / "validate-workflow-core.sh").read_text(encoding="utf-8")
+        self.assertIn("--standard", wrapper)
+        self.assertIn("validation layer: standard", wrapper)
+        self.assertIn("standard gate promoted to --require-openspec", wrapper)
+        self.assertIn("static_rules_cache_dir=\".ai-local/rules-cache\"", core)
+        self.assertIn("schema_version=1", core)
+        self.assertIn("require_openspec\" -eq 0", core)
+
 if __name__ == "__main__":
     unittest.main()
