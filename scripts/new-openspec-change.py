@@ -33,6 +33,7 @@ def check_file(path,required,new):
   if m not in c:es.append(f'{path}: 缺少 {m}')
  if path.name=='proposal.md' and new:
   if not re.search(r'^模式:\s*(标准|严格)\s*$',c,re.M):es.append(f'{path}: 模式非法')
+  if re.search(r'^-\s*(模式|状态):', c, re.M):es.append(f'{path}: 模式/状态不得带列表前缀')
  if path.name=='spec.md' and new:
   if 'ADDED Requirements' not in c:es.append(f'{path}: 缺少 ADDED Requirements')
   for b in re.split(r'#### Scenario:',c)[1:]:
