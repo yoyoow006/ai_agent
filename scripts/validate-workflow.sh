@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.."
 export PYTHONDONTWRITEBYTECODE=1
 
 run_id="$(python3 -B -c 'import uuid; print(uuid.uuid4().hex)')"
+task_id="${WORKFLOW_TASK_ID:-}"
 jsonl_path="${WORKFLOW_JSONL_PATH:-}"
 if test "${WORKFLOW_OUTPUT:-}" = "jsonl" && test -z "$jsonl_path"; then
   jsonl_path=".ai-local/workflow-events.jsonl"
@@ -13,7 +14,7 @@ fi
 run_started_ns="$(python3 -B -c 'import time; print(time.monotonic_ns())')"
 emit_event() {
   test -n "$jsonl_path" || return 0
-  python3 -B scripts/lib/workflow_event_cli.py "$jsonl_path" "$run_id" "${validation_layer:-standard}" "$1" "$2" "${3:-}" "${4:-}" >/dev/null 2>&1 || printf '[INFO] output_parse_error\n' >&2
+  python3 -B scripts/lib/workflow_event_cli.py "$jsonl_path" "$run_id" "${validation_layer:-standard}" "$1" "$2" "${3:-}" "${4:-}" ${task_id:+--task-id "$task_id"} ${validation_layer:+--phase "$validation_layer"} >/dev/null 2>&1 || printf '[INFO] output_parse_error\n' >&2
 }
 conflict_exit() {
   emit_event summary FAIL conflict 0
@@ -197,7 +198,7 @@ from pathlib import Path
 d=Path(os.environ["METRICS_DIR"])
 try:
     d.mkdir(parents=True, exist_ok=True)
-    payload={"schema_version":1,"run_id":os.environ["METRICS_RUN_ID"],"layer":os.environ["METRICS_LAYER"],"duration_ms":int(os.environ.get("METRICS_DURATION","0")),"counts":{"PASS":int(os.environ["METRICS_PASS"]),"FAIL":int(os.environ["METRICS_FAIL"]),"SKIP":int(os.environ["METRICS_SKIP"])},"agent_allowed":0,"agent_denied":0,"cache_reused":0,"output_parse_errors":0}
+    payload={"schema_version":1,"run_id":os.environ["METRICS_RUN_ID"],"layer":os.environ["METRICS_LAYER"],"task_id":os.environ.get("WORKFLOW_TASK_ID") or None,"duration_ms":int(os.environ.get("METRICS_DURATION","0")),"counts":{"PASS":int(os.environ["METRICS_PASS"]),"FAIL":int(os.environ["METRICS_FAIL"]),"SKIP":int(os.environ["METRICS_SKIP"])},"agent_allowed":0,"agent_denied":0,"cache_reused":0,"output_parse_errors":0}
     fd,tmp=tempfile.mkstemp(prefix=".metrics.",dir=d); os.close(fd)
     with open(tmp,"w",encoding="utf-8") as h: json.dump(payload,h,sort_keys=True); h.write("\n")
     os.replace(tmp,d/(payload["run_id"]+".json"))

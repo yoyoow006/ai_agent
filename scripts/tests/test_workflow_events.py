@@ -36,6 +36,16 @@ class WorkflowEventsTest(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertEqual(result.reason_code, "metrics_write_failed")
 
+    def test_task_summary_accepts_task_events(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "events.jsonl"
+            writer = workflow_events.EventWriter(path, "r", "fast", task_id="task-1")
+            writer.emit("phase", "PASS", phase="verify", duration_ms=7)
+            writer.close()
+            summary = workflow_events.summarize_task_events(path, "task-1")
+            self.assertEqual(summary["total_duration_ms"], 7)
+            self.assertEqual(summary["phases"][0]["phase"], "verify")
+
 
 if __name__ == "__main__":
     unittest.main()

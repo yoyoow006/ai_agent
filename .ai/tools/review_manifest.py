@@ -838,6 +838,28 @@ def verify(args: argparse.Namespace) -> int:
     return EXIT_STALE
 
 
+def finalize(args: argparse.Namespace) -> int:
+    """Persist final review metadata only after the manifest is currently valid."""
+    manifest = _read_manifest(args.manifest)
+    expected = {key: value for key, value in manifest.items() if key != "id"}
+    if _recompute(manifest) != expected:
+        print(f"STALE {manifest['id']}")
+        return EXIT_STALE
+    payload = {
+        "schema_version": 1,
+        "manifest_id": manifest["id"],
+        "comparison_base": [repo["base"] for repo in manifest["repositories"]],
+        "finding_status": args.finding_status,
+        "unverified_scope": args.unverified_scope,
+        "residual_risk": args.residual_risk,
+    }
+    output = Path(args.output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"FINALIZED {manifest['id']} {output}")
+    return 0
+
+
 def _delta_repo(old: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
     paths = sorted(set(old["files"]) | set(new["files"]))
     changed_paths = [path for path in paths if old["files"].get(path) != new["files"].get(path)]
@@ -892,6 +914,13 @@ def parser() -> argparse.ArgumentParser:
     verify_parser = commands.add_parser("verify")
     verify_parser.add_argument("--manifest", required=True)
     verify_parser.set_defaults(handler=verify)
+    finalize_parser = commands.add_parser("finalize")
+    finalize_parser.add_argument("--manifest", required=True)
+    finalize_parser.add_argument("--output", required=True)
+    finalize_parser.add_argument("--finding-status", required=True)
+    finalize_parser.add_argument("--unverified-scope", required=True)
+    finalize_parser.add_argument("--residual-risk", required=True)
+    finalize_parser.set_defaults(handler=finalize)
     delta_parser = commands.add_parser("delta")
     delta_parser.add_argument("--from-manifest", required=True)
     delta_parser.add_argument("--to-manifest", required=True)

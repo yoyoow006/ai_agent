@@ -26,10 +26,11 @@ class WriteResult:
 
 
 class EventWriter:
-    def __init__(self, path: Path | None, run_id: str, layer: str):
+    def __init__(self, path: Path | None, run_id: str, layer: str, task_id: str | None = None):
         self.path = Path(path) if path else None
         self.run_id = run_id
         self.layer = layer
+        self.task_id = task_id
         self._stream = None
         if self.path is not None:
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -46,6 +47,8 @@ class EventWriter:
             "layer": self.layer,
             "status": status,
         }
+        if self.task_id:
+            payload["task_id"] = self.task_id
         payload.update(fields)
         if self._stream is not None:
             self._stream.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
@@ -57,6 +60,18 @@ class EventWriter:
             self._stream.close()
             self._stream = None
 
+
+def summarize_task_events(path: Path, task_id: str) -> dict[str, Any]:
+    """Aggregate lifecycle events for one task while accepting legacy records."""
+    phases: list[dict[str, Any]] = []
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("task_id") == task_id and "duration_ms" in event:
+            phases.append({k: event[k] for k in ("phase", "duration_ms", "status", "reason_code") if k in event})
+    return {"task_id": task_id, "phases": phases, "total_duration_ms": sum(p.get("duration_ms", 0) for p in phases)}
 
 def write_metrics(directory: Path, metrics: dict[str, Any]) -> WriteResult:
     """Atomically write one aggregate record; failure never raises to callers."""
