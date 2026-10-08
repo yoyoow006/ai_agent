@@ -5,7 +5,8 @@ primary_domains:
   - 电子合同签署与盖章
   - 用户实名认证
 related_domains:
-  - E签宝与君子签供应商适配
+  - E签宝供应商适配
+  - 君子签供应商（已作废）
   - yuxiaor-pms 合同与用户业务
 last_verified: 2026-10-08
 sources:
@@ -38,7 +39,7 @@ sources:
 
 - 业务词：`电子合同`、`电子签名`、`合同签署`、`盖章`、`实名认证`、`人脸认证`。
 - 类型 / 注解 / 包名：`com.yuxiaor.pms.esign`、`YuxiaorEsignApplication`。
-- 特例：供应商实现分布在 `yuxiaor-e-sign-junzi`、`yuxiaor-e-sign-bo` 和 server 模块，查询具体行为时需按接口契约回溯实现。
+- 特例：`yuxiaor-e-sign-junzi`（君子签）供应商已作废；现存供应商实现分布在 `yuxiaor-e-sign-bo` 和 server 模块，查询具体行为时需按接口契约回溯实现。
 
 ## 验证入口
 
@@ -48,6 +49,6 @@ sources:
 
 ## 证据与维护
 
-- 事实来源：用户输入、项目 README、根 POM、电子签名服务启动类和 API 源码目录。
+- 事实来源：用户输入（君子签供应商已作废，2026-10-08）、项目 README、根 POM、电子签名服务启动类和 API 源码目录。
 - 最近复核：2026-10-08，项目 HEAD `6c679be923afb66c13506e4801aca289306249d8`；复核职责、模块、启动类和 API 目录，未执行 Maven 构建或测试。
 - 残余不确定：外部供应商服务、部署拓扑和运行时注册中心状态未核实。
