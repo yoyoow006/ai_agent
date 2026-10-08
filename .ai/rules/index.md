@@ -7,7 +7,7 @@
 | Claude 阶段与支撑技能 | `.claude/skills/` | Claude 编排器、执行器 | Open、Design、Build、Verify、Archive、TDD、审查、worktree |
 | 助手适配 | `.codex/README.md`, `AGENTS.md`, `CLAUDE.md` | 工具映射、入口 | spawn_agent、update_plan、apply_patch、宿主能力 |
 | 共享知识层 | `.ai/` | kb、memory、rules、prompts、tools | 路由、踩坑、项目卡、知识沉淀、事实查询 |
-| 项目登记 | `.ai/kb/projects/registry.json`, `.ai/kb/projects/` | registry、项目卡、项目模板、业务词、依赖、验证入口 | project-context、server-registry、workspace-search、business-terms、dependencies、verification |
+| 项目登记 | `.ai/kb/projects/registry.json`, `.ai/kb/projects/` | registry、项目卡、项目模板、业务词、依赖、验证入口；寓小二项目：`yuxiaor-pms`、`yuxiaor-e-signature`、`yuxiaor-xxljob` | project-context、server-registry、workspace-search、business-terms、dependencies、verification、PMS、电子合同、实名认证、xxl-job、定时任务 |
 | 验证证据 | `.ai/kb/verification-evidence.md` | 证据复用、验证基线 | verified_commit、等价输入、证据失效、NOT_RUN、UNKNOWN、新鲜验证 |
 | 安装器知识分层 | `.gitignore`, `.ai/kb/projects/README.md`, `openspec/specs/installer-knowledge-separation/` | 源仓库业务知识、目标项目登记 | 空白 registry、通用骨架、业务项目卡、防回流 |
 | 便携安装器契约 | `openspec/specs/portable-ai-workflow-installer/`, `scripts/install-ai-workflow.sh`, `scripts/lib/install_ai_workflow.py`, `.ai/installer-ledger.json`(安装目标侧运行时产物,源仓库不存在) | 安装器、跨 Python 兼容、资产契约、升级路径、台账 | 加载时类型别名、Path 包含 helper、入口契约、preview/--help、事务回滚、--upgrade、installer-ledger、SHA-256 判定 |

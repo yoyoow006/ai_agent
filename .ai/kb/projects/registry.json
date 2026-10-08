@@ -1,4 +1,63 @@
 {
   "schema_version": 1,
-  "projects": []
+  "projects": [
+    {
+      "name": "yuxiaor-pms",
+      "path": "yuxiaor-pms",
+      "build": "maven",
+      "card": "kb/projects/yuxiaor-pms.md",
+      "search_roots": ["."],
+      "applications": [
+        {
+          "server": "yuxiaor-server",
+          "module": "yuxiaor-server",
+          "main_class": "com.dream.yuxiaor.YuxiaorServiceApp",
+          "source_path": "yuxiaor-server/src/main/java/com/dream/yuxiaor/YuxiaorServiceApp.java"
+        }
+      ],
+      "business_terms": [
+        {"term": "寓小二 PMS", "synonyms": ["PMS", "核心业务"], "source_paths": ["yuxiaor-server/src/main", "yuxiaor-api/src/main"]},
+        {"term": "房源与租约", "synonyms": ["房源", "租约"], "source_paths": ["yuxiaor-server/src/main"]}
+      ]
+    },
+    {
+      "name": "yuxiaor-e-signature",
+      "path": "yuxiaor-e-signature",
+      "build": "maven",
+      "card": "kb/projects/yuxiaor-e-signature.md",
+      "search_roots": ["."],
+      "applications": [
+        {
+          "server": "yuxiaor-e-sign-server",
+          "module": "yuxiaor-e-sign-server",
+          "main_class": "com.yuxiaor.pms.esign.YuxiaorEsignApplication",
+          "source_path": "yuxiaor-e-sign-server/src/main/java/com/yuxiaor/pms/esign/YuxiaorEsignApplication.java"
+        }
+      ],
+      "dependencies": ["yuxiaor-pms"],
+      "business_terms": [
+        {"term": "电子合同", "synonyms": ["电子签名", "合同签署", "盖章"], "source_paths": ["yuxiaor-e-signature-api/src/main", "yuxiaor-e-sign-server/src/main"]},
+        {"term": "实名认证", "synonyms": ["实名", "人脸认证"], "source_paths": ["yuxiaor-e-signature-api/src/main", "yuxiaor-e-sign-server/src/main"]}
+      ]
+    },
+    {
+      "name": "yuxiaor-xxljob",
+      "path": "yuxiaor-xxljob",
+      "build": "maven",
+      "card": "kb/projects/yuxiaor-xxljob.md",
+      "search_roots": ["."],
+      "applications": [
+        {
+          "server": "yuxiaor-xxljob",
+          "module": ".",
+          "main_class": "com.yuxiaor.pms.yxrxxljob.YuxiaorXxlJobApp",
+          "source_path": "src/main/java/com/yuxiaor/pms/yxrxxljob/YuxiaorXxlJobApp.java"
+        }
+      ],
+      "dependencies": ["yuxiaor-pms"],
+      "business_terms": [
+        {"term": "定时任务", "synonyms": ["xxl-job", "调度任务"], "source_paths": ["src/main/java/com/yuxiaor/pms/yxrxxljob", "src/main/kotlin/com/yuxiaor/pms/yxrxxljob"]}
+      ]
+    }
+  ]
 }
