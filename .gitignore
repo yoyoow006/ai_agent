@@ -9,3 +9,13 @@ __pycache__/
 # 业务项目
 /yuxiaor-pms
 /yuxiaor-xxljob
+/yuxiaor-e-signature
+/.ai-local/
+/.codex/sdd/*
+!/.codex/sdd/.gitkeep
+/.claude/sdd/*
+!/.claude/sdd/.gitkeep
+/.worktrees/
+__pycache__/
+*.py[cod]
+# <<< install-workflow.sh <<<
