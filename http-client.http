@@ -1,0 +1,253 @@
+
+# 环境变量
+## @event = g6
+@yuxiaor-host = http://www{{event}}.yuxiaor.com
+@api-host = http://api{{event}}.yuxiaor.com
+@api-token = 302fd077e9c04e95932d0d10f43f6cdb-20260818173053-243838-0
+@tapp-contract-id = 670209
+
+## 身份信息比对
+### 阿里企业信息查询(企业名称)
+GET https://busiinfo.market.alicloudapi.com/getbusinessinfo HTTP/1.1
+Accept: application/json
+Authorization: {{ali-token}}
+Content-Type: application/x-www-form-urlencoded
+
+keyword=宁波中甬为家房地产经纪有限公司
+
+### 阿里企业信息查询(企业号)
+GET https://busiinfo.market.alicloudapi.com/getbusinessinfo HTTP/1.1
+Accept: application/json
+Authorization: {{ali-token}}
+Content-Type: application/x-www-form-urlencoded
+
+keyword=12440300081888813E
+
+### 阿里个人二要素比对
+POST http://eid.shumaidata.com/eid/check HTTP/1.1
+Accept: application/json
+Authorization: {{ali-token}}
+Content-Type: application/x-www-form-urlencoded
+
+name=贾聿宁&idcard=141030200104090028
+
+
+### CRM登录
+# @name getCrmToken
+POST {{api-host}}/crm-server/login
+Content-Type: application/json
+YXR-platform: h5
+
+{
+  "tel": "13761687434",
+  "password": "{{password}}",
+  "autoLoginFlag": 1
+}
+
+### e-sign企业三要素比对
+@crm-token = {{getCrmToken.response.body.$.token}}
+POST {{api-host}}/crm-server/esign-repair/sign/orgAuthVerify
+Content-Type: application/json
+Yxr-Pms-Crm-Token: {{crm-token}}
+YXR-platform: h5
+
+{
+  "name": "宁波中甬为家房地产经纪有限公司",
+  "orgCode": "91330212MAKHGA1F2Y",
+  "legalRepName":"盖双",
+  "channel": 3,
+  "source": 1
+}
+
+### e-sign个人二要素比对
+@crm-token = {{getCrmToken.response.body.$.token}}
+POST {{api-host}}/crm-server/esign-repair/sign/personAuthVerify
+Content-Type: application/json
+Yxr-Pms-Crm-Token: {{crm-token}}
+YXR-platform: h5
+
+{
+  "name": "贾聿宁",
+  "idnum": "141030200104090028",
+  "channel": 3,
+  "source": 1
+}
+
+### 电子合同pdf重新盖章
+@crm-token = {{getCrmToken.response.body.$.token}}
+POST {{api-host}}/crm-server/contract-repair/repair
+Content-Type: application/json
+Yxr-Pms-Crm-Token: {{crm-token}}
+YXR-platform: h5
+
+{
+  "contractIds": [
+   111045089
+  ],
+  "updateFlag": 0
+}
+
+### 创建企业电子账号
+@crm-token = {{getCrmToken.response.body.$.token}}
+POST {{api-host}}/crm-server/esign-repair/sign/createAccount
+Content-Type: application/json
+Yxr-Pms-Crm-Token: {{crm-token}}
+YXR-platform: h5
+
+{
+  "userId":"500000000000000004",
+  "userType":"1",
+  "userName":"淳飞信息科技(上海)有限公司",
+  "mobile":"",
+  "idNumber":"",
+  "idNumberType":"CRED_PSN_CH_IDCARD",
+  "orgId":"500000000000000004",
+  "orgLegalName":"杜丽娅",
+  "orgLegalIdNumber":"91310120MA1HKEMM1D",
+  "licenceImage":"",
+  "source":1,
+  "channel":3
+}
+
+
+
+
+## 租客意愿签署相关接口
+### 租客合同预览uid
+# @name getContractUid
+POST {{api-host}}/api-service-server/tapp/v1/contract/html-contract/{{tapp-contract-id}}
+Content-Type: application/json
+XXX-YUXIAOR-TOKEN: {{api-token}}
+YXR-platform: h5
+
+{
+  "app": false,
+  "version":"2"
+}
+
+
+### 租客合同预览html
+@contractUid = {{getContractUid.response.body.$.data.uuid}}
+GET {{api-host}}/api-service-server/common/v1/html/preview-content/{{contractUid}}
+Content-Type: application/json
+XXX-YUXIAOR-TOKEN: {{api-token}}
+YXR-platform: h5
+
+### 租客合同签署方式
+GET {{api-host}}/api-service-server/tapp/v1/contract/sign-method?contractId={{tapp-contract-id}}
+Content-Type: application/json
+XXX-YUXIAOR-TOKEN: {{api-token}}
+YXR-platform: h5
+
+
+### 租客合同意愿签署url
+# @name getWillingSignUrl
+POST {{api-host}}/api-service-server/tapp/v1/contract/{{tapp-contract-id}}/willing-sign
+Content-Type: application/json
+XXX-YUXIAOR-TOKEN: {{api-token}}
+YXR-platform: h5
+
+{
+  "redirectUrl":"https://www.yuxiaor.com",
+  "wechatMiniProgram": true
+}
+
+
+### 租客意愿签署状态
+GET {{api-host}}/api-service-server/tapp/v1/contract/{{tapp-contract-id}}/willing-sign/status
+Content-Type: application/json
+XXX-YUXIAOR-TOKEN: {{api-token}}
+YXR-platform: h5
+
+
+### 租客意愿签署确认
+@flowId = {{getWillingSignUrl.response.body.$.data.flowId}}
+GET {{api-host}}/api-service-server/tapp/v2/contract/saveHandSign/{{tapp-contract-id}}?flowId={{flowId}}
+Content-Type: application/json
+XXX-YUXIAOR-TOKEN: {{api-token}}
+YXR-platform: h5
+
+
+### 租客合同签署确认
+POST {{api-host}}/api-service-server/tapp/v1/contract/pre/{{tapp-contract-id}}
+Content-Type: application/json
+XXX-YUXIAOR-TOKEN: {{api-token}}
+YXR-platform: h5
+
+{
+  "version":"2"
+}
+
+
+## 公寓端相关接口
+### 公寓端登录
+# @name getYxrToken
+POST {{yuxiaor-host}}/api/v1/sys/multi/userLogin
+Content-Type: application/json
+XXX-YUXIAOR-PC: pms
+
+{"mobile":18573478892,"password":"123456","type":1}
+
+
+### 公寓意愿签署任务列表
+@yxr-token = {{getYxrToken.response.body.$.access_token}}
+GET {{yuxiaor-host}}/api/v1/contract-willing-sign/tasks?signStatus=1
+Content-Type: application/x-www-form-urlencoded
+XXX-YUXIAOR-PC: pms
+Xxx-Yuxiaor-Token: {{yxr-token}}
+
+
+### 统计公寓意愿签署文件任务
+@yxr-token = {{getYxrToken.response.body.$.access_token}}
+GET {{yuxiaor-host}}/api/v1/contract-willing-sign/statistics
+Content-Type: application/x-www-form-urlencoded
+XXX-YUXIAOR-PC: pms
+Xxx-Yuxiaor-Token: {{yxr-token}}
+
+
+### 查询已开启意愿签署的个人签署主体
+@yxr-token = {{getYxrToken.response.body.$.access_token}}
+GET {{yuxiaor-host}}/api/v1/contract-willing-sign/personal-subjects
+Content-Type: application/x-www-form-urlencoded
+XXX-YUXIAOR-PC: pms
+Xxx-Yuxiaor-Token: {{yxr-token}}
+
+
+### 查询公寓本次意愿签署状态
+@yxr-token = {{getYxrToken.response.body.$.access_token}}
+GET {{yuxiaor-host}}/api/v1/contract-willing-sign/status?batchSignId=api-batch-sign-a0e8ad15fd0e4b8e89c4a885884b0a32
+Content-Type: application/x-www-form-urlencoded
+XXX-YUXIAOR-PC: pms
+Xxx-Yuxiaor-Token: {{yxr-token}}
+
+
+### 获取批量意愿签署URL
+@yxr-token = {{getYxrToken.response.body.$.access_token}}
+POST {{yuxiaor-host}}/api/v1/contract-willing-sign/batch-url
+Content-Type: application/json
+XXX-YUXIAOR-PC: pms
+Xxx-Yuxiaor-Token: {{yxr-token}}
+
+{
+    "itemList":[{
+        "contractId": 669769
+    }],
+    "redirectUrl":"http://www.yuxiaor.com"
+}
+
+
+### 公寓端登录(admin)
+# @name getAdmYxrToken
+POST {{yuxiaor-host}}/api/v1/sys/multi/userLogin
+Content-Type: application/json
+XXX-YUXIAOR-PC: pms
+
+{"mobile":13818857638,"password":"123456","type":1}
+
+
+### 获取批量意愿签署URL
+@yxr-admin-token = {{getAdmYxrToken.response.body.$.access_token}}
+GET {{yuxiaor-host}}/api/v1/orgsign/test/getSpecInvoiceTaxPres/83029
+Content-Type: application/json
+XXX-YUXIAOR-PC: pms
+Xxx-Yuxiaor-Token: {{yxr-admin-token}}

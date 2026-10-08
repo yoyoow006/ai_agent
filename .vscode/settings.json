@@ -1,0 +1,39 @@
+{
+    "rest-client.environmentVariables": {
+        "85": {
+            "event": "-85",
+            "password": "e10adc3949ba59abbe56e057f20f883e",
+            "ali-token": "APPCODE adf935dee0054544aeddd99f327a0dd1"
+        },
+        "$shared": {
+            "event": "-g6",
+            "password": "e10adc3949ba59abbe56e057f20f883e",
+            "ali-token": "APPCODE adf935dee0054544aeddd99f327a0dd1"
+        },
+        "g1": {
+            "event": "-g1",
+            "password": "e10adc3949ba59abbe56e057f20f883e",
+            "ali-token": "APPCODE adf935dee0054544aeddd99f327a0dd1"
+        },
+        "g4": {
+            "event": "-g4",
+            "password": "e10adc3949ba59abbe56e057f20f883e",
+            "ali-token": "APPCODE adf935dee0054544aeddd99f327a0dd1"
+        },
+        "g6": {
+            "event": "-g6",
+            "password": "e10adc3949ba59abbe56e057f20f883e",
+            "ali-token": "APPCODE adf935dee0054544aeddd99f327a0dd1"
+        },
+        "dev": {
+            "event": "-dev",
+            "password": "e10adc3949ba59abbe56e057f20f883e",
+            "ali-token": "APPCODE adf935dee0054544aeddd99f327a0dd1"
+        },
+        "prod": {
+            "event": "",
+            "password": "901f6ce669ff3cee731b880bfff49400",
+            "ali-token": "APPCODE adf935dee0054544aeddd99f327a0dd1"
+        }
+    }
+}
