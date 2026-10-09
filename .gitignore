@@ -8,6 +8,7 @@ __pycache__/
 /.idea
 # 业务项目
 /yuxiaor-pms
+/pms-hpc
 /yuxiaor-xxljob
 /yuxiaor-e-signature
 /.ai-local/
