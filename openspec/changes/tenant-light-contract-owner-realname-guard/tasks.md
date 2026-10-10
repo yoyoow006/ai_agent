@@ -29,3 +29,21 @@
 - [x] 2.4 执行 OpenSpec 校验：
   `openspec validate tenant-light-contract-owner-realname-guard --strict --no-interactive`
 - [x] 2.5 记录验证证据，状态进入待验证。
+
+## 3. 白名单豁免与 commonInfo 白名单标识
+
+- [ ] 3.1 将轻托业主实名白名单代码与公司命中判断抽取到共享 helper，避免复制逗号解析逻辑。
+- [ ] 3.2 先扩展失败测试：
+  - `ContractNGServiceImplAddFmLightOwnerRealNameTest`：白名单公寓 + 业主未实名时不查询业主链路并放行；
+  - `ContractControllerCommonInfoOwnerTest`：`companyInLightOwnerWhiteList` 命中为 true、未命中为 false，且无业主合同时仍返回该标识。
+- [ ] 3.3 修改 `ContractNGServiceImpl.checkElectronicLightOwnerRealName`：电子轻托且公寓命中白名单时直接 return。
+- [ ] 3.4 为 `ContractCommonInfoRes.OwnerContractInfo` 新增 `Boolean companyInLightOwnerWhiteList`，并在 `buildOwnerContractInfo` 中按登录公寓填充。
+- [ ] 3.5 运行目标测试至全绿。
+
+## 4. 扩展验证与收尾
+
+- [ ] 4.1 使用独立 JUnit4 classpath 运行 `ContractNGServiceImplAddFmLightOwnerRealNameTest` 与 `ContractControllerCommonInfoOwnerTest`。
+- [ ] 4.2 运行 `mvn -o -pl yuxiaor-server -P dev,env-actuator -Denforcer.skip=true -Dmaven.repo.local=/tmp/repoYxr-compatible compile`。
+- [ ] 4.3 检查业务 diff，确认未修改用户本地文件、Schema、外部 API 与前端。
+- [ ] 4.4 执行 `openspec validate tenant-light-contract-owner-realname-guard --strict --no-interactive`。
+- [ ] 4.5 记录验证证据，重新进入待验证。
