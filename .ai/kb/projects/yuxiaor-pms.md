@@ -41,6 +41,8 @@ sources:
 - `yuxiaor-risk-control` → `yuxiaor-pms/yuxiaor-risk-control/src/main/java/com/dream/yuxiaor/risk/EngineService.java` — 风控规则框架入口。
 - `yuxiaor-schedule` → `yuxiaor-pms/yuxiaor-schedule/src/main` / `com.yuxiaor.pms.yxrschedule` — 已废弃定时任务历史模块；新调度应走 xxl-job 契约。
 - Redis 分布式锁 → `yuxiaor-pms/yuxiaor-server/src/main/java/com/dream/yuxiaor/config/RedissionConfig.java` — Redis Cluster/非 Cluster 连接转换与 Redisson 客户端配置。
+- 租客轻托业主实名/合同摘要 → `yuxiaor-pms/yuxiaor-server/src/main/java/com/dream/yuxiaor/helper/esign/EsignatureExtHelper.java`, `EsignatureHelper.java`, `controller/restfulAPI/ContractController.java` — 轻托盖章个人业主白名单放宽、`/api/v1/contracts/commonInfo` 业主合同摘要；规范见 `openspec/specs/tenant-light-owner-contract-info/`。
+- 通用白名单 → `t_common_white` / `ICommonWhiteService.getCompanyIdsByCode` — `companyIds` 为逗号分隔公寓列表，带 30 分钟 Redis 缓存。
 
 ## 跨仓库关系
 
@@ -83,3 +85,4 @@ sources:
 - 残余不确定：
   - 未验证本地 Maven 构建、测试、测试/生产 Redis 实际连通性与部署拓扑。
   - 外部 Maven 父级仓库、API 消费者和 xxl-job 控制台配置未核实。
+  - 轻托业主实名白名单 `LIGHT_OWNER_REAL_NAME_WHITE_LIST` 的运营配置值未在本环境核验。

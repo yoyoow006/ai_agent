@@ -34,3 +34,13 @@
 - [x] 3.3 执行 OpenSpec 校验：
   `openspec validate tenant-light-owner-realname-flex --strict --no-interactive`
 - [x] 3.4 记录测试、编译、OpenSpec 校验结果并进入待验证。
+
+## 4. 归档终局证据
+
+- 最终 manifest ID: `81912e9061c29c9e2f3ebd7aa9842f4d003c10db9601c332e3b9ecda5e01e3a5`
+- comparison base:
+  - 根仓库: `3dd81e9` (`feature/extract-esign-ddd-module`)
+  - yuxiaor-pms: `7f74dd1fc1` (`origin/master`)
+- finding 状态: Critical=0, Important=0, Minor=0；open=0, resolved=0, not-an-issue=0, accepted-risk=0
+- 未验证范围: `yuxiaor-pms` 全量 Maven test 未运行，存在无关 JUnit5/Mockito3 测试编译阻塞；未连接真实数据库、通用白名单运营配置、E签宝远端或 HTTP 集成环境；白名单配置值未在环境中核验。
+- 残余风险: 通用白名单沿用 30 分钟缓存，调整可能延迟生效；`commonInfo` 在存在业主合同时增加少量合同/业主/实名查询开销；未做批量场景验证。
