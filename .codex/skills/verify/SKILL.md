@@ -10,14 +10,15 @@ description: 用于标准或严格模式构建完成、需要审查与终验时�
 ## 前置
 
 - proposal 状态为`待验证`，tasks 全勾，Build 验证有输出证据。
-- 主会话用 `.ai/tools/review_manifest.py freeze` 冻结所有受影响 Git 仓、comparison base 和工作区差异；reviewer 不得创建或刷新 manifest。
+- 标准小任务不强制 manifest，由主会话执行一次综合自查并记录测试证据、diff 范围、finding 状态、未验证范围和残余风险。
+- 非小任务标准变更由主会话用 `.ai/tools/review_manifest.py freeze` 冻结所有受影响 Git 仓、comparison base 和工作区差异；reviewer 不得创建或刷新 manifest。
 - 前置不满足则退回 Build，不用审查报告替代测试。
 
 所有 reviewer 在读取范围前和形成结论前分别运行 `review_manifest.py verify`；任一次返回 `STALE` 立即停止，旧结论不得沿用。完整契约、finding 字段和 delta 复审见 `.ai/rules/review.md`。
 
 ## 标准：一次综合审查
 
-对整个 diff 至多执行一次独立综合审查。审查单元以高风险不变量划分（并发不变量、权限边界、跨服务契约、资金/账务不可逆性、Schema/迁移/数据删除边界等）；多个 checklist 共享同一不变量时合并为一次审查，不为每个 checklist 机械执行独立审查。小变更可由具备独立上下文的审查能力完成；不得再叠加任务级双审、全分支终审和规格/质量两个独立终审。
+标准小任务由主会话执行一次综合自查，记录测试证据、diff 范围、finding 状态、未验证范围和残余风险；不创建 `.ai-local` manifest。非小任务或存在多仓/契约/并行风险时，对整个 diff 至多执行一次独立综合审查。审查单元以高风险不变量划分（并发不变量、权限边界、跨服务契约、资金/账务不可逆性、Schema/迁移/数据删除边界等）；多个 checklist 共享同一不变量时合并为一次审查，不为每个 checklist 机械执行独立审查。小变更可由具备独立上下文的审查能力完成；不得再叠加任务级双审、全分支终审和规格/质量两个独立终审。
 
 审查提示同时覆盖：
 

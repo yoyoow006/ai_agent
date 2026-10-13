@@ -2687,7 +2687,7 @@ class WorkflowSemanticSyncTest(unittest.TestCase):
 
     def test_source_behavior_surfaces_use_current_semantics(self) -> None:
         required_tokens = {
-            self.SOURCE_BEHAVIOR_FILES[0]: ("Archive SHALL 按", "计划风险触发"),
+            self.SOURCE_BEHAVIOR_FILES[0]: ("Archive SHALL 按", "标准小任务", "知识沉淀 SHALL 条件触发"),
             self.SOURCE_BEHAVIOR_FILES[1]: ("实际 OpenSpec 产物", "高风险实现单元审查"),
             self.SOURCE_BEHAVIOR_FILES[2]: ("实际 OpenSpec 产物", "高风险实现单元审查"),
             self.SOURCE_BEHAVIOR_FILES[3]: ("硬风险", "proposal、delta spec"),
@@ -2747,6 +2747,67 @@ class WorkflowSemanticSyncTest(unittest.TestCase):
                         phrase, text,
                         f"{path} 保留旧流程口径: {phrase}",
                     )
+
+
+class StandardSmallTaskWorkflowContractTest(unittest.TestCase):
+    """mutation: 标准小任务轻量 Verify/Archive 与手工测试编译输出契约。"""
+
+    SPEC = REPOSITORY_ROOT / "openspec" / "specs" / "risk-tiered-ai-workflow" / "spec.md"
+    AGENTS_MD = REPOSITORY_ROOT / "AGENTS.md"
+    CLAUDE_MD = REPOSITORY_ROOT / "CLAUDE.md"
+    REVIEW_MD = REPOSITORY_ROOT / ".ai" / "rules" / "review.md"
+
+    def test_spec_defines_standard_small_task_path(self) -> None:
+        text = self.SPEC.read_text(encoding="utf-8")
+        for token in (
+            "标准小任务", "SHALL NOT 强制创建 review manifest",
+            "目标生产代码影响不超过3个文件", "知识沉淀 SHALL 条件触发",
+            "手工测试编译不得污染构建输出目录",
+            "OpenSpec 归档辅助脚本必须防误归档",
+        ):
+            self.assertIn(token, text, f"workflow spec lacks small-task token: {token}")
+
+    def test_entrypoints_route_small_task_path(self) -> None:
+        for path in (self.AGENTS_MD, self.CLAUDE_MD):
+            if not path.is_file():
+                self.skipTest(f"selected installation does not ship {path.name}")
+            text = path.read_text(encoding="utf-8")
+            self.assertIn("标准小任务", text)
+            self.assertIn("不强制 manifest", text)
+            self.assertIn("知识沉淀：无", text)
+
+    def test_review_rule_allows_self_review_for_small_task(self) -> None:
+        if not self.REVIEW_MD.is_file():
+            self.skipTest("selected installation does not ship the review rule")
+        text = self.REVIEW_MD.read_text(encoding="utf-8")
+        self.assertIn("标准小任务", text)
+        self.assertIn("不创建 manifest", text)
+        self.assertIn("综合自查", text)
+
+    def test_openspec_templates_record_manual_compile_output(self) -> None:
+        proposal = REPOSITORY_ROOT / "openspec" / "templates" / "proposal.md"
+        tasks = REPOSITORY_ROOT / "openspec" / "templates" / "tasks.md"
+        self.assertIn("{{TASK_CLASSIFICATION}}", proposal.read_text(encoding="utf-8"))
+        self.assertIn("{{MANUAL_TEST_OUTPUT}}", tasks.read_text(encoding="utf-8"))
+
+    def test_archive_helper_is_required_and_installed(self) -> None:
+        manifest_path = (
+            REPOSITORY_ROOT / "scripts" / "ai-workflow-assets" / "manifest.json"
+        )
+        if not manifest_path.is_file():
+            self.skipTest("selected installation does not ship installer assets")
+        core = REPOSITORY_ROOT / "scripts" / "lib" / "validate-workflow-core.sh"
+        core_text = core.read_text(encoding="utf-8")
+        self.assertIn("archive-openspec-change-required-tests", core_text)
+        self.assertIn("scripts.tests.test_archive_openspec_change", core_text)
+        manifest_text = manifest_path.read_text(encoding="utf-8")
+        for path in (
+            "scripts/archive_openspec_change.py",
+            "scripts/archive-openspec-change.py",
+            "scripts/tests/test_archive_openspec_change.py",
+        ):
+            self.assertIn(path, manifest_text)
+            self.assertTrue((REPOSITORY_ROOT / path).is_file(), f"missing source: {path}")
 
 
 class ProjectContextEvidenceContractTest(unittest.TestCase):
