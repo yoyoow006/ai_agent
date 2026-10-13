@@ -972,6 +972,13 @@ check_cached_required_test "project-facts-required-tests" \
   .ai/kb/projects/README.md \
   -- python3 -B -m unittest discover -v -s .ai/tools/tests -p test_project_facts.py
 
+check_cached_required_test "archive-openspec-change-required-tests" \
+  "OpenSpec 归档辅助脚本必需测试" \
+  scripts/lib/validate-workflow-core.sh \
+  scripts/archive_openspec_change.py scripts/archive-openspec-change.py \
+  scripts/tests/test_archive_openspec_change.py \
+  -- python3 -B -m unittest -v scripts.tests.test_archive_openspec_change
+
 check_cached_required_test "review-manifest-required-tests" \
   "Review manifest 必需测试（freeze/STALE/delta）" \
   scripts/lib/validate-workflow-core.sh \

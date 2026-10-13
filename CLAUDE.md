@@ -24,7 +24,7 @@
 
 - Open 一次创建 proposal、delta spec、可执行 tasks；仅存在跨模块取舍、新依赖、状态模型、重要替代方案或无法在 proposal/tasks 中清晰表达的架构决策时增加 design。proposal 写`模式: 标准`并置为`待确认计划`。
 - 一次确认覆盖范围、设计、任务和明示的本地整合策略；确认后连续执行，范围变化、失败、争议或外部副作用授权除外。
-- 状态：`待确认计划 → 构建中 → 待验证 → 待归档 → 已归档`；不创建独立 `openspec/plan`。
+- 状态：`待确认计划 → 构建中 → 待验证 → 待归档 → 已归档`；标准小任务（单一职责、生产代码≤3个文件、无严格风险、无治理/跨仓/并行审查需求）Verify 由主会话综合自查并记录简化终局证据，不强制 manifest；Archive 条件沉淀知识并使用 archive-light，根仓库默认保留计划与终局两个提交；不创建独立 `openspec/plan`。
 - 默认 feature 分支；脏工作区、并行实现、高冲突或用户要求时才用 worktree。小任务主会话直执，至多一次全 diff 综合审查。
 
 ### 严格模式
@@ -65,7 +65,7 @@ Archive 默认运行 `bash scripts/validate-workflow.sh --archive-light`；当�
 
 ### .ai-local 缓存清理
 
-OpenSpec 归档文件写入最终 manifest ID、comparison base、finding 状态、未验证范围、残余风险后，可删除对应 `.ai-local/reviews/<change>/`（仅该子路径）；活跃 review、STALE manifest、未持久化最终证据的目录不得自动清理。
+OpenSpec 归档文件写入最终审查/综合自查记录、comparison base、finding 状态、未验证范围、残余风险后，可删除对应 `.ai-local/reviews/<change>/`（仅该子路径）；活跃 review、STALE manifest、未持久化最终证据的目录不得自动清理。Archive 知识沉淀按事实触发，无新事实时记录“知识沉淀：无”。
 
 ## 共享底线
 

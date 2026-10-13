@@ -50,11 +50,13 @@ EXPECTED_ASSET_PATHS = {
         "openspec/specs/shared-ai-workflow-infrastructure/spec.md",
         "openspec/templates/design.md", "openspec/templates/proposal.md",
         "openspec/templates/spec.md", "openspec/templates/tasks.md",
+        "scripts/archive-openspec-change.py", "scripts/archive_openspec_change.py",
         "scripts/lib/agent_dispatch.py", "scripts/lib/validate-workflow-core.sh",
         "scripts/lib/workflow_event_cli.py", "scripts/lib/workflow_events.py",
         "scripts/new-openspec-change.py", "scripts/tests/__init__.py",
         "scripts/tests/run_validate_workflow_parallel.py",
         "scripts/tests/test_agent_dispatch.py",
+        "scripts/tests/test_archive_openspec_change.py",
         "scripts/tests/test_validate_workflow.py",
         "scripts/tests/test_workflow_events.py",
         "scripts/tests/test_workflow_wrapper.py", "scripts/validate-workflow.sh",
@@ -223,7 +225,8 @@ class PortableAssetManifestTests(unittest.TestCase):
     def test_manifest_modes_are_exact_and_match_files(self):
         executable = {
             "scripts/validate-workflow.sh", "scripts/lib/validate-workflow-core.sh",
-            "scripts/new-openspec-change.py",
+            "scripts/new-openspec-change.py", "scripts/archive_openspec_change.py",
+            "scripts/archive-openspec-change.py",
         }
         for group in EXPECTED_ASSET_PATHS:
             for entry in self.manifest[group]:
@@ -614,6 +617,7 @@ if __name__ == "__main__":
                         "selected installation does not ship AGENTS.md",
                         "selected installation does not ship CLAUDE.md",
                         "selected installation does not ship SKILL.md",
+                        "selected installation does not ship installer assets",
                         "flock is required to exercise the concurrency lock",
                         "flock is required to exercise the lock infrastructure path",
                     }

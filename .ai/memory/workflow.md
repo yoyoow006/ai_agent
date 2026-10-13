@@ -191,3 +191,7 @@
 **解**：在使用 Git 前校验 `.git` 元数据闭包：符号链接/gitdir/commondir/alternate object store/内部 symlink 的目标必须解析进声明 workspace，越界在输出前 fail-closed；Git 子进程移除外部 `GIT_*` 环境覆盖并固定 worktree。`project-context` 与 `workspace-search` 共用同一边界，并有外部仓库 symlink 与 commondir 回归。
 **坑**：即使 gitdir 边界留在 workspace，项目 `.git/config` 仍可通过 include + `core.fsmonitor` 让 `git ls-files` 执行脚本，破坏“只读查询”。
 **解**：所有 Git 子进程统一用命令行最高优先级配置禁用 `core.fsmonitor`、hooks、外部 attributes/excludes 和 pager，并把 global/system config 固定为 `/dev/null`；用 include + fsmonitor marker 回归证明脚本未执行。
+
+## 2026-10-13 · 来源变更 merge-standard-small-task-workflow
+**坑**：本仓库源工作区 `.git/refs/heads` 对目录创建呈只读，创建嵌套 `feature/*` 分支或 worktree 均在 ref lock 阶段失败，且 `.worktrees` 可能残留空目录。
+**解**：先 `git worktree prune` 清理残留，再用 `git bundle --all` 导出只读基线到 `/tmp` 并克隆隔离工作区实施；完成后通过 fetch + `--no-ff` 回收 feature 变更，禁止 chmod 或绕过源 `.git` 挂载权限。

@@ -2,7 +2,7 @@
 from __future__ import annotations
 import argparse, os, re, shutil, sys, tempfile
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1]; TEMPLATE_ROOT=ROOT/'openspec/templates'; PLACEHOLDER=re.compile(r'\{\{[^\n{}]+\}\}'); SAFE_NAME=re.compile(r'^[a-z0-9][a-z0-9-]{2,63}$'); VERSION='模板版本: 1'
+ROOT=Path(__file__).resolve().parents[1]; TEMPLATE_ROOT=ROOT/'openspec/templates'; PLACEHOLDER=re.compile(r'\{\{[^\n{}]+\}\}'); SAFE_NAME=re.compile(r'^[a-z0-9][a-z0-9-]{2,63}$'); DEFAULTS={'{{TASK_CLASSIFICATION}}':'待分类：默认按完整标准流程；确认命中标准小任务后再使用轻量 Verify/Archive','{{MANUAL_TEST_OUTPUT}}':'默认不适用；若使用手工 javac/java，输出必须仅位于 /tmp'}; VERSION='模板版本: 1'
 def fail(m): print(f'FAIL: {m}',file=sys.stderr); return 1
 def templates_for(mode,design): return ['proposal.md','spec.md','tasks.md']+(['design.md'] if mode=='strict' or design else [])
 def create(name,mode,target,design):
@@ -15,7 +15,7 @@ def create(name,mode,target,design):
   (stage/'specs'/name).mkdir(parents=True); status='待确认计划' if mode=='standard' else '待确认规范'
   for fn in templates_for(mode,design):
    src=TEMPLATE_ROOT/fn; dst=stage/fn if fn!='spec.md' else stage/'specs'/name/fn
-   dst.write_text(src.read_text(encoding='utf-8').replace('{{MODE}}','标准' if mode=='standard' else '严格').replace('{{STATUS}}',status),encoding='utf-8')
+   dst.write_text(src.read_text(encoding='utf-8').replace('{{MODE}}','标准' if mode=='standard' else '严格').replace('{{STATUS}}',status).replace('{{TASK_CLASSIFICATION}}',DEFAULTS['{{TASK_CLASSIFICATION}}']).replace('{{MANUAL_TEST_OUTPUT}}',DEFAULTS['{{MANUAL_TEST_OUTPUT}}']),encoding='utf-8')
   if target.exists():
    backup=Path(tempfile.mkdtemp(prefix=f'.{target.name}.backup.',dir=parent)); backup.rmdir(); os.replace(target,backup)
    try: os.replace(stage,target)

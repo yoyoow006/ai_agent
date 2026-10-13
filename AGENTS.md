@@ -24,7 +24,7 @@
 
 - Open 一次创建 `proposal.md`、delta `spec.md`、含精确步骤和命令的 `tasks.md`；design 由可观察条件触发（见风险路由表注），仅当跨模块取舍、新依赖、状态模型、重要替代方案或架构决策无法在 proposal/tasks 中清晰表达时才生成；不得为无独立设计决策的变更制造空壳 design。proposal 记录`模式: 标准`并直接置为`待确认计划`。
 - 唯一一次实施前确认同时覆盖范围、（如有）设计、任务与明示的本地整合策略；确认后连续推进，除非范围变化、验证失败、出现争议或需要外部副作用授权。
-- 状态：`待确认计划 → 构建中 → 待验证 → 待归档 → 已归档`。标准模式不得生成独立 plan。
+- 状态：`待确认计划 → 构建中 → 待验证 → 待归档 → 已归档`。标准小任务（单一职责、生产代码≤3个文件、无严格风险、无治理/跨仓/并行审查需求）Verify 由主会话一次综合自查并记录简化终局证据，不强制 manifest；Archive 仅条件沉淀知识并使用 archive-light。标准小任务根仓库默认保留计划基线与终局两个提交。标准模式不得生成独立 plan。
 - 默认 feature 分支；仅脏工作区、并行实现、高冲突或用户要求时用 worktree。小任务主会话直执，完成后至多一次全 diff 综合审查。
 
 ### 严格模式
@@ -86,7 +86,7 @@ Archive 默认运行 `bash scripts/validate-workflow.sh --archive-light`；当�
 
 ### .ai-local 缓存清理
 
-OpenSpec 归档文件写入最终 manifest ID、comparison base、finding 状态、未验证范围、残余风险后，可删除对应 `.ai-local/reviews/<change>/`（仅该子路径）；活跃 review、STALE manifest、未持久化最终证据的目录不得自动清理；不得递归删除整个 `.ai-local`；不得把缓存清理当作关闭 finding 的手段。
+OpenSpec 归档文件写入最终审查/综合自查记录、comparison base、finding 状态、未验证范围、残余风险后，可删除对应 `.ai-local/reviews/<change>/`（仅该子路径）；活跃 review、STALE manifest、未持久化最终证据的目录不得自动清理；不得递归删除整个 `.ai-local`；不得把缓存清理当作关闭 finding 的手段。Archive 知识沉淀按事实触发，无新事实时记录“知识沉淀：无”。
 
 ## 共享底线
 

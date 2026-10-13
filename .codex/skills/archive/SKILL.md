@@ -5,7 +5,7 @@ description: 用于标准或严格模式审查终验已通过、需要合并规�
 
 # Archive——规格、知识与本地收尾
 
-快速模式不归档。前置是 proposal `状态: 待归档`、tasks 全勾、对应模式审查零未决、终验有新鲜证据；最新审查 manifest 再次 `review_manifest.py verify` 为 `VALID`，且 `.ai/rules/review.md` 台账中的 Critical/Important 均已关闭。任一 `STALE` 立即停止，不沿用旧结论。
+快速模式不归档。标准小任务前置是 proposal `状态: 待归档`、tasks 全勾、综合自查零未决、终局记录完整且终验有新鲜证据；不要求 review manifest。非小任务标准变更和严格变更前置是 proposal `状态: 待归档`、tasks 全勾、对应模式审查零未决、终验有新鲜证据；最新审查 manifest 再次 `review_manifest.py verify` 为 `VALID`，且 `.ai/rules/review.md` 台账中的 Critical/Important 均已关闭。任一 `STALE` 立即停止，不沿用旧结论。
 
 ## 取消路径（用户明确决定）
 
@@ -29,11 +29,12 @@ description: 用于标准或严格模式审查终验已通过、需要合并规�
 
 ## 2. 知识沉淀
 
-完成共享 `.ai` 三写：
+按事实条件完成共享 `.ai` 知识沉淀：
 
-- memory：归整构建和审查期的新坑与解决办法；
-- kb：同步已改变的架构或模块事实；
-- rules：新增模块、别称或关键词时更新路由。
+- memory：仅出现新坑、环境绕行或非显然根因时记录；
+- kb：仅模块职责、入口、架构、契约或验证方式变化时同步；
+- rules：仅新术语、别名、路由或治理约束时更新。
+- 无新事实时在归档记录写“知识沉淀：无”，禁止机械三写。
 
 Claude 与 Codex 共享 `.ai/`。知识沉淀写可复用事实，不复制变更叙事。
 

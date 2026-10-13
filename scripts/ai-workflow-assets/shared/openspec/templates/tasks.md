@@ -11,3 +11,4 @@
 - 分支/worktree：{{INTEGRATION}}
 - 提交边界：{{COMMIT_BOUNDARY}}
 - 外部副作用授权：{{SIDE_EFFECTS}}
+- 手工测试编译输出：{{MANUAL_TEST_OUTPUT}}

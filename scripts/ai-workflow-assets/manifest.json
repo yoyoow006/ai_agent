@@ -290,6 +290,14 @@
          "path" : "openspec/templates/tasks.md"
       },
       {
+         "mode" : "0755",
+         "path" : "scripts/archive-openspec-change.py"
+      },
+      {
+         "mode" : "0755",
+         "path" : "scripts/archive_openspec_change.py"
+      },
+      {
          "mode" : "0644",
          "path" : "scripts/lib/agent_dispatch.py"
       },
@@ -320,6 +328,10 @@
       {
          "mode" : "0644",
          "path" : "scripts/tests/test_agent_dispatch.py"
+      },
+      {
+         "mode" : "0644",
+         "path" : "scripts/tests/test_archive_openspec_change.py"
       },
       {
          "mode" : "0644",

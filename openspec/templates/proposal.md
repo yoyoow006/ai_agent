@@ -16,6 +16,7 @@
 
 - 构建/验证：{{IMPACT}}
 - 风险：{{RISK}}
+- 流程分级：{{TASK_CLASSIFICATION}}
 
 ## Scope
 
