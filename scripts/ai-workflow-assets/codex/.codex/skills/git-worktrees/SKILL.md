@@ -7,6 +7,8 @@ description: 用于变更需要工作区隔离、存在未提交修改或并行�
 
 worktree 由冲突和风险触发，不是每次实现计划的固定步骤。
 
+模式沿用 Open：仅助手流程门禁语义变化自动严格，用户可明确升级。业务高风险最高标准，不因认证、账务、迁移/删除、并发或公开契约自动套用严格隔离要求；标准按用户脏工作区、并行、高冲突或明确隔离要求选择 worktree，仍保留 feature 分支和用户修改保护。
+
 ## 模式决策
 
 | 模式/条件 | 动作 |
@@ -73,3 +75,5 @@ git worktree add ".worktrees/<变更名>" "feature/<变更名>"
 | 快速文档任务切 feature/worktree | 留在当前工作区并保护用户修改 |
 | 严格模式因“改动小”就地 main | 风险条件优先，默认隔离 |
 | 未检查 ignore 就创建项目内 worktree | 先运行 `git check-ignore` |
+
+涉及业务代码或嵌套 Git 仓时，实施前必须读取 `.ai/rules/business-git-branching.md`，逐仓核对分支与用户修改保护。

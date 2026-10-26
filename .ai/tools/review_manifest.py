@@ -823,7 +823,10 @@ def _recompute(manifest: dict[str, Any]) -> dict[str, Any]:
 
 
 def verify(args: argparse.Namespace) -> int:
-    manifest = _read_manifest(args.manifest)
+    return _verify_manifest(_read_manifest(args.manifest))
+
+
+def _verify_manifest(manifest: dict[str, Any]) -> int:
     expected = {key: value for key, value in manifest.items() if key != "id"}
     current = _recompute(manifest)
     if current == expected:
@@ -836,6 +839,42 @@ def verify(args: argparse.Namespace) -> int:
         if old_by_path.get(path) != new_by_path.get(path):
             print(f"CHANGED {path}")
     return EXIT_STALE
+
+
+def finalize(args: argparse.Namespace) -> int:
+    """Persist supplied findings against a currently valid review identity.
+
+    Writing inside a reviewed repository can itself make the manifest STALE.
+    The evidence records the identity checked before writing, not a new freeze.
+    """
+    manifest = _read_manifest(args.manifest)
+    output = Path(args.output)
+    if output.resolve() == Path(args.manifest).resolve():
+        raise InputError('final evidence must not replace its input manifest')
+    if output.exists() or output.is_symlink():
+        raise InputError('final evidence already exists; refusing to overwrite')
+    result = _verify_manifest(manifest)
+    if result:
+        return result
+    evidence = {
+        'schema_version': SCHEMA_VERSION,
+        'manifest_id': manifest['id'],
+        'comparison_base': [
+            {'path': repo['path'], 'base': repo['base'], 'merge_base': repo['merge_base']}
+            for repo in manifest['repositories']
+        ],
+        'finding_status': args.finding_status,
+        'unverified_scope': args.unverified_scope,
+        'residual_risk': args.residual_risk,
+    }
+    try:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with output.open('x', encoding='utf-8') as stream:
+            stream.write(json.dumps(evidence, ensure_ascii=False, indent=2) + '\n')
+    except OSError as error:
+        raise InputError(f'cannot write final evidence: {error}') from error
+    print(f'FINALIZED {output} (writing reviewed paths may make the manifest STALE)')
+    return 0
 
 
 def _delta_repo(old: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
@@ -892,6 +931,10 @@ def parser() -> argparse.ArgumentParser:
     verify_parser = commands.add_parser("verify")
     verify_parser.add_argument("--manifest", required=True)
     verify_parser.set_defaults(handler=verify)
+    final_parser = commands.add_parser('finalize')
+    for field in ('manifest', 'output', 'finding-status', 'unverified-scope', 'residual-risk'):
+        final_parser.add_argument('--' + field, required=True)
+    final_parser.set_defaults(handler=finalize)
     delta_parser = commands.add_parser("delta")
     delta_parser.add_argument("--from-manifest", required=True)
     delta_parser.add_argument("--to-manifest", required=True)

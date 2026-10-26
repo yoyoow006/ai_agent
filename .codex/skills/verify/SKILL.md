@@ -7,11 +7,13 @@ description: 用于标准或严格模式构建完成、需要审查与终验时�
 
 快速模式由 Open 路径完成针对性验证，不进入本技能。标准消除重复审查；严格保留独立关注面。
 
+模式沿用 Open 的门禁语义判定；业务高风险最高标准，用户可明确升级。认证、账务、Schema/迁移、删除、并发、跨服务/公开 API、大重构排除标准小任务，必须使用 manifest 和一次独立综合审查，核对失败/回滚设计、TDD、风险相称测试和实际外部/破坏性操作授权；不得因业务风险追加严格专属独立计划或双阶段审查。
+
 ## 前置
 
 - proposal 状态为`待验证`，tasks 全勾，Build 验证有输出证据。
 - 标准小任务不强制 manifest，由主会话执行一次综合自查并记录测试证据、diff 范围、finding 状态、未验证范围和残余风险。
-- 非小任务标准变更由主会话用 `.ai/tools/review_manifest.py freeze` 冻结所有受影响 Git 仓、comparison base 和工作区差异；reviewer 不得创建或刷新 manifest。
+- 非小任务、多仓、跨契约或并行实现的标准变更，以及严格变更，主会话用 `.ai/tools/review_manifest.py freeze` 冻结所有受影响 Git 仓、comparison base 和工作区差异；reviewer 不得创建或刷新 manifest。
 - 前置不满足则退回 Build，不用审查报告替代测试。
 
 所有 reviewer 在读取范围前和形成结论前分别运行 `review_manifest.py verify`；任一次返回 `STALE` 立即停止，旧结论不得沿用。完整契约、finding 字段和 delta 复审见 `.ai/rules/review.md`。
@@ -52,7 +54,7 @@ Critical/Important 必须按共享台账处置。修复运行时行为继续用 
 审查通过后，主会话亲自现跑：
 
 - 变更相关测试与必要回归套件；
-- 标准模式运行 `bash scripts/validate-workflow.sh --fast` 与变更相关目标/回归测试，逐项核对 `[PASS]`、`[FAIL]`、`[SKIP]` 和末尾汇总；变更触及工作流入口、技能、校验器或安装资产时改跑全量默认门禁，逐项核对同项汇总；
+- 标准模式运行 `bash scripts/validate-workflow.sh --standard` 与变更相关目标/回归测试，逐项核对 `[PASS]`、`[FAIL]`、`[SKIP]` 和末尾汇总；变更触及工作流入口、技能、校验器、模板或安装资产时改跑 `bash scripts/validate-workflow.sh --require-openspec` 完整门禁，逐项核对同项汇总；
 - 严格模式必须运行 `bash scripts/validate-workflow.sh --require-openspec`；OpenSpec 和仓库自带必需测试不得 SKIP，任一 FAIL 都阻断；
 - `git diff --check`、目标 diff 和状态清单。
 

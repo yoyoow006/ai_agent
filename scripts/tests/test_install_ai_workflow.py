@@ -40,10 +40,11 @@ EXPECTED_ASSET_PATHS = {
         ".ai/kb/verification-evidence.md", ".ai/memory/README.md",
         ".ai/prompts/agents/explorer.md", ".ai/prompts/agents/reviewer.md",
         ".ai/prompts/agents/test-worker.md", ".ai/rules/index.md",
-        ".ai/rules/review.md", ".ai/tools/README.md",
-        ".ai/tools/project_facts.py", ".ai/tools/review_manifest.py",
+        ".ai/rules/review.md", ".ai/rules/archive.md",
+        ".ai/rules/business-git-branching.md", ".ai/tools/README.md",
+        ".ai/tools/project_facts.py", ".ai/tools/project_registry.py", ".ai/tools/review_manifest.py",
         ".ai/tools/tests/__init__.py", ".ai/tools/tests/test_project_facts.py",
-        ".ai/tools/tests/test_review_manifest.py", "openspec/AGENTS.md",
+        ".ai/tools/tests/test_review_manifest.py", ".ai/tools/tests/test_project_registry.py", "openspec/AGENTS.md",
         "openspec/archive/.gitkeep", "openspec/changes/.gitkeep",
         "openspec/plan/.gitkeep", "openspec/project.md", "openspec/specs/.gitkeep",
         "openspec/specs/risk-tiered-ai-workflow/spec.md",
@@ -250,6 +251,18 @@ class PortableAssetManifestTests(unittest.TestCase):
             (REPOSITORY_ROOT / relative).read_bytes(),
             "packaged parallel runner differs from active source",
         )
+
+    def test_lc_shared_capabilities_are_shipped_with_tests_and_rules(self):
+        for relative in (
+            ".ai/tools/project_registry.py", ".ai/tools/tests/test_project_registry.py",
+            ".ai/rules/archive.md", ".ai/rules/business-git-branching.md",
+        ):
+            with self.subTest(path=relative):
+                self.assertIn({"path": relative, "mode": "0644"}, self.manifest["shared"])
+                self.assertEqual(
+                    (ASSET_ROOT / "shared" / relative).read_bytes(),
+                    (REPOSITORY_ROOT / relative).read_bytes(),
+                )
 
 
 class PortableAssetContentTests(unittest.TestCase):
@@ -589,7 +602,7 @@ if __name__ == "__main__":
 
                 with self.subTest(assistant=assistant, command="tools"):
                     self.assertEqual(tools.returncode, 0, tools.stdout)
-                    self.assertIn("Ran 65 tests", tools.stdout)
+                    self.assertIn("Ran 72 tests", tools.stdout)
                 with self.subTest(assistant=assistant, command="public"):
                     self.assertEqual(public.returncode, 0, public.stdout)
                     shipped_count = self._shipped_contract_test_count()

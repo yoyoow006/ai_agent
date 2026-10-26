@@ -72,7 +72,7 @@ python3 .ai/tools/project_facts.py business-terms --workspace /path/to/workspace
 
 ## Review 范围清单
 
-`review_manifest.py` 为标准/严格 Review 冻结一个或多个显式 Git 仓的精确本地范围。它只使用 Python 标准库和参数数组形式的本地 Git 命令，不联网、不更新仓库；只有 `freeze` 会写文件，且输出必须直接位于 workspace 根的 `.ai-local/reviews/<change>/`。该目录由根 `.gitignore` 忽略，不是 OpenSpec 状态真源。
+`review_manifest.py` 为标准/严格 Review 冻结一个或多个显式 Git 仓的精确本地范围。它只使用 Python 标准库和参数数组形式的本地 Git 命令，不联网；`freeze` 的输出必须直接位于 workspace 根的 `.ai-local/reviews/<change>/`，`finalize` 将当前有效身份及调用者提供的终局说明写入显式新文件。`verify` 和 `delta` 只读。审查缓存目录由根 `.gitignore` 忽略，不是 OpenSpec 状态真源。
 
 ```bash
 python3 .ai/tools/review_manifest.py freeze \
@@ -94,6 +94,38 @@ python3 .ai/tools/review_manifest.py delta \
 - `delta` 只接受相同仓集合、相同 base 与 merge-base 的两个 manifest，稳定输出 ID、HEAD、范围类别和内容变化路径，供差异复审及继承 finding 使用；base 或仓集合变化返回 `2`。
 
 manifest 只证明范围身份，不证明实现语义正确。reviewer 仍需检查规格、直接消费者、跨仓契约与验证证据，并在读取前和形成结论前分别执行 `verify`。
+
+### 持久化终局审查证据
+
+```bash
+python3 .ai/tools/review_manifest.py finalize \
+  --manifest .ai-local/reviews/example/full-1.json \
+  --output openspec/changes/example/final-review.json \
+  --finding-status 'open=0; resolved=0; not-an-issue=0; accepted-risk=0' \
+  --unverified-scope '无' --residual-risk '无'
+```
+
+只有当前 manifest 有效时才写出 manifest_id、逐仓 comparison_base、finding_status、unverified_scope、residual_risk；STALE 返回非零且不生成证据。输出已存在或与输入 manifest 相同会拒绝覆盖。字段由调用者提供，命令不会自动审查、关闭 finding 或把风险接受当作用户授权。写入被审仓库会改变范围，输出证明的是写入前核对的身份；后续仍执行 STALE 规则，不能声称旧 manifest 持续有效。标准小任务继续持久化综合自查，不为使用此命令制造 manifest。
+
+## 项目登记草稿
+
+`project_registry.py validate --workspace /path/to/workspace` 复用现有 registry schema 校验。`render` 仅向显式目录生成草稿，不更新真实 registry，不扫描或执行业务仓代码：
+
+```bash
+python3 .ai/tools/project_registry.py render --input /tmp/project-input.json --output-dir /tmp/project-draft
+```
+
+输入示例：
+
+```json
+{"name":"example-library","path":"modules/example-library","build":"python","card":"kb/projects/example-library.md","description":"共享库","applications":[]}
+```
+
+`build` 必须显式提供；库模块使用空 applications，应用条目包含 server、module、main_class、source_path。兼容来源单应用顶层字段，但不可与 applications 混用。输出为 registry-entry.json、指定 Markdown 项目卡和 rules-index-entry.md；任一输出存在时默认在写入前拒绝，显式 `--force` 才允许覆盖普通文件，符号链接和非法相对路径仍拒绝。项目卡中的事实来源须人工核实补充后再合入知识层。返回码 0 成功、2 输入或写入错误。
+
+## 按任务记录验证耗时
+
+为 wrapper 设置 `WORKFLOW_TASK_ID` 和 `WORKFLOW_JSONL_PATH` 可关联同一任务的多次验证；未设置时保持旧事件字段。`workflow_event_cli.py` 支持 `--task-id`、`--phase`。`scripts.lib.workflow_events.summarize_task_events(path, task_id)` 只汇总目标任务的 `event=phase` 记录，忽略旧记录、其它任务和 summary，避免重复累加总耗时。阶段时长必须是非负整数，状态必须有效；损坏 JSON 或非法阶段记录以带行号的 ValueError 报错，不能把不完整数据当成功证据。度量只作诊断，不能替代测试或审查门禁。
 
 ## 工作流总校验
 

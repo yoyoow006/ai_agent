@@ -2,7 +2,7 @@
 
 | 模块名 | 代码路径 | 别称 | 关键词 |
 |---|---|---|---|
-| 风险分级工作流 | `AGENTS.md`, `CLAUDE.md`, `openspec/specs/risk-tiered-ai-workflow/` | 宪法、总纲、流程路由、需求理解 | 快速模式、标准模式、严格模式、单确认、标准小任务、状态路径、取消路径、共享底线、权威事实优先、编号提问、canonical term、标准三件套条件 design、严格风险触发二次确认、归档轻量门禁、`.ai-local` 精确清理 |
+| 风险分级工作流 | `AGENTS.md`, `CLAUDE.md`, `openspec/specs/risk-tiered-ai-workflow/` | 宪法、总纲、流程路由、需求理解 | 快速模式、标准模式、严格模式仅助手门禁语义、业务高风险最高标准、实际影响非路径、用户自愿升级、单确认、标准小任务、状态路径、取消路径、共享底线、权威事实优先、编号提问、canonical term、标准三件套条件 design、严格风险触发二次确认、归档轻量门禁、`.ai-local` 精确清理 |
 | Codex 阶段与支撑技能 | `.codex/skills/` | Codex 编排器、执行器 | Open、Design、Build、Verify、Archive、TDD、审查、worktree |
 | Claude 阶段与支撑技能 | `.claude/skills/` | Claude 编排器、执行器 | Open、Design、Build、Verify、Archive、TDD、审查、worktree |
 | 助手适配 | `.codex/README.md`, `AGENTS.md`, `CLAUDE.md` | 工具映射、入口 | spawn_agent、update_plan、apply_patch、宿主能力 |
@@ -20,3 +20,6 @@
 | Git 仓库基线 | `.git/`, `.gitignore`, `openspec/specs/git-repository-baseline/` | 初始提交、main 基线 | root commit、git status、OpenSpec 基线、本地草稿忽略、独立远程授权 |
 | Git 基线安全 | `.git/`, `.gitignore`, `openspec/specs/git-baseline-secret-hygiene/` | secret scan、凭据清理、历史重建 | 字面凭据、reachable history、reflog、prune、外部轮换 |
 | Git 远程配置 | `.git/config`, `openspec/specs/git-remote-configuration/` | origin、远程仓库 | remote URL、fetch、push、upstream、网络授权 |
+
+| 归档路径规则 | `.ai/rules/archive.md` | Archive 精确路径 | Verify 后 diff、archive-files、archive-light、required |
+| 业务代码分支 | `.ai/rules/business-git-branching.md` | 嵌套业务仓分支 | main/master 保护、任务分支、用户修改、独立授权 |

@@ -195,3 +195,7 @@
 ## 2026-10-13 · 来源变更 merge-standard-small-task-workflow
 **坑**：本仓库源工作区 `.git/refs/heads` 对目录创建呈只读，创建嵌套 `feature/*` 分支或 worktree 均在 ref lock 阶段失败，且 `.worktrees` 可能残留空目录。
 **解**：先 `git worktree prune` 清理残留，再用 `git bundle --all` 导出只读基线到 `/tmp` 并克隆隔离工作区实施；完成后通过 fetch + `--no-ff` 回收 feature 变更，禁止 chmod 或绕过源 `.git` 挂载权限。
+
+## 2026-10-26 · 来源变更 merge-lc-workflow-improvements
+**坑**：安装目标侧回流的技能可能只更新 Codex，且删除源仓已有的小任务豁免/验证说明；只迁移 task_id 而 wrapper 不发 phase 会让阶段汇总为零，累计所有 duration 又会把 summary 重复相加。
+**解**：固定来源提交，按能力比较并保留源仓已有保障，同步双助手和安装镜像；wrapper 在末条 summary 前发一条 phase，汇总仅认目标任务的有效 phase，并用真实 CLI 路径验证一次计时。归档发现未跟踪治理文件时直接 required，因为 git diff 不包含它们。

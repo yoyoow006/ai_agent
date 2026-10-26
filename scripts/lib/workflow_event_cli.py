@@ -16,9 +16,13 @@ def main() -> int:
     parser.add_argument("status")
     parser.add_argument("reason", nargs="?", default="")
     parser.add_argument("duration", nargs="?", default="")
+    parser.add_argument('--task-id')
+    parser.add_argument('--phase')
     args = parser.parse_args()
-    writer = EventWriter(Path(args.path), args.run_id, args.layer)
+    writer = EventWriter(Path(args.path), args.run_id, args.layer, task_id=args.task_id)
     fields = {}
+    if args.phase:
+        fields['phase'] = args.phase
     if args.reason:
         fields["reason_code"] = args.reason
     if args.duration:

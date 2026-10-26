@@ -7,6 +7,8 @@ description: 用于标准或严格模式审查终验已通过、需要合并规�
 
 快速模式不归档。标准小任务前置是 proposal `状态: 待归档`、tasks 全勾、综合自查零未决、终局记录完整且终验有新鲜证据；不要求 review manifest。非小任务标准变更和严格变更前置是 proposal `状态: 待归档`、tasks 全勾、对应模式审查零未决、终验有新鲜证据；最新审查 manifest 再次 `review_manifest.py verify` 为 `VALID`，且 `.ai/rules/review.md` 台账中的 Critical/Important 均已关闭。任一 `STALE` 立即停止，不沿用旧结论。
 
+执行前必须读取 `.ai/rules/archive.md`，按 Verify 后精确文件 diff 选择归档门禁。
+
 ## 取消路径（用户明确决定）
 
 任一`已归档`前状态的变更可经用户明确决定取消；助手只能建议，不得自行置为`已取消`。
@@ -45,16 +47,16 @@ Claude 与 Codex 共享 `.ai/`。知识沉淀写可复用事实，不复制变�
 3. 严格模式把 `openspec/plan/<变更名>.md` 移为归档目录的 `plan.md`；标准模式没有独立 plan，不制造空文件。
 4. 追加 `openspec/archive/README.md` 索引行（变更名—主旨—模式）。
 5. 检查主规格、归档目录、共享 `.ai`、finding 的未验证范围/残余风险和 Git 状态；`accepted-risk` 必须引用用户明确决定。
-6. **持久最终证据**：在移动目录前确认 `tasks.md` 或 `review` 记录已写入 `最终 manifest ID`（链接到最近一次 VALID manifest）、`comparison base`（commit SHA）、`finding 状态`（open/resolved/not-an-issue/accepted-risk 计数）、`未验证范围`、`残余风险` 五段；缺一项停止归档。
+6. **持久最终证据**：在移动目录前确认 `tasks.md` 或 `review` 记录已写入 `最终审查/综合自查记录`（标准小任务写综合自查及不适用 manifest 的依据；完整审查写最终 manifest ID，链接到最近一次 VALID manifest）、`comparison base`（commit SHA）、`finding 状态`（open/resolved/not-an-issue/accepted-risk 计数）、`未验证范围`、`残余风险` 五段；缺一项停止归档。
 
 ## 4. 归档后强制验证
 
 主规格合并和目录移动会产生 Verify 阶段尚未审过的新状态，提交/整合前必须现跑：
 
-按 proposal 模式选择校验入口：
+按 `.ai/rules/archive.md` 的 Verify 后 diff 分类选择校验入口：
 
 ```bash
-# 默认（严格模式 Archive）：--archive-light
+# 默认（标准与严格模式 Archive）：--archive-light
 bash scripts/validate-workflow.sh --archive-light
 
 # 升级：当 Verify 完整门禁通过后工作流可执行文件、助手入口、技能语义、
