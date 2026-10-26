@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "manifest_id": "054cf2984ee30dea19fc90a9633645aa955bd7ed3bd94c533f5c64f61b9c37fd",
+  "comparison_base": [
+    {
+      "path": "/projects/ai_agent/.worktrees/merge-lc-workflow-improvements",
+      "base": {
+        "input": "c33eab2",
+        "resolved": "c33eab2841934574c17f3913e2415d6a0ecc695e"
+      },
+      "merge_base": "c33eab2841934574c17f3913e2415d6a0ecc695e"
+    }
+  ],
+  "finding_status": "open=0;resolved=0;not-an-issue=0;accepted-risk=0",
+  "unverified_scope": "Archive及本地整合复验尚待执行；实现与终验已通过",
+  "residual_risk": "登记草稿无多文件事务保证；finalize只证明检查时身份，不验证finding技术结论；既有安装成功术语差异见压力场景N"
+}

@@ -31,8 +31,24 @@
 
 安装完整套件：`python3 -B -m unittest scripts.tests.test_install_ai_workflow scripts.tests.test_install_workflow` 初次 98 tests（724.047s），3 个失败均在同一端到端方法：两侧旧工具计数仍为 65（实际 72 全绿）；一次重复安装冲突由主会话在执行中同步知识说明导致源资产变化。固定计数并冻结资产后，精确复跑 `python3 -B -m unittest scripts.tests.test_install_ai_workflow.InstalledWorkflowValidationTests.test_installed_codex_and_claude_validate_without_source_or_openspec`，1 test、561.033s、退出 0。该方法重新覆盖两侧工具 72 项、完整公共契约、required 缺 CLI 必须失败及 sentinel 真执行、Git 身份保护和重复安装幂等；其余 97 项在初次运行通过且受测安装行为未改变。原始输出 install-full.log、install-rerun.log，退出结果 install-rerun.exit=0。
 
-修复后主会话 required、Verify 双阶段、归档与整合复验待记录；当前不声明全变更已完成。
+修复后主会话 `WORKFLOW_TEST_JOBS=2 bash scripts/validate-workflow.sh --require-openspec` 退出 0，215 项顶层契约实际执行，PASS=284 FAIL=0 SKIP=0。随后 `openspec validate --all --strict --no-interactive` 退出 0，12 passed、0 failed。日志 verify-required.log/exit、verify-openspec.log/exit。没有读取或写入验证缓存，没有缩减测试或放宽超时。
+
+## 最终审查记录
+
+最终 manifest ID：`054cf2984ee30dea19fc90a9633645aa955bd7ed3bd94c533f5c64f61b9c37fd`，来源 `.ai-local/reviews/merge-lc-workflow-improvements/verify-1.json`；独立规格审查 verify_spec 与代码质量审查 verify_quality 依次 PASS，无 findings，均在读取前和结论前核验 VALID。审查对象 HEAD 为 b3a0be1dabd36bfdbbdb331af501c98ec37e069c。
+
+comparison base：c33eab2841934574c17f3913e2415d6a0ecc695e。finding 状态：open=0、resolved=0、not-an-issue=0、accepted-risk=0。主会话终验成功后调用 finalize 再次核验身份并输出终局记录；状态与证据落盘是后续机械变化，不把旧身份宣称为持续有效。
+
+知识沉淀：已在 Build 按事实更新共享工具/项目/验证说明、风险与归档/分支规则，并追加工作流回流、phase 汇总和未跟踪归档文件经验。没有删除既有 memory 或带入来源业务知识；Archive 不机械重复三写。
+
+归档前机械 delta 复审 PASS，manifest `bfb84138f2355fb39b9bfff9dfd39241cc1a7f60e650a87d448fa1a4ebfb06c1`，前后 VALID、无 findings；归档操作开始前主会话再次 verify 为 VALID。
+
+Verify 后差异分类：工作流可执行文件、助手入口、技能语义、契约测试均无变化；新增治理主规格 `openspec/specs/lc-workflow-integration/spec.md`；其余为本变更状态/证据/计划移动、归档索引及已核对的 memory 事实。新增主规格将明确触发 required，不以归档机械性跳过完整门禁。
+
+归档门禁：以已验证 HEAD b3a0be1 为基线，仅传入新增治理规格精确路径；wrapper 明确输出 `archive gate promoted to --require-openspec: openspec/specs/lc-workflow-integration/spec.md`。215 项契约实际执行，PASS=282 FAIL=0 SKIP=0，退出 0；归档后少了活跃变更的两项检查，计数相应减少。随后 OpenSpec strict 为 12 passed、0 failed，退出 0。日志 archive-gate.log/exit、archive-openspec.log/exit。
+
+本地整合复验待记录，当前不声明已合并。
 
 ## 未验证范围与残余风险
 
-当前未完成项见后续门禁。新增登记草稿不承诺多文件事务或对抗并发替换父目录；finalize 证明检查时身份，不自动确认 finding 结论。既有安装成功术语差异见压力记录 N，本次不改变安装成功定义。
+未验证范围：本地整合复验待执行；本次实现与 Archive 的测试和审查已通过。残余风险：新增登记草稿不承诺多文件事务或对抗并发替换父目录；finalize 证明检查时身份，不自动确认 finding 结论。既有安装成功术语差异见压力记录 N，本次不改变安装成功定义。
