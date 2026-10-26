@@ -46,6 +46,8 @@
 
 ## 与 workflow 的关系
 
+完整审查可用 `review_manifest.py finalize` 在当前身份 VALID 时持久终局说明；它不验证 finding 的技术结论，也不代替用户接受风险。写出到受审范围后身份会变化，后续仍需遵守 STALE 检查。标准小任务使用综合自查证据，不要求为 finalize 创建 manifest。任务耗时 JSONL 只作诊断，不属于通过证据。
+
 - 快速模式：针对性验证后可直接引用等价证据，但最终汇报必须披露证据基线和未验证范围。
 - 标准/严格模式：Build/Verify 可把等价证据作为调查输入，但完成声明仍必须满足当前变更的目标测试、回归测试、required 门禁和 OpenSpec 边界。
 - `project-context` 的 `verified_commit=current` 只说明登记基线与当前 HEAD 相同；不说明工作区干净，也不免除当前任务新鲜验证。

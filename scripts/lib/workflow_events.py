@@ -26,10 +26,11 @@ class WriteResult:
 
 
 class EventWriter:
-    def __init__(self, path: Path | None, run_id: str, layer: str):
+    def __init__(self, path: Path | None, run_id: str, layer: str, task_id: str | None = None):
         self.path = Path(path) if path else None
         self.run_id = run_id
         self.layer = layer
+        self.task_id = task_id
         self._stream = None
         if self.path is not None:
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -46,6 +47,8 @@ class EventWriter:
             "layer": self.layer,
             "status": status,
         }
+        if self.task_id:
+            payload['task_id'] = self.task_id
         payload.update(fields)
         if self._stream is not None:
             self._stream.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
@@ -56,6 +59,29 @@ class EventWriter:
         if self._stream is not None:
             self._stream.close()
             self._stream = None
+
+
+def summarize_task_events(path: Path, task_id: str) -> dict[str, Any]:
+    """Sum explicit phase events only; malformed input fails with a line number."""
+    phases = []
+    for number, line in enumerate(Path(path).read_text(encoding='utf-8').splitlines(), 1):
+        try:
+            event = json.loads(line)
+            if not isinstance(event, dict):
+                raise ValueError('event must be an object')
+            if event.get('task_id') != task_id or event.get('event') != 'phase':
+                continue
+            if not isinstance(event.get('phase'), str) or not event['phase'].strip():
+                raise ValueError('phase must be a non-empty string')
+            duration = event.get('duration_ms')
+            if type(duration) is not int or duration < 0:
+                raise ValueError('duration_ms must be a non-negative integer')
+            if event.get('status') not in STATUSES:
+                raise ValueError('invalid phase status')
+            phases.append({key: event[key] for key in ('phase', 'duration_ms', 'status', 'reason_code') if key in event})
+        except (ValueError, TypeError) as error:
+            raise ValueError(f'{path}:{number}: {error}') from error
+    return {'task_id': task_id, 'phases': phases, 'total_duration_ms': sum(p['duration_ms'] for p in phases)}
 
 
 def write_metrics(directory: Path, metrics: dict[str, Any]) -> WriteResult:

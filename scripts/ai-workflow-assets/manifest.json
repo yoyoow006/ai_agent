@@ -211,6 +211,14 @@
       },
       {
          "mode" : "0644",
+         "path" : ".ai/rules/archive.md"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/rules/business-git-branching.md"
+      },
+      {
+         "mode" : "0644",
          "path" : ".ai/rules/index.md"
       },
       {
@@ -227,6 +235,10 @@
       },
       {
          "mode" : "0644",
+         "path" : ".ai/tools/project_registry.py"
+      },
+      {
+         "mode" : "0644",
          "path" : ".ai/tools/review_manifest.py"
       },
       {
@@ -236,6 +248,10 @@
       {
          "mode" : "0644",
          "path" : ".ai/tools/tests/test_project_facts.py"
+      },
+      {
+         "mode" : "0644",
+         "path" : ".ai/tools/tests/test_project_registry.py"
       },
       {
          "mode" : "0644",

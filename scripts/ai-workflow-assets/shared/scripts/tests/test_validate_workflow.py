@@ -566,6 +566,7 @@ class ValidateWorkflowContractTest(ContractFixtureTest):
         self.assertEqual(result.returncode, 0, msg=result.stdout)
         calls = marker.read_text(encoding="utf-8")
         self.assertIn("test_project_facts.py", calls)
+        self.assertIn("test_project_registry.py", calls)
         self.assertIn("test_review_manifest.py", calls)
         unit_calls = [line for line in calls.splitlines() if "unittest" in line]
         self.assertTrue(unit_calls, msg=calls)
@@ -951,8 +952,8 @@ class ValidateWorkflowContractTest(ContractFixtureTest):
         cases = (
             ("CLAUDE.md", "以仓库技能为准"),
             ("AGENTS.md", "以仓库技能为准"),
-            (".claude/skills/verify/SKILL.md", "validate-workflow.sh --fast"),
-            (".codex/skills/verify/SKILL.md", "validate-workflow.sh --fast"),
+            (".claude/skills/verify/SKILL.md", "validate-workflow.sh --standard"),
+            (".codex/skills/verify/SKILL.md", "validate-workflow.sh --standard"),
             (".claude/skills/archive/SKILL.md", "openspec/archive/README.md"),
             (".codex/skills/archive/SKILL.md", "openspec/archive/README.md"),
         )
@@ -2747,6 +2748,125 @@ class WorkflowSemanticSyncTest(unittest.TestCase):
                         phrase, text,
                         f"{path} 保留旧流程口径: {phrase}",
                     )
+
+
+class StrictGateRoutingContractTest(unittest.TestCase):
+    """门禁路由按语义而非业务风险或路径判定；安装 profile 同样受约束。"""
+
+    def test_active_routing_surfaces_share_gate_contract(self) -> None:
+        paths = [REPOSITORY_ROOT / ".ai/kb/overview.md"]
+        profile = REPOSITORY_ROOT / ".ai/assistant-profile.json"
+        selected = json.loads(profile.read_text())["assistant"] if profile.is_file() else "both"
+        assistants = ["codex", "claude"] if selected == "both" else [selected]
+        for assistant in assistants:
+            entry = REPOSITORY_ROOT / ("AGENTS.md" if assistant == "codex" else "CLAUDE.md")
+            paths.extend((entry, REPOSITORY_ROOT / f".{assistant}/skills/open/SKILL.md"))
+            if assistant == "codex":
+                paths.append(REPOSITORY_ROOT / ".codex/README.md")
+        for path in set(paths):
+            text = path.read_text(encoding="utf-8")
+            with self.subTest(path=path):
+                for token in ("仅 AI 助手流程门禁语义变更", "业务高风险最高标准", "实际影响而非文件路径", "用户明确要求更严格", "标准小任务排除"):
+                    self.assertIn(token, text)
+
+    def test_core_requires_current_standard_verification_layers(self) -> None:
+        text = (REPOSITORY_ROOT / "scripts/lib/validate-workflow-core.sh").read_text()
+        line = next(line for line in text.splitlines() if "Verify 标准分层" in line)
+        self.assertIn("--standard", line)
+        self.assertIn("--require-openspec", line)
+
+    def test_core_enforces_gate_route_and_mutations(self) -> None:
+        text = (REPOSITORY_ROOT / "scripts/lib/validate-workflow-core.sh").read_text()
+        for token in ("gate_routing_ok", "mutation: 拒绝业务风险自动严格", "mutation: 拒绝缺失门禁语义边界"):
+            self.assertIn(token, text)
+
+    def test_executable_contract_rejects_old_routes_and_missing_boundaries(self) -> None:
+        core = (REPOSITORY_ROOT / "scripts/lib/validate-workflow-core.sh").read_text()
+        match = re.search(r"^gate_routing_ok\(\) \{\n.*?^\}", core, re.M | re.S)
+        self.assertIsNotNone(match, "core must execute the routing contract")
+        prohibition = re.search(r"^no_business_auto_strict_ok\(\) \{\n.*?^\}", core, re.M | re.S)
+        self.assertIsNotNone(prohibition)
+        profile = REPOSITORY_ROOT / ".ai/assistant-profile.json"
+        selected = json.loads(profile.read_text())["assistant"] if profile.is_file() else "both"
+        policy = (REPOSITORY_ROOT / ("CLAUDE.md" if selected == "claude" else "AGENTS.md")).read_text()
+        mutations = [policy]
+        for token in ("仅 AI 助手流程门禁语义变更", "业务高风险最高标准", "实际影响而非文件路径", "用户明确要求更严格", "标准小任务排除"):
+            mutations.append(policy.replace(token, "缺失边界"))
+        mutations.extend(policy + "\n" + sentence for sentence in (
+            "| 严格 | 权限认证、资金账务、数据库 Schema | 完整流程 |",
+            "权限认证、安全合规等严格条件不得因请求边界小而降级。",
+            "凡修改 .ai/ 目录文件必须严格。",
+        ))
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "policy.md"
+            for index, content in enumerate(mutations):
+                with self.subTest(index=index):
+                    path.write_text(content)
+                    result = subprocess.run(["bash", "-c", prohibition.group() + "\n" + match.group() + '\ngate_routing_ok "$1"', "contract", str(path)], capture_output=True, text=True)
+                    self.assertEqual(0 if index == 0 else 1, result.returncode, result.stderr)
+
+    def test_business_route_prohibition_rejects_grep_errors(self) -> None:
+        core = (REPOSITORY_ROOT / "scripts/lib/validate-workflow-core.sh").read_text()
+        predicate = re.search(r"^no_business_auto_strict_ok\(\) \{\n.*?^\}", core, re.M | re.S)
+        self.assertIsNotNone(predicate)
+        for grep_result, expected in ((0, 1), (1, 0), (2, 1), (127, 1)):
+            with self.subTest(grep_result=grep_result):
+                script = f"grep() {{ return {grep_result}; }}\n" + predicate.group() + '\nno_business_auto_strict_ok ignored'
+                result = subprocess.run(["bash", "-c", script], capture_output=True, text=True)
+                self.assertEqual(expected, result.returncode, result.stderr)
+
+
+class GateRoutingIntegrationTest(ContractFixtureTest):
+    """安装目标真实 core 必须阻断入口和技能的旧路由回归。"""
+
+    def test_downstream_skills_and_shared_routes_reject_business_strict_regression(self) -> None:
+        profile = self.fixture / ".ai/assistant-profile.json"
+        selected = json.loads(profile.read_text())["assistant"] if profile.is_file() else "both"
+        assistants = ["codex", "claude"] if selected == "both" else [selected]
+        paths = [self.fixture / path for path in (".ai/rules/review.md", ".ai/rules/index.md", ".ai/kb/overview.md")]
+        for assistant in assistants:
+            paths.extend(self.fixture / f".{assistant}/skills/{skill}/SKILL.md" for skill in ("design", "build", "verify", "code-review", "subagent-driven", "git-worktrees"))
+            if assistant == "codex":
+                paths.append(self.fixture / ".codex/README.md")
+        for path in paths:
+            with self.subTest(path=path):
+                original = path.read_text()
+                try:
+                    path.write_text(original + "\n| 严格 | 权限认证、资金账务、数据库 Schema | 完整流程 |\n")
+                    result = self._run_validator()
+                    self.assertNotEqual(0, result.returncode, result.stdout)
+                    self.assertIn("[FAIL]", result.stdout)
+                finally:
+                    path.write_text(original)
+
+    def test_valid_hard_risk_confirmations_and_unselected_side_remain_accepted(self) -> None:
+        profile = self.fixture / ".ai/assistant-profile.json"
+        selected = json.loads(profile.read_text())["assistant"] if profile.is_file() else "both"
+        if selected != "both":
+            other = "claude" if selected == "codex" else "codex"
+            path = self.fixture / f".{other}/skills/build/SKILL.md"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("| 严格 | 权限认证、资金账务、数据库 Schema | 完整流程 |\n")
+        result = self._run_validator()
+        self.assertEqual(0, result.returncode, result.stdout)
+
+    def test_selected_entry_and_open_old_routes_fail_core(self) -> None:
+        profile = self.fixture / ".ai/assistant-profile.json"
+        selected = json.loads(profile.read_text())["assistant"] if profile.is_file() else "both"
+        assistants = ["codex", "claude"] if selected == "both" else [selected]
+        for assistant in assistants:
+            paths = [self.fixture / ("AGENTS.md" if assistant == "codex" else "CLAUDE.md"), self.fixture / f".{assistant}/skills/open/SKILL.md"]
+            for path in paths:
+                with self.subTest(path=path):
+                    original = path.read_text()
+                    try:
+                        path.write_text(original + "\n| 严格 | 权限认证、资金账务、数据库 Schema | 完整流程 |\n")
+                        result = self._run_validator()
+                        self.assertNotEqual(0, result.returncode, result.stdout)
+                        self.assertIn("[FAIL]", result.stdout)
+                        self.assertIn("门禁语义路由", result.stdout)
+                    finally:
+                        path.write_text(original)
 
 
 class StandardSmallTaskWorkflowContractTest(unittest.TestCase):

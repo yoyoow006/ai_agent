@@ -12,6 +12,10 @@
 
 风险分类、状态与共享底线以根 [AGENTS.md](../AGENTS.md) 为准；阶段细节以 `.codex/skills/<名>/SKILL.md` 为准。行为回归场景在 `scripts/workflow-pressure-scenarios.md`。
 
+仅 AI 助手流程门禁语义变更自动严格，按实际影响而非文件路径判定；业务高风险最高标准，用户明确要求更严格流程时可自愿升级。标准小任务排除认证、账务、迁移/删除、Schema、并发、公开契约及大重构，保留失败/回滚设计、TDD、风险相称测试、一次独立综合审查与 manifest 和实际破坏性操作授权。保持门禁契约的工作流工具优化走标准，已有事实维护满足快速条件时走快速。
+
+验证入口分为 `--fast`、`--standard` 和 `--require-openspec` 三层。fast 只复用输入未变的静态规则 PASS；standard 运行全量本地契约并按变更类型升级；required 禁止缓存并强制严格校验。标准 OpenSpec 产物可由 `scripts/new-openspec-change.py` 生成和预检。
+
 ## 目录
 
 | 路径 | 用途 |

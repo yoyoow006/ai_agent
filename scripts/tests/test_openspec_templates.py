@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 import subprocess
 import sys
+import importlib.util
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -10,6 +11,16 @@ TOOL = ROOT / "scripts" / "new-openspec-change.py"
 
 
 class OpenSpecTemplateTests(unittest.TestCase):
+    def test_proposal_rejects_list_prefixed_metadata(self):
+        spec = importlib.util.spec_from_file_location('templates', TOOL)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'proposal.md'
+            for field in ('模式', '状态'):
+                path.write_text('模式: 标准\n状态: 待确认计划\n- ' + field + ': 标准\n')
+                self.assertTrue(module.check_file(path, [], True), field)
+
     def run_tool(self, *args):
         return subprocess.run(
             [sys.executable, str(TOOL), *args], cwd=ROOT,

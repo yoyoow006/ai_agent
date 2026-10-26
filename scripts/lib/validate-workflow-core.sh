@@ -467,6 +467,42 @@ contains_all() {
   done
 }
 
+no_business_auto_strict_ok() {
+  local file="$1" result
+  # 严格计划的硬风险二次确认不改变模式路由；仅拒绝业务风险自动严格口径。
+  grep -Eq '^\| 严格(模式)? \|.*(权限|资金|账务|Schema|迁移|删除|并发|公开|大范围重构)|权限认证、安全合规等严格条件|凡修改 \.ai/ 目录文件必须严格|低到中风险运行时|业务(高风险|风险).*自动(进入|选择)严格' "$file"
+  result=$?
+  test "$result" -eq 1
+}
+
+gate_routing_ok() {
+  local file="$1" term
+  for term in '仅 AI 助手流程门禁语义变更' '业务高风险最高标准' '实际影响而非文件路径' '用户明确要求更严格' '标准小任务排除'; do
+    grep -Fq -- "$term" "$file" || return 1
+  done
+  no_business_auto_strict_ok "$file"
+}
+
+gate_route_mutation_rejected() {
+  local source="$1" mutation="$2" predicate="${3:-gate_routing_ok}" temporary
+  temporary="$(mktemp)" || return 1
+  case "$mutation" in
+    old-business-route)
+      cat "$source" >"$temporary"
+      printf '\n| 严格 | 权限认证、资金账务、数据库 Schema | 完整流程 |\n' >>"$temporary"
+      ;;
+    missing-gate-boundary)
+      sed 's/仅 AI 助手流程门禁语义变更/缺失边界/g' "$source" >"$temporary"
+      ;;
+    *) rm -f "$temporary"; return 1 ;;
+  esac
+  if "$predicate" "$temporary"; then
+    rm -f "$temporary"
+    return 1
+  fi
+  rm -f "$temporary"
+}
+
 mode_table_ok() {
   local file="$1"
   grep -Eq '^\| 快速(模式)? \|' "$file" &&
@@ -829,14 +865,37 @@ for agent in "${required_agents[@]}"; do
 done
 for doc in "${required_docs[@]}"; do
   check "$doc 三级模式定义" mode_table_ok "$doc"
+  check "$doc 门禁语义路由" gate_routing_ok "$doc"
+  check "mutation: 拒绝业务风险自动严格: $doc" gate_route_mutation_rejected "$doc" old-business-route
+  check "mutation: 拒绝缺失门禁语义边界: $doc" gate_route_mutation_rejected "$doc" missing-gate-boundary
   check "$doc 标准单确认" contains_all "$doc" '一次确认' '待确认计划' '不创建'
   check "$doc 严格 9 态" contains_all "$doc" '草稿' '待确认规范' '设计中' '构建中' '待验证' '待归档' '已归档' '已取消'
   check "$doc 共享底线" contains_all "$doc" '用户' '外部' '破坏性' '验证'
   check "$doc 技能仲裁" contains_all "$doc" '仓库技能为准' '插件技能'
 done
 check "核心规则无统一重流程回归" policy_ok "${policy_files[@]}"
+route_policy_files=("${required_docs[@]}" .ai/rules/review.md .ai/rules/index.md .ai/kb/overview.md)
+for agent in "${required_agents[@]}"; do
+  for skill in "${skills[@]}"; do
+    route_policy_files+=("$agent/skills/$skill/SKILL.md")
+  done
+done
+if assistant_required codex; then
+  route_policy_files+=(.codex/README.md)
+fi
+for doc in "${route_policy_files[@]}"; do
+  check "$doc 禁止业务风险自动严格" no_business_auto_strict_ok "$doc"
+  check "mutation: 拒绝业务风险自动严格: $doc" gate_route_mutation_rejected "$doc" old-business-route no_business_auto_strict_ok
+done
+if assistant_required codex; then
+  check "Codex 适配门禁语义路由" gate_routing_ok .codex/README.md
+fi
+check "共享总览门禁语义路由" gate_routing_ok .ai/kb/overview.md
 
 for agent in "${required_agents[@]}"; do
+  check "$agent Open 门禁语义路由" gate_routing_ok "$agent/skills/open/SKILL.md"
+  check "mutation: 拒绝业务风险自动严格: $agent" gate_route_mutation_rejected "$agent/skills/open/SKILL.md" old-business-route
+  check "mutation: 拒绝缺失门禁语义边界: $agent" gate_route_mutation_rejected "$agent/skills/open/SKILL.md" missing-gate-boundary
   check "$agent Open 快速豁免" contains_all "$agent/skills/open/SKILL.md" '快速模式' '不创建 proposal' '不切 feature' '默认不提交'
   check "$agent Open 标准直接待确认" contains_all "$agent/skills/open/SKILL.md" '`状态: 待确认计划`' '状态直接置为`待确认计划`' '唯一一次实施前确认' '不得另建 `openspec/plan`'
   check "$agent Open 需求理解" contains_all "$agent/skills/open/SKILL.md" \
@@ -849,7 +908,7 @@ for agent in "${required_agents[@]}"; do
   check "$agent Build 风险分支" contains_all "$agent/skills/build/SKILL.md" '标准小型、边界清晰任务' '严格' '可独立回滚的职责单元'
   check "$agent Verify 标准单审严格双审" contains_all "$agent/skills/verify/SKILL.md" '一次综合审查' '双阶段独立审查' '规格符合性' '代码质量'
   check "$agent Verify 严格 required 门禁" contains_all "$agent/skills/verify/SKILL.md" 'bash scripts/validate-workflow.sh --require-openspec' '不得 SKIP'
-  check "$agent Verify 标准分层" contains_all "$agent/skills/verify/SKILL.md" '--fast' '改跑全量默认门禁'
+  check "$agent Verify 标准分层" contains_all "$agent/skills/verify/SKILL.md" '--standard' '--require-openspec'
   check "$agent Archive 模式分支" contains_all "$agent/skills/archive/SKILL.md" '标准模式' '严格模式' 'ADDED' '知识沉淀'
   check "$agent Archive required 门禁" contains_all "$agent/skills/archive/SKILL.md" 'bash scripts/validate-workflow.sh --require-openspec' '不得 SKIP'
   check "$agent Archive 归档索引" contains_all "$agent/skills/archive/SKILL.md" 'openspec/archive/README.md'
@@ -931,6 +990,10 @@ check "W/A/M 压力契约" contains_all scripts/workflow-pressure-scenarios.md \
 check "I 压力契约" contains_all scripts/workflow-pressure-scenarios.md \
   'I：目标已有助手入口' 'AGENTS.pre-codex-workflow.md' 'SHA-256' \
   '不输出既有正文' '--force' '临时空目录'
+check "G/T/B/V/U 门禁路由压力契约" contains_all scripts/workflow-pressure-scenarios.md \
+  'G：修改助手门禁及安装传播' 'T：工具内部优化保持门禁' \
+  'B：业务高风险最高标准' 'V：用户自愿升级' 'U：门禁影响未知' \
+  '实际破坏性操作单独明确授权' '路径不决定模式'
 
 if assistant_required codex; then
   check "SDD 草稿区已忽略" workflow_path_ignored .codex/sdd/validation-probe
@@ -971,6 +1034,13 @@ check_cached_required_test "project-facts-required-tests" \
   .ai/kb/projects/registry.json \
   .ai/kb/projects/README.md \
   -- python3 -B -m unittest discover -v -s .ai/tools/tests -p test_project_facts.py
+
+check_cached_required_test "project-registry-required-tests" \
+  "项目登记草稿必需测试（输入/覆盖/边界）" \
+  scripts/lib/validate-workflow-core.sh \
+  .ai/tools/project_registry.py .ai/tools/project_facts.py \
+  .ai/tools/tests/test_project_registry.py \
+  -- python3 -B -m unittest discover -v -s .ai/tools/tests -p test_project_registry.py
 
 check_cached_required_test "archive-openspec-change-required-tests" \
   "OpenSpec 归档辅助脚本必需测试" \

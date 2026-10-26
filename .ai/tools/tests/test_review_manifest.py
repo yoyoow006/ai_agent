@@ -15,6 +15,35 @@ SCRIPT = Path(__file__).resolve().parents[1] / "review_manifest.py"
 
 
 class ReviewManifestTest(unittest.TestCase):
+    def finalize(self, output):
+        return self.run_cli('finalize', '--manifest', str(self.manifest_path()), '--output', str(output), '--finding-status', 'Important open', '--unverified-scope', 'none', '--residual-risk', 'manual review')
+
+    def test_finalize_valid_preserves_findings_and_rejects_overwrite(self):
+        self.assertEqual(0, self.freeze().returncode)
+        output = self.manifest_path('final.json')
+        result = self.finalize(output)
+        self.assertEqual(0, result.returncode, result.stderr)
+        evidence = self.load(output)
+        self.assertEqual(self.load()['id'], evidence['manifest_id'])
+        self.assertEqual('Important open', evidence['finding_status'])
+        self.assertIn('comparison_base', evidence)
+        self.assertEqual('none', evidence['unverified_scope'])
+        self.assertEqual('manual review', evidence['residual_risk'])
+        before = output.read_bytes()
+        self.assertNotEqual(0, self.finalize(output).returncode)
+        self.assertEqual(before, output.read_bytes())
+        self.assertNotEqual(0, self.finalize(self.manifest_path()).returncode)
+        self.assertEqual(0, self.run_cli('verify', '--manifest', str(self.manifest_path())).returncode)
+
+    def test_finalize_stale_does_not_write_and_tracked_output_changes_identity(self):
+        self.assertEqual(0, self.freeze().returncode)
+        output = self.repo / 'final.json'
+        result = self.finalize(output)
+        self.assertEqual(0, result.returncode, result.stderr)
+        second = self.manifest_path('second.json')
+        self.assertEqual(3, self.finalize(second).returncode)
+        self.assertFalse(second.exists())
+
     def setUp(self):
         self.tempdir = tempfile.TemporaryDirectory()
         self.workspace = Path(self.tempdir.name) / "workspace"

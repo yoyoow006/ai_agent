@@ -2,6 +2,8 @@
 
 `registry.json` 是事实工具允许访问的项目白名单，项目卡保存人类可读的稳定语义。登记不代表项目当前已检出或事实刚刚复验。
 
+通用登记草稿可用 `.ai/tools/project_registry.py render --input <输入.json> --output-dir <草稿目录>` 生成，详见工具 README。构建类型显式填写，库模块允许空 applications。生成后核对源码与事实来源再人工合入 registry；工具不会自动登记或执行项目命令。任一草稿已存在默认拒绝覆盖。
+
 ## registry 契约
 
 - `schema_version` 当前为 `1`。

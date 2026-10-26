@@ -495,3 +495,17 @@
 - **WHEN** 随包 wrapper、并行执行器或安装器集成测试发生回退
 - **THEN** CI 或仓库契约测试失败并指出漂移
 - **AND** 不得以跳过安装器套件、缓存通过结果或删除源仓专属用例作为修复方式
+
+### Requirement: 审查与归档规则必须可达且保留轻量豁免
+
+阶段技能 SHALL 路由到共享审查、精确归档路径与业务分支规则；标准小任务 SHALL 可用综合自查终局证据归档而不创建 manifest，完整审查 SHALL 继续验证 manifest 身份。
+
+#### Scenario: 标准小任务归档
+
+- **WHEN** 标准小任务已完成综合自查与新鲜终验
+- **THEN** 归档持久化综合自查、comparison base、finding 状态、未验证范围与残余风险，不强制 manifest ID
+
+#### Scenario: 精确归档路径
+
+- **WHEN** Verify 后治理或工作流文件发生变化
+- **THEN** 以精确文件路径传给 archive-files，按实际 diff 自动升级 required，不传目录或预设大清单
