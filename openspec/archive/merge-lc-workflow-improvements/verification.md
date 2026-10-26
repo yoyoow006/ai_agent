@@ -47,8 +47,8 @@ Verify 后差异分类：工作流可执行文件、助手入口、技能语义�
 
 归档门禁：以已验证 HEAD b3a0be1 为基线，仅传入新增治理规格精确路径；wrapper 明确输出 `archive gate promoted to --require-openspec: openspec/specs/lc-workflow-integration/spec.md`。215 项契约实际执行，PASS=282 FAIL=0 SKIP=0，退出 0；归档后少了活跃变更的两项检查，计数相应减少。随后 OpenSpec strict 为 12 passed、0 failed，退出 0。日志 archive-gate.log/exit、archive-openspec.log/exit。
 
-本地整合复验待记录，当前不声明已合并。
+本地整合：归档提交 f5b4e99 经 `--no-ff` 合入 main，合并提交 `3b7bba264c9956133518c68c3a2dfd5237703aa4`。`git diff --exit-code feature/merge-lc-workflow-improvements HEAD` 退出 0，证明合并树与已验证 feature 相同；在 main 现跑 `bash scripts/validate-workflow.sh --archive-light`，PASS=281 FAIL=0 SKIP=0、退出 0；随后 OpenSpec strict 12 passed、0 failed、退出 0。主工作区日志 `.ai-local/merge-lc/main-validation.log/exit` 和 main-openspec.log。未推送，未删除已合并工作区/分支或审查缓存。
 
 ## 未验证范围与残余风险
 
-未验证范围：本地整合复验待执行；本次实现与 Archive 的测试和审查已通过。残余风险：新增登记草稿不承诺多文件事务或对抗并发替换父目录；finalize 证明检查时身份，不自动确认 finding 结论。既有安装成功术语差异见压力记录 N，本次不改变安装成功定义。
+未验证范围：已确认范围内无；远程推送和实际业务项目操作未授权且未执行。残余风险：新增登记草稿不承诺多文件事务或对抗并发替换父目录；finalize 证明检查时身份，不自动确认 finding 结论。既有安装成功术语差异见压力记录 N，本次不改变安装成功定义。

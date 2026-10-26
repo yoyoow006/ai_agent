@@ -11,7 +11,7 @@
 
 规范阶段的第 6、7 项包含后续 Verify/Archive 生命周期动作；此处将构建验收与阶段收尾分开记录，避免提前勾选尚未执行的归档。范围不变。
 
-后续阶段：Verify 双阶段独立审查与主会话完整终验已通过；Archive 的规格合并、归档移动与升级 required 复验已完成，本地合回 main 与复验待执行。以 proposal 状态和 verification.md 记录实际完成结果。
+后续阶段：Verify 双阶段独立审查与主会话完整终验、Archive 规格合并及升级 required 复验、本地合回 main 与复验均已完成。结果见 verification.md。未推送远程，保留已合并 feature/worktree 和审查缓存。
 
 验证命令与预期见 design.md 验证矩阵；预期结果：所有目标契约、required、OpenSpec strict、安装回归通过且无未决 Critical/Important。确认后独立计划细化文件与执行顺序。
 

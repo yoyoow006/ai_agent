@@ -46,7 +46,7 @@
 
 ## Unverified scope
 
-实现、目标测试、任务级及 Verify 双阶段审查、安装回归、主会话及归档 required、OpenSpec strict 均已通过，证据见 verification.md；本地整合复验待执行。
+已确认范围内无未验证项。实现、审查、安装回归、主会话及归档 required、本地 main 整合复验和 OpenSpec strict 均已通过，证据见 verification.md；远程推送不在授权范围。
 
 ## Residual risk
 
