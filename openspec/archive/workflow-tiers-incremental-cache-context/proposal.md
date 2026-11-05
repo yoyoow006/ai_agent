@@ -1,6 +1,6 @@
 模板版本: 1
 模式: 标准
-状态: 待归档
+状态: 已归档
 
 # 工作流提速增量缓存上下文优化
 
@@ -44,7 +44,7 @@
 
 ## Unverified scope
 
-Verify 记录（2026-11-05）：独立综合审查（manifest `6af6389e`）发现 F-1..F-5（3 Important/2 Minor），修复后差异复审（manifest `20e9f128`）全部 resolved、无新 finding；终局 manifest `c6584caa` 已 finalize 持久（finding 状态/未验证范围/残余风险）。主会话终验现跑：required 门禁 PASS=284 FAIL=0（226 契约测试）、`openspec validate --strict` valid、`git diff --check` clean、`--fast` PASS=283。目标契约测试 25 passed/5 subtests（StandardSuitePruningTest 8 例、WrapperFastCacheSwitchTest 6 例、模板/摘要 11 例）。
+Verify 记录（2026-11-05）：comparison base `25f684d089f39b693e5bf4bfedb1f85748a3a911`。独立综合审查（manifest `6af6389e`）发现 F-1..F-5（3 Important/2 Minor），修复后差异复审（manifest `20e9f128`）全部 resolved、无新 finding；终局 manifest `c6584caa` 已 finalize 持久（finding 状态/未验证范围/残余风险）。主会话终验现跑：required 门禁 PASS=284 FAIL=0（226 契约测试）、`openspec validate --strict` valid、`git diff --check` clean、`--fast` PASS=283。目标契约测试 25 passed/5 subtests（StandardSuitePruningTest 8 例、WrapperFastCacheSwitchTest 6 例、模板/摘要 11 例）。
 
 ## Residual risk
 

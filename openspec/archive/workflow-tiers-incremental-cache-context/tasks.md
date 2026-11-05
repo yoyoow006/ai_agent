@@ -40,3 +40,11 @@
 - 提交边界：standard 缓存+裁剪 / 内存轮转+摘要命令 / 范围收缩同步 三个职责单元独立提交
 - 外部副作用授权：不推送、不合并 main、不删除归档外数据
 - 手工测试编译输出：默认不适用；若用手工 javac/java，输出仅位于 /tmp
+
+## 终局记录（2026-11-05）
+
+- 最终审查：综合审查 manifest `6af6389e` → 差异复审 manifest `20e9f128`（F-1..F-5 全部 resolved，无新 finding）→ 终局 manifest `c6584caa` finalize 持久
+- comparison base：`25f684d089f39b693e5bf4bfedb1f85748a3a911`
+- finding 状态：resolved 5 / open 0 / not-an-issue 0 / accepted-risk 0
+- 未验证范围：required 门禁（226 契约测试）、`openspec validate --strict`、`git diff --check` 现跑通过；summary 围栏嵌套等边界未夹具化（见差异复审记录）
+- 残余风险：裁剪与 promoted 缓存特性无调用方接线（潜伏态）；summary 围栏识别仅覆盖三反引号形态；指纹输入源遗漏风险沿用 core 既有设计
