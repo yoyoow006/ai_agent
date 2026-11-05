@@ -20,12 +20,12 @@
 
 - [ ] 4. 内存与索引瘦身
   - [ ] 4.1 修改：`.ai/memory/workflow.md` 轮转至 30 条分模块文件；`.ai/rules/index.md` 关键词截断完整表入附录
-  - [ ] 4.2 验证：`bash scripts/validate-workflow.sh --fast` + 统计续传行数
+  - [x] 4.2 验证：`bash scripts/validate-workflow.sh --fast` + 统计续传行数
   - 预期结果：新会话上下文 <350 行，路由测试通过
 
 - [ ] 5. 续传摘要命令
-  - [ ] 5.1 修改：`scripts/new-openspec-change.py` 新增摘要子命令
-  - [ ] 5.2 验证：`python3 scripts/new-openspec-change.py summary openspec/changes/workflow-tiers-incremental-cache-context`
+  - [x] 5.1 修改：`scripts/new-openspec-change.py` 新增摘要子命令
+  - [x] 5.2 验证：`python3 scripts/new-openspec-change.py summary openspec/changes/workflow-tiers-incremental-cache-context`
   - 预期结果：一行输出状态/未勾任务/commit/指纹且可独立解析
 
 - [ ] 6. 待验证变更收尾归档

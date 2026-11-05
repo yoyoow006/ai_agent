@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse, os, re, shutil, sys, tempfile
+import argparse, hashlib, os, re, shutil, subprocess, sys, tempfile
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]; TEMPLATE_ROOT=ROOT/'openspec/templates'; PLACEHOLDER=re.compile(r'\{\{[^\n{}]+\}\}'); SAFE_NAME=re.compile(r'^[a-z0-9][a-z0-9-]{2,63}$'); DEFAULTS={'{{TASK_CLASSIFICATION}}':'待分类：默认按完整标准流程；确认命中标准小任务后再使用轻量 Verify/Archive','{{MANUAL_TEST_OUTPUT}}':'默认不适用；若使用手工 javac/java，输出必须仅位于 /tmp'}; VERSION='模板版本: 1'
 def fail(m): print(f'FAIL: {m}',file=sys.stderr); return 1
@@ -64,6 +64,31 @@ def check_templates():
   if not p.is_file() or VERSION not in p.read_text(encoding='utf-8'):es.append(f'模板缺少 {VERSION}：{p}')
  if es:[print(f'FAIL: {e}',file=sys.stderr) for e in es]; return 1
  print('PASS: OpenSpec 模板'); return 0
+def summary(change):
+ if not change.is_dir() or change.is_symlink():return fail(f'变更目录不存在或不安全：{change}')
+ proposal=change/'proposal.md'
+ if not proposal.is_file():return fail('缺少 proposal.md')
+ text=proposal.read_text(encoding='utf-8')
+ mode=re.search(r'^模式:\s*(\S+)\s*$',text,re.M);status=re.search(r'^状态:\s*(\S+)\s*$',text,re.M)
+ if not mode or not status:return fail('proposal 缺少 模式/状态 字段')
+ unchecked=total=0
+ tasks=change/'tasks.md'
+ if tasks.is_file():
+  for l in tasks.read_text(encoding='utf-8').splitlines():
+   m=re.match(r'\s*-\s+\[([ xX])\]\s',l)
+   if m:
+    total+=1
+    if m.group(1)==' ':unchecked+=1
+ head='none'
+ try:
+  r=subprocess.run(['git','rev-parse','--short=12','HEAD'],cwd=str(change),capture_output=True,text=True,timeout=10)
+  if r.returncode==0 and r.stdout.strip():head=r.stdout.strip()
+ except Exception:pass
+ rules='none'
+ rp=ROOT/'.ai/rules/index.md'
+ if rp.is_file():rules=hashlib.sha256(rp.read_bytes()).hexdigest()[:12]
+ print(f'SUMMARY change={change.name} mode={mode.group(1)} status={status.group(1)} unchecked={unchecked}/{total} head={head} rules={rules}')
+ return 0
 def main():
- p=argparse.ArgumentParser();s=p.add_subparsers(dest='command',required=True);c=s.add_parser('create');c.add_argument('name');c.add_argument('--mode',choices=['standard','strict'],required=True);c.add_argument('--target',type=Path);c.add_argument('--with-design',action='store_true');q=s.add_parser('check');q.add_argument('change',type=Path);s.add_parser('check-templates');a=p.parse_args();return create(a.name,a.mode,a.target,a.with_design) if a.command=='create' else check_templates() if a.command=='check-templates' else check(a.change)
+ p=argparse.ArgumentParser();s=p.add_subparsers(dest='command',required=True);c=s.add_parser('create');c.add_argument('name');c.add_argument('--mode',choices=['standard','strict'],required=True);c.add_argument('--target',type=Path);c.add_argument('--with-design',action='store_true');q=s.add_parser('check');q.add_argument('change',type=Path);s.add_parser('check-templates');u=s.add_parser('summary');u.add_argument('change',type=Path);a=p.parse_args();return create(a.name,a.mode,a.target,a.with_design) if a.command=='create' else check_templates() if a.command=='check-templates' else summary(a.change) if a.command=='summary' else check(a.change)
 if __name__=='__main__':raise SystemExit(main())
