@@ -2107,13 +2107,18 @@ class WrapperFastCacheSwitchTest(unittest.TestCase):
         self.assertEqual(0, result.returncode, msg=result.stdout)
         self.assertIn("WORKFLOW_FAST_CACHE=1", result.stdout)
 
+    def test_standard_mode_enables_cache_env(self) -> None:
+        result = self._run_wrapper("--standard")
+        self.assertEqual(0, result.returncode, msg=result.stdout)
+        self.assertIn("WORKFLOW_FAST_CACHE=1", result.stdout)
+
     def test_default_mode_does_not_enable_cache_env(self) -> None:
         result = self._run_wrapper()
         self.assertEqual(0, result.returncode, msg=result.stdout)
         self.assertIn("WORKFLOW_FAST_CACHE=0", result.stdout)
         self.assertIn("[PASS] 工作流顶层契约测试", result.stdout)
 
-    def test_inherited_cache_env_is_neutralized_outside_fast(self) -> None:
+    def test_inherited_cache_env_is_neutralized_outside_fast_and_standard(self) -> None:
         inherited = {"WORKFLOW_FAST_CACHE": "1"}
         for arguments in ((), ("--require-openspec",), ("--archive-light",)):
             with self.subTest(arguments=arguments or ("default",)):
@@ -2130,6 +2135,209 @@ class WrapperFastCacheSwitchTest(unittest.TestCase):
                 result = self._run_wrapper(*arguments)
                 self.assertEqual(2, result.returncode, msg=result.stdout)
                 self.assertIn("conflict", result.stdout.lower())
+
+
+class StandardSuitePruningTest(unittest.TestCase):
+    """--standard 契约套件增量裁剪：无工作流资产变更时裁剪，其余一律全量 fail-closed。"""
+
+    STUB_CORE = (
+        "#!/usr/bin/env bash\n"
+        "printf 'WORKFLOW_FAST_CACHE=%s\\n' \"${WORKFLOW_FAST_CACHE:-0}\"\n"
+        "printf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\n"
+        "exit 0\n"
+    )
+
+    def _stage_tree(self, root: Path, *, source_repo: bool = False) -> None:
+        (root / "scripts" / "lib").mkdir(parents=True)
+        (root / "scripts" / "lib" / "validate-workflow-core.sh").write_text(
+            self.STUB_CORE, encoding="utf-8"
+        )
+        if source_repo:
+            (root / "scripts" / "lib" / "install_ai_workflow.py").write_text(
+                "# installer marker\n", encoding="utf-8"
+            )
+        (root / "scripts" / "validate-workflow.sh").write_text(
+            (REPOSITORY_ROOT / "scripts" / "validate-workflow.sh").read_text(
+                encoding="utf-8"
+            ),
+            encoding="utf-8",
+        )
+        tests = root / "scripts" / "tests"
+        tests.mkdir()
+        (tests / "test_validate_workflow.py").write_text(
+            "import unittest\n"
+            "class SentinelTest(unittest.TestCase):\n"
+            "    def test_sentinel(self) -> None: self.assertTrue(True)\n",
+            encoding="utf-8",
+        )
+        runner_source = (
+            REPOSITORY_ROOT / "scripts" / "tests" / "run_validate_workflow_parallel.py"
+        )
+        (tests / "run_validate_workflow_parallel.py").write_text(
+            runner_source.read_text(encoding="utf-8")
+            if runner_source.is_file()
+            else "import unittest\n",
+            encoding="utf-8",
+        )
+        (root / ".ai-local").mkdir()
+        (root / "README.md").write_text("# fixture\n", encoding="utf-8")
+        change = root / "openspec" / "changes" / "feature-x"
+        change.mkdir(parents=True)
+        (change / "proposal.md").write_text("模式: 标准\n状态: 构建中\n", encoding="utf-8")
+
+    def _commit_base(self, root: Path) -> None:
+        subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "checkout", "-b", "main"], cwd=root, check=True, capture_output=True
+        )
+        subprocess.run(
+            ["git", "config", "user.email", "fixture@example.com"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "fixture"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(["git", "add", "-A"], cwd=root, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "base"], cwd=root, check=True, capture_output=True
+        )
+
+    def _run(
+        self,
+        root: Path,
+        *arguments: str,
+        env_extras: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        environment = os.environ.copy()
+        environment.update(env_extras or {})
+        return subprocess.run(
+            ["/usr/bin/bash", "scripts/validate-workflow.sh", *arguments],
+            cwd=root,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            timeout=90,
+        )
+
+    def test_docs_only_change_prunes_contract_suite(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root)
+            self._commit_base(root)
+            (root / "README.md").write_text("# fixture changed\n", encoding="utf-8")
+            proposal = root / "openspec" / "changes" / "feature-x" / "proposal.md"
+            proposal.write_text("模式: 标准\n状态: 待验证\n", encoding="utf-8")
+
+            result = self._run(
+                root, "--standard", env_extras={"WORKFLOW_STANDARD_BASE": "HEAD"}
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("WORKFLOW_FAST_CACHE=1", result.stdout)
+            self.assertIn("契约测试裁剪", result.stdout)
+            self.assertNotIn("[PASS] 工作流顶层契约测试", result.stdout)
+            self.assertIn("PASS=1 FAIL=0 SKIP=0", result.stdout)
+
+    def test_core_change_keeps_full_suite(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root)
+            self._commit_base(root)
+            core = root / "scripts" / "lib" / "validate-workflow-core.sh"
+            core.write_text(
+                core.read_text(encoding="utf-8") + "\n# prune probe\n",
+                encoding="utf-8",
+            )
+
+            result = self._run(
+                root, "--standard", env_extras={"WORKFLOW_STANDARD_BASE": "HEAD"}
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+            self.assertNotIn("契约测试裁剪", result.stdout)
+            self.assertIn("PASS=2 FAIL=0 SKIP=0", result.stdout)
+
+    def test_source_repo_openspec_change_keeps_full_suite(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root, source_repo=True)
+            self._commit_base(root)
+            proposal = root / "openspec" / "changes" / "feature-x" / "proposal.md"
+            proposal.write_text("模式: 标准\n状态: 待验证\n", encoding="utf-8")
+
+            result = self._run(
+                root, "--standard", env_extras={"WORKFLOW_STANDARD_BASE": "HEAD"}
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+            self.assertNotIn("契约测试裁剪", result.stdout)
+
+    def test_missing_base_keeps_full_suite(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root)
+            self._commit_base(root)
+            (root / "README.md").write_text("# fixture changed\n", encoding="utf-8")
+
+            result = self._run(root, "--standard")
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+            self.assertNotIn("契约测试裁剪", result.stdout)
+
+    def test_untracked_workflow_asset_keeps_full_suite(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root)
+            self._commit_base(root)
+            (root / ".ai" / "rules").mkdir(parents=True)
+            (root / ".ai" / "rules" / "new-rule.md").write_text(
+                "# untracked workflow asset\n", encoding="utf-8"
+            )
+
+            result = self._run(
+                root, "--standard", env_extras={"WORKFLOW_STANDARD_BASE": "HEAD"}
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+            self.assertNotIn("契约测试裁剪", result.stdout)
+
+    def test_print_plan_reports_pruning_without_running(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root)
+            self._commit_base(root)
+            (root / "README.md").write_text("# fixture changed\n", encoding="utf-8")
+
+            pruned = self._run(
+                root,
+                "--standard",
+                "--print-plan",
+                env_extras={"WORKFLOW_STANDARD_BASE": "HEAD"},
+            )
+            self.assertEqual(0, pruned.returncode, msg=pruned.stdout)
+            self.assertIn("[PLAN] contract-suite: pruned", pruned.stdout)
+            self.assertNotIn("INTERNAL_RESULT", pruned.stdout)
+            self.assertNotIn("[PASS]", pruned.stdout)
+
+            core = root / "scripts" / "lib" / "validate-workflow-core.sh"
+            core.write_text(
+                core.read_text(encoding="utf-8") + "\n# prune probe\n",
+                encoding="utf-8",
+            )
+            full = self._run(
+                root,
+                "--standard",
+                "--print-plan",
+                env_extras={"WORKFLOW_STANDARD_BASE": "HEAD"},
+            )
+            self.assertEqual(0, full.returncode, msg=full.stdout)
+            self.assertIn("[PLAN] contract-suite: run", full.stdout)
 
 
 class WrapperRequiredForwardingTest(unittest.TestCase):
