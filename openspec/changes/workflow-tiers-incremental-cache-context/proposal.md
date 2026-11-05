@@ -1,6 +1,6 @@
 模板版本: 1
 模式: 标准
-状态: 待验证
+状态: 待归档
 
 # 工作流提速增量缓存上下文优化
 
@@ -44,8 +44,8 @@
 
 ## Unverified scope
 
-已于 2026-11-05 现跑并记录：目标契约测试（StandardSuitePruningTest 6 例、WrapperFastCacheSwitchTest 5 例、模板/摘要 15 例全绿）、`--fast` PASS=283、`--standard` 暖跑 PASS=284 FAIL=0（指纹沿用可见）、required 门禁 PASS=284（222 契约测试）、`openspec validate --strict` valid。required 门禁在源仓含本次工作流资产变更语义下全量执行；裁剪分支的行为由契约夹具覆盖。
+Verify 记录（2026-11-05）：独立综合审查（manifest `6af6389e`）发现 F-1..F-5（3 Important/2 Minor），修复后差异复审（manifest `20e9f128`）全部 resolved、无新 finding；终局 manifest `c6584caa` 已 finalize 持久（finding 状态/未验证范围/残余风险）。主会话终验现跑：required 门禁 PASS=284 FAIL=0（226 契约测试）、`openspec validate --strict` valid、`git diff --check` clean、`--fast` PASS=283。目标契约测试 25 passed/5 subtests（StandardSuitePruningTest 8 例、WrapperFastCacheSwitchTest 6 例、模板/摘要 11 例）。
 
 ## Residual risk
 
-缓存指纹遗漏新输入源会导致假命中；裁剪漏分类会漏检。均用 fail-open 缺失拦截、工作流资产/未跟踪资产全量与不确定时全量兜底。裁剪仅在调用方显式提供 `WORKFLOW_STANDARD_BASE` 时生效，默认行为不变；Verify/Archive 技能尚未接线该环境变量（后续变更可在技能层传递基线以激活裁剪收益）。
+缓存指纹遗漏新输入源会导致假命中；裁剪漏分类会漏检。均用 fail-open 缺失拦截、工作流资产/未跟踪资产全量与不确定时全量兜底。裁剪仅在调用方显式提供 `WORKFLOW_STANDARD_BASE` 时生效，默认行为不变；Verify/Archive 技能尚未接线该环境变量（后续变更可在技能层传递基线以激活裁剪收益）。summary 围栏识别仅覆盖三反引号形态。
