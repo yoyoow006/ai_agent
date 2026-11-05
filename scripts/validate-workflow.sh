@@ -25,6 +25,7 @@ fast_mode=0
 standard_mode=0
 archive_light=0
 require_openspec_user=0
+print_plan=0
 archive_files=()
 forwarded_arguments=()
 while test "$#" -gt 0; do
@@ -73,6 +74,11 @@ while test "$#" -gt 0; do
     --print-external-commands)
       # 诊断模式直接透传 core(只读、无汇总语义),不进入门禁流程。
       exec bash scripts/lib/validate-workflow-core.sh --print-external-commands
+      ;;
+    --print-plan)
+      # 只读诊断：打印层级与契约套件执行计划后退出，不运行 core、不建锁、不写指标。
+      print_plan=1
+      shift
       ;;
     *)
       forwarded_arguments+=("$argument")
@@ -123,7 +129,6 @@ fi
 if test "$fast_mode" -eq 1; then validation_layer=fast; fi
 if test "$require_openspec_user" -eq 1; then validation_layer=required; fi
 if test "$archive_light" -eq 1; then validation_layer=archive-light; fi
-emit_event plan INFO validation_plan
 
 # --archive-light 单独使用 = 纯轻量（仅跑 core，不做 diff 分类）
 #   配合 --archive-files + WORKFLOW_ARCHIVE_GATE=1 才做 diff 分类自动升级
@@ -155,6 +160,101 @@ EOF
     fi
   fi
 fi
+
+# ---- standard 层契约套件增量裁剪分类（只读；无法确定时一律全量 fail-closed）----
+# 仅当调用方显式提供 WORKFLOW_STANDARD_BASE 且基线后没有工作流资产变更时裁剪
+# 顶层契约套件；git 缺失、diff 失败、未跟踪工作流资产、promoted 层级均保持全量。
+standard_suite_pruned=0
+standard_suite_reason="未提供 WORKFLOW_STANDARD_BASE"
+
+workflow_asset_changed() {
+  # 用法: workflow_asset_changed <仓库相对路径>
+  # fail-closed 口径：顶层契约套件实际依赖的资产（含 README/docs 语义漂移断言、
+  # 安装器入口、压力契约场景）变更即全量；scripts 整目录视为工作流资产。
+  case "$1" in
+    AGENTS.md|CLAUDE.md|README.md|.ai/*|.claude/*|.codex/*|.github/*|shared/*|docs/*|scripts/*)
+      return 0
+      ;;
+    openspec/*)
+      # 源仓语义：openspec 是工作流治理数据，变更即全量；
+      # 安装目标语义（无 install_ai_workflow.py）：openspec 是业务数据层，可裁剪。
+      test -f scripts/lib/install_ai_workflow.py && return 0
+      return 1
+      ;;
+  esac
+  return 1
+}
+
+classify_standard_suite() {
+  standard_suite_pruned=0
+  standard_suite_reason="未提供 WORKFLOW_STANDARD_BASE"
+  test "$standard_mode" -eq 1 || return 0
+  test "$require_openspec_user" -eq 0 || {
+    standard_suite_reason="层级已升级为 required"
+    return 0
+  }
+  test -n "${WORKFLOW_STANDARD_BASE:-}" || return 0
+  command -v git >/dev/null 2>&1 || {
+    standard_suite_reason="git 不可用"
+    return 0
+  }
+  local standard_changed="" standard_untracked=""
+  if ! standard_changed="$(git diff --name-only "$WORKFLOW_STANDARD_BASE" 2>&1)"; then
+    standard_suite_reason="diff 分类失败（base=${WORKFLOW_STANDARD_BASE}）"
+    return 0
+  fi
+  while IFS= read -r standard_file; do
+    test -n "$standard_file" || continue
+    if workflow_asset_changed "$standard_file"; then
+      standard_suite_reason="工作流资产变更：$standard_file"
+      return 0
+    fi
+  done <<EOF
+$standard_changed
+EOF
+  if ! standard_untracked="$(git ls-files --others --exclude-standard 2>&1)"; then
+    standard_suite_reason="未跟踪文件枚举失败"
+    return 0
+  fi
+  while IFS= read -r standard_file; do
+    test -n "$standard_file" || continue
+    if workflow_asset_changed "$standard_file"; then
+      standard_suite_reason="未跟踪工作流资产：$standard_file"
+      return 0
+    fi
+  done <<EOF
+$standard_untracked
+EOF
+  standard_suite_pruned=1
+  standard_suite_reason="基线 ${WORKFLOW_STANDARD_BASE} 后无工作流资产变更"
+}
+classify_standard_suite
+
+if test "$print_plan" -eq 1; then
+  printf '[PLAN] layer: %s\n' "$validation_layer"
+  if test "$fast_mode" -eq 1 || test "$standard_mode" -eq 1; then
+    printf '[PLAN] core: run（输入指纹缓存：开）\n'
+  else
+    printf '[PLAN] core: run（输入指纹缓存：关）\n'
+  fi
+  if test "$fast_mode" -eq 1; then
+    printf '[PLAN] contract-suite: not-run（fast 层不执行契约套件）\n'
+  elif test "$archive_light" -eq 1; then
+    if test "$archive_promoted" -eq 1; then
+      printf '[PLAN] contract-suite: run（archive gate 升级）\n'
+    else
+      printf '[PLAN] contract-suite: not-run（archive-light）\n'
+    fi
+  elif test "$standard_suite_pruned" -eq 1; then
+    printf '[PLAN] contract-suite: pruned（%s）\n' "$standard_suite_reason"
+  else
+    printf '[PLAN] contract-suite: run（%s）\n' "$standard_suite_reason"
+  fi
+  exit 0
+fi
+
+# plan 事件置于 print-plan 退出点之后：只读诊断模式不产生任何事件流记录。
+emit_event plan INFO validation_plan
 
 # 串行化同一工作树的并发校验：契约套件含 mutation,并发实例会互踩产生假失败。
 if command -v flock >/dev/null 2>&1; then
@@ -268,10 +368,11 @@ report_contract_suite_success() {
 }
 
 core_status=0
-if test "$fast_mode" -eq 1; then
+if test "$fast_mode" -eq 1 || { test "$standard_mode" -eq 1 && test "$require_openspec_user" -eq 0; }; then
   WORKFLOW_FAST_CACHE=1 bash scripts/lib/validate-workflow-core.sh ${forwarded_arguments[@]+"${forwarded_arguments[@]}"} >"$core_output" 2>&1 || core_status=$?
 else
-  # 非 fast 门禁必须实际执行：显式关闭外部可能继承的缓存开关。
+  # 非 fast/standard 门禁（含 promoted 为 required 的调用）必须实际执行：
+  # 显式关闭外部可能继承的缓存开关，维持 required 层"禁止读写验证缓存"契约。
   WORKFLOW_FAST_CACHE=0 bash scripts/lib/validate-workflow-core.sh ${forwarded_arguments[@]+"${forwarded_arguments[@]}"} >"$core_output" 2>&1 || core_status=$?
 fi
 internal_result="$(sed -n "s/^INTERNAL_RESULT PASS=[0-9][0-9]* FAIL=[0-9][0-9]* SKIP=[0-9][0-9]*$/&/p" "$core_output" | tail -1)"
@@ -301,7 +402,7 @@ fi
 
 if test "$fail_count" -gt 0 || test "$core_status" -ne 0; then
   emit_event check SKIP dependent_layer_blocked
-  if test "$fast_mode" -eq 0 && test "$archive_light" -eq 0 && test "$core_status" -eq 1; then
+  if test "$fast_mode" -eq 0 && test "$archive_light" -eq 0 && test "$standard_suite_pruned" -eq 0 && test "$core_status" -eq 1; then
     if run_contract_suite; then
       report_contract_suite_success || true
     else
@@ -346,6 +447,16 @@ if test "$archive_light" -eq 1; then
     fi
     render_contract_suite_skips
   fi
+  printf "PASS=%d FAIL=%d SKIP=%d\n" "$pass_count" "$fail_count" "$skip_count"
+  if test "$fail_count" -gt 0 || test "$core_status" -ne 0; then
+    exit 1
+  fi
+  exit 0
+fi
+
+if test "$standard_suite_pruned" -eq 1; then
+  printf '[INFO] 工作流顶层契约测试裁剪（standard：%s）\n' "$standard_suite_reason"
+  emit_event check INFO contract_suite_pruned
   printf "PASS=%d FAIL=%d SKIP=%d\n" "$pass_count" "$fail_count" "$skip_count"
   if test "$fail_count" -gt 0 || test "$core_status" -ne 0; then
     exit 1

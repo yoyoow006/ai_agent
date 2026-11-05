@@ -1,0 +1,50 @@
+模板版本: 1
+# 任务清单
+
+- [x] 1. standard 指纹缓存
+  - [x] 1.1 修改：`scripts/validate-workflow.sh`、`scripts/lib/validate-workflow-core.sh` 复用 fast 缓存逻辑至 standard 层
+  - [x] 1.2 补充契约测试：命中/FAIL 清缓存/输入缺失三场景
+  - [x] 1.3 验证：`bash scripts/validate-workflow.sh --standard` 暖跑第二次命中
+  - 预期结果：暖跑行内标注指纹来源，PASS 计数与冷跑一致
+
+- [x] 2. 校验增量裁剪
+  - [x] 2.1 修改：`scripts/validate-workflow.sh`、`scripts/lib/validate-workflow-core.sh` 按工作流资产分类决定契约套件执行
+  - [x] 2.2 补充契约测试：无工作流资产变更裁剪、scripts/README/docs 资产全量、未跟踪资产全量、无基线全量、promoted 全量且关缓存
+  - [x] 2.3 验证：`bash scripts/validate-workflow.sh --standard --print-plan` 检查集合符合分类
+  - 预期结果：显式基线且无工作流资产变更才裁剪；工作流资产变更/未跟踪/无基线/升级一律全量
+
+- [x] 3. 内存轮转
+  - [x] 3.1 修改：`.ai/memory/workflow.md` 轮转至最近 30 条，超出部分移入 `workflow-archive.md`；`.gitignore` 白名单与 `.ai/memory/README.md` 轮转规则
+  - [x] 3.2 验证：`bash scripts/validate-workflow.sh --fast` + 统计续传行数
+  - 预期结果：新会话上下文 <350 行（实测 318 行）
+
+- [x] 4. 续传摘要命令
+  - [x] 4.1 修改：`scripts/new-openspec-change.py` 新增摘要子命令
+  - [x] 4.2 验证：`python3 scripts/new-openspec-change.py summary openspec/changes/workflow-tiers-incremental-cache-context`
+  - 预期结果：一行输出状态/未勾任务/commit/指纹且可独立解析
+
+- [x] 5. 全量终验
+  - [x] 5.1 验证：`bash scripts/validate-workflow.sh --require-openspec`
+  - [x] 5.2 验证：`openspec validate workflow-tiers-incremental-cache-context --strict --no-interactive`
+  - 预期结果：全绿，无 FAIL/SKIP
+
+## 已移除任务（2026-11-05 用户确认）
+
+- 技能拆分（原任务 3）：技能为触发式加载，主路径不读；拆分需同步 manifest/资产/规格锚点，成本高收益趋零。
+- index.md 关键词截断（原 4.1 后半）：关键词列即路由表，截断有路由降级风险；<350 行已由内存轮转单独达成。
+- layered-validation 变更归档收尾（原任务 6）：该严格变更的 Verify 双阶段+归档移出本范围，随后单独处理。
+
+## 本地整合策略
+
+- 分支/worktree：默认 feature 分支 `feat/workflow-tiers-incremental-cache-context`，无需隔离 worktree
+- 提交边界：standard 缓存+裁剪 / 内存轮转+摘要命令 / 范围收缩同步 三个职责单元独立提交
+- 外部副作用授权：不推送、不合并 main、不删除归档外数据
+- 手工测试编译输出：默认不适用；若用手工 javac/java，输出仅位于 /tmp
+
+## 终局记录（2026-11-05）
+
+- 最终审查：综合审查 manifest `6af6389e` → 差异复审 manifest `20e9f128`（F-1..F-5 全部 resolved，无新 finding）→ 终局 manifest `c6584caa` finalize 持久
+- comparison base：`25f684d089f39b693e5bf4bfedb1f85748a3a911`
+- finding 状态：resolved 5 / open 0 / not-an-issue 0 / accepted-risk 0
+- 未验证范围：required 门禁（226 契约测试）、`openspec validate --strict`、`git diff --check` 现跑通过；summary 围栏嵌套等边界未夹具化（见差异复审记录）
+- 残余风险：裁剪与 promoted 缓存特性无调用方接线（潜伏态）；summary 围栏识别仅覆盖三反引号形态；指纹输入源遗漏风险沿用 core 既有设计

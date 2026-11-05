@@ -92,6 +92,43 @@ class OpenSpecTemplateTests(unittest.TestCase):
         result = self.run_tool("check-templates")
         self.assertEqual(0, result.returncode, result.stderr)
 
+    def test_summary_outputs_single_parseable_line(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "sample-change"
+            self.run_tool("create", "sample-change", "--mode", "standard", "--target", str(target))
+            proposal = target / "proposal.md"
+            proposal.write_text(proposal.read_text().replace("{{TITLE}}", "标题").replace("{{WHY}}", "原因").replace("{{CHANGE}}", "变化").replace("{{IMPACT}}", "影响").replace("{{RISK}}", "风险").replace("{{INCLUDED}}", "范围").replace("{{EXCLUDED}}", "非范围").replace("{{ACCEPTANCE}}", "验收").replace("{{UNVERIFIED_SCOPE}}", "无").replace("{{RESIDUAL_RISK}}", "无"))
+            tasks = target / "tasks.md"
+            tasks.write_text(
+                "# 任务清单\n\n"
+                "- [ ] 1. 任务一\n"
+                "  - [x] 1.1 修改：`a.md`\n"
+                "  - [ ] 1.2 验证：`python3 check.py`\n"
+                "  - 预期结果：通过\n\n"
+                "示例代码块不计入：\n\n"
+                "```\n"
+                "- [ ] 示例中的任务\n"
+                "- [x] 示例中的完成项\n"
+                "```\n\n"
+                "## 本地整合策略\n\n- 分支/worktree：feature\n"
+            )
+            result = self.run_tool("summary", str(target))
+            self.assertEqual(0, result.returncode, result.stderr)
+            lines = [line for line in result.stdout.splitlines() if line.strip()]
+            self.assertEqual(1, len(lines), result.stdout)
+            self.assertIn("change=sample-change", lines[0])
+            self.assertIn("mode=标准", lines[0])
+            self.assertIn("status=待确认计划", lines[0])
+            self.assertIn("unchecked=2/3", lines[0])
+            self.assertRegex(lines[0], r"head=(none|[0-9a-f]{7,12})")
+            self.assertRegex(lines[0], r"rules=(none|[0-9a-f]{12})")
+
+    def test_summary_rejects_missing_change_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_tool("summary", str(Path(directory) / "missing"))
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("FAIL", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
