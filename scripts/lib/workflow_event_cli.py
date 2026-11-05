@@ -18,6 +18,8 @@ def main() -> int:
     parser.add_argument("duration", nargs="?", default="")
     parser.add_argument('--task-id')
     parser.add_argument('--phase')
+    parser.add_argument('--exit-code', type=int)
+    parser.add_argument('--field', action='append', default=[])
     args = parser.parse_args()
     writer = EventWriter(Path(args.path), args.run_id, args.layer, task_id=args.task_id)
     fields = {}
@@ -27,6 +29,12 @@ def main() -> int:
         fields["reason_code"] = args.reason
     if args.duration:
         fields["duration_ms"] = int(args.duration)
+    if args.exit_code is not None:
+        fields["exit_code"] = args.exit_code
+    for item in args.field:
+        key, sep, value = item.partition('=')
+        if sep and key:
+            fields[key] = value
     writer.emit(args.event, args.status, **fields)
     writer.close()
     return 0

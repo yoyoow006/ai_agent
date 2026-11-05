@@ -121,12 +121,81 @@ def _decision(dispatch: str, reason_code: str, role: str, next_action: str) -> d
     }
 
 
+class ResultError(ValueError):
+    """Invalid agent result report; carries a stable reason_code."""
+
+    def __init__(self, reason_code: str, message: str) -> None:
+        super().__init__(message)
+        self.reason_code = reason_code
+
+
+RESULT_FIELDS = ("exit_code", "failed", "unverified_scope", "residual_risk")
+
+
+def validate_result_payload(payload: Any) -> dict[str, Any]:
+    """Validate a worker result report per the result-event contract (R2-S2)."""
+    if not isinstance(payload, dict):
+        raise ResultError("result_invalid", "result must be a JSON object")
+    missing = [field for field in RESULT_FIELDS if field not in payload]
+    if missing:
+        raise ResultError("result_fields_missing", "missing: " + ",".join(missing))
+    for field in ("exit_code", "failed"):
+        value = payload[field]
+        if type(value) is not int or value < 0:
+            raise ResultError("result_invalid", f"{field} must be a non-negative integer")
+    for field in ("unverified_scope", "residual_risk"):
+        value = payload[field]
+        if not isinstance(value, str) or not value.strip():
+            raise ResultError("result_invalid", f"{field} must be a non-empty string")
+    return {field: payload[field] for field in RESULT_FIELDS}
+
+
 def main() -> int:
     parser = __import__("argparse").ArgumentParser()
+    parser.add_argument("mode", nargs="?", default="dispatch", choices=["dispatch", "result"])
     parser.add_argument("--event-path")
     parser.add_argument("--run-id", default="agent-dispatch")
     parser.add_argument("--layer", default="standard")
     args = parser.parse_args()
+
+    def event_writer(path: str | None):
+        if not path:
+            return None
+        try:
+            from scripts.lib.workflow_events import EventWriter
+        except ImportError:
+            from workflow_events import EventWriter
+        return EventWriter(Path(path), args.run_id, args.layer)
+
+    if args.mode == "result":
+        # R2-S2：合法派发后必须可上报 result 事件（退出码/失败数/未验证范围/残余风险）。
+        try:
+            validated = validate_result_payload(json.load(sys.stdin))
+        except (json.JSONDecodeError, OSError, TypeError) as error:
+            validated = None
+            reason_code, detail = "result_invalid", str(error)
+        except ResultError as error:
+            validated = None
+            reason_code, detail = error.reason_code, str(error)
+        if validated is None:
+            sys.stdout.write(json.dumps(
+                {"result": "rejected", "reason_code": reason_code, "detail": detail},
+                ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n")
+            writer = event_writer(args.event_path)
+            if writer:
+                writer.emit("result", "DENIED", reason_code=reason_code)
+                writer.close()
+            return 1
+        status = "PASS" if validated["exit_code"] == 0 else "FAIL"
+        sys.stdout.write(json.dumps(
+            {"result": "recorded", "status": status, **validated},
+            ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n")
+        writer = event_writer(args.event_path)
+        if writer:
+            writer.emit("result", status, **validated)
+            writer.close()
+        return 0
+
     try:
         payload = json.load(sys.stdin)
         result = gate_dispatch(payload)

@@ -11,12 +11,16 @@ if test "${WORKFLOW_OUTPUT:-}" = "jsonl" && test -z "$jsonl_path"; then
   jsonl_path=".ai-local/workflow-events.jsonl"
 fi
 run_started_ns="$(python3 -B -c 'import time; print(time.monotonic_ns())')"
+output_parse_errors=0
 emit_event() {
   test -n "$jsonl_path" || return 0
-  python3 -B scripts/lib/workflow_event_cli.py "$jsonl_path" "$run_id" "${validation_layer:-standard}" "$1" "$2" "${3:-}" "${4:-}" --task-id "${WORKFLOW_TASK_ID:-}" --phase "${5:-}" >/dev/null 2>&1 || printf '[INFO] output_parse_error\n' >&2
+  emit_event_extra=()
+  if test -n "${6:-}"; then emit_event_extra+=(--exit-code "$6"); fi
+  if test -n "${7:-}"; then emit_event_extra+=(--field "command=$7"); fi
+  python3 -B scripts/lib/workflow_event_cli.py "$jsonl_path" "$run_id" "${validation_layer:-standard}" "$1" "$2" "${3:-}" "${4:-}" --task-id "${WORKFLOW_TASK_ID:-}" --phase "${5:-}" ${emit_event_extra[@]+"${emit_event_extra[@]}"} >/dev/null 2>&1 || { output_parse_errors=$((output_parse_errors + 1)); printf '[INFO] output_parse_error\n' >&2; }
 }
 conflict_exit() {
-  emit_event summary FAIL conflict 0
+  emit_event summary FAIL conflict 0 "" 2
   printf 'PASS=0 FAIL=1 SKIP=0\n'
   exit 2
 }
@@ -25,6 +29,8 @@ fast_mode=0
 standard_mode=0
 archive_light=0
 require_openspec_user=0
+print_plan=0
+standard_promoted=0
 archive_files=()
 forwarded_arguments=()
 while test "$#" -gt 0; do
@@ -74,6 +80,11 @@ while test "$#" -gt 0; do
       # 诊断模式直接透传 core(只读、无汇总语义),不进入门禁流程。
       exec bash scripts/lib/validate-workflow-core.sh --print-external-commands
       ;;
+    --print-plan)
+      # 只读诊断：打印层级与契约套件执行计划后退出，不运行 core、不建锁、不写指标。
+      print_plan=1
+      shift
+      ;;
     *)
       forwarded_arguments+=("$argument")
       shift
@@ -81,7 +92,14 @@ while test "$#" -gt 0; do
   esac
 done
 
-validation_layer=standard
+derive_validation_layer() {
+  validation_layer=standard
+  if test "$fast_mode" -eq 1; then validation_layer=fast; fi
+  if test "$require_openspec_user" -eq 1; then validation_layer=required; fi
+  if test "$archive_light" -eq 1; then validation_layer=archive-light; fi
+}
+# 冲突退出前先推导 layer：事件必须如实反映请求旗标，而不是回退 standard。
+derive_validation_layer
 
 # --archive-light 与 --require-openspec 互斥（语义冲突：前者跳过契约套件、后者强制契约套件）
 if test "$archive_light" -eq 1 && test "$require_openspec_user" -eq 1; then
@@ -120,10 +138,8 @@ if test "$standard_mode" -eq 1; then
   fi
 fi
 
-if test "$fast_mode" -eq 1; then validation_layer=fast; fi
-if test "$require_openspec_user" -eq 1; then validation_layer=required; fi
-if test "$archive_light" -eq 1; then validation_layer=archive-light; fi
-emit_event plan INFO validation_plan
+# 升级（standard/archive 自动 promoted）后重新推导 layer。
+derive_validation_layer
 
 # --archive-light 单独使用 = 纯轻量（仅跑 core，不做 diff 分类）
 #   配合 --archive-files + WORKFLOW_ARCHIVE_GATE=1 才做 diff 分类自动升级
@@ -156,6 +172,130 @@ EOF
   fi
 fi
 
+# ---- standard 层契约套件增量裁剪分类（只读；无法确定时一律全量 fail-closed）----
+# 仅当调用方显式提供 WORKFLOW_STANDARD_BASE 且基线后没有工作流资产变更时裁剪
+# 顶层契约套件；git 缺失、diff 失败、未跟踪工作流资产、promoted 层级均保持全量。
+standard_suite_pruned=0
+standard_suite_reason="未提供 WORKFLOW_STANDARD_BASE"
+
+workflow_asset_changed() {
+  # 用法: workflow_asset_changed <仓库相对路径>
+  # fail-closed 口径：顶层契约套件实际依赖的资产（含 README/docs 语义漂移断言、
+  # 安装器入口、压力契约场景）变更即全量；scripts 整目录视为工作流资产。
+  case "$1" in
+    AGENTS.md|CLAUDE.md|README.md|.ai/*|.claude/*|.codex/*|.github/*|shared/*|docs/*|scripts/*)
+      return 0
+      ;;
+    openspec/*)
+      # 源仓语义：openspec 是工作流治理数据，变更即全量；
+      # 安装目标语义（无 install_ai_workflow.py）：openspec 是业务数据层，可裁剪。
+      test -f scripts/lib/install_ai_workflow.py && return 0
+      return 1
+      ;;
+  esac
+  return 1
+}
+
+classify_standard_suite() {
+  standard_suite_pruned=0
+  standard_suite_reason="未提供 WORKFLOW_STANDARD_BASE"
+  test "$standard_mode" -eq 1 || return 0
+  test "$require_openspec_user" -eq 0 || {
+    standard_suite_reason="层级已升级为 required"
+    return 0
+  }
+  test -n "${WORKFLOW_STANDARD_BASE:-}" || return 0
+  command -v git >/dev/null 2>&1 || {
+    standard_suite_reason="git 不可用"
+    return 0
+  }
+  local standard_changed="" standard_untracked=""
+  if ! standard_changed="$(git diff --name-only "$WORKFLOW_STANDARD_BASE" 2>&1)"; then
+    standard_suite_reason="diff 分类失败（base=${WORKFLOW_STANDARD_BASE}）"
+    return 0
+  fi
+  while IFS= read -r standard_file; do
+    test -n "$standard_file" || continue
+    if workflow_asset_changed "$standard_file"; then
+      standard_suite_reason="工作流资产变更：$standard_file"
+      return 0
+    fi
+  done <<EOF
+$standard_changed
+EOF
+  if ! standard_untracked="$(git ls-files --others --exclude-standard 2>&1)"; then
+    standard_suite_reason="未跟踪文件枚举失败"
+    return 0
+  fi
+  while IFS= read -r standard_file; do
+    test -n "$standard_file" || continue
+    if workflow_asset_changed "$standard_file"; then
+      standard_suite_reason="未跟踪工作流资产：$standard_file"
+      return 0
+    fi
+  done <<EOF
+$standard_untracked
+EOF
+  standard_suite_pruned=1
+  standard_suite_reason="基线 ${WORKFLOW_STANDARD_BASE} 后无工作流资产变更"
+}
+classify_standard_suite
+
+# R1：计划事件必须可审计地列明检查集合与升级条件（触发原因=layer，停止规则固定）。
+contract_suite_state() {
+  if test "$fast_mode" -eq 1; then
+    printf 'contract-suite=not-run(fast)'
+  elif test "$archive_light" -eq 1; then
+    if test "$archive_promoted" -eq 1; then
+      printf 'contract-suite=run(archive-gate-promoted)'
+    else
+      printf 'contract-suite=not-run(archive-light)'
+    fi
+  elif test "$standard_suite_pruned" -eq 1; then
+    printf 'contract-suite=pruned(%s)' "$standard_suite_reason"
+  else
+    printf 'contract-suite=run(%s)' "$standard_suite_reason"
+  fi
+}
+plan_promotion() {
+  if test "$archive_promoted" -eq 1; then printf 'archive-gate→required'; return; fi
+  if test "$standard_promoted" -eq 1; then printf 'standard→required'; return; fi
+  printf 'none'
+}
+
+if test "$print_plan" -eq 1; then
+  printf '[PLAN] layer: %s\n' "$validation_layer"
+  if test "$fast_mode" -eq 1 || test "$standard_mode" -eq 1; then
+    printf '[PLAN] core: run（输入指纹缓存：开）\n'
+  else
+    printf '[PLAN] core: run（输入指纹缓存：关）\n'
+  fi
+  if test "$fast_mode" -eq 1; then
+    printf '[PLAN] contract-suite: not-run（fast 层不执行契约套件）\n'
+  elif test "$archive_light" -eq 1; then
+    if test "$archive_promoted" -eq 1; then
+      printf '[PLAN] contract-suite: run（archive gate 升级）\n'
+    else
+      printf '[PLAN] contract-suite: not-run（archive-light）\n'
+    fi
+  elif test "$standard_suite_pruned" -eq 1; then
+    printf '[PLAN] contract-suite: pruned（%s）\n' "$standard_suite_reason"
+  else
+    printf '[PLAN] contract-suite: run（%s）\n' "$standard_suite_reason"
+  fi
+  exit 0
+fi
+
+# plan 事件置于 print-plan 退出点之后：只读诊断模式不产生任何事件流记录。
+if test -n "$jsonl_path"; then
+  python3 -B scripts/lib/workflow_event_cli.py "$jsonl_path" "$run_id" "$validation_layer" plan INFO validation_plan \
+    --task-id "${WORKFLOW_TASK_ID:-}" \
+    --field "trigger=$validation_layer" \
+    --field "checks=core=run;$(contract_suite_state)" \
+    --field "promotion=$(plan_promotion)" \
+    --field "stop_rule=core-failure:exit-1-diagnostic-suite-allowed" >/dev/null 2>&1 || { output_parse_errors=$((output_parse_errors + 1)); printf '[INFO] output_parse_error\n' >&2; }
+fi
+
 # 串行化同一工作树的并发校验：契约套件含 mutation,并发实例会互踩产生假失败。
 if command -v flock >/dev/null 2>&1; then
   # 注意:exec 无命令时其重定向会持久作用到当前 shell,故 2>/dev/null 必须
@@ -184,22 +324,23 @@ finalize() {
   duration=$(( (now - run_started_ns) / 1000000 ))
   if test "$code" -eq 0; then
     emit_event phase PASS "exit_code_0" "$duration" "$validation_layer"
-    emit_event summary PASS "exit_code_0" "$duration"
+    emit_event summary PASS "exit_code_0" "$duration" "" "$code"
   else
     emit_event phase FAIL "exit_code_$code" "$duration" "$validation_layer"
-    emit_event summary FAIL "exit_code_$code" "$duration"
+    emit_event summary FAIL "exit_code_$code" "$duration" "" "$code"
   fi
   if test -n "$jsonl_path" || test -d .ai-local; then
     METRICS_DIR="${METRICS_DIR:-.ai-local/metrics}" METRICS_RUN_ID="$run_id" METRICS_DURATION="$duration" \
       METRICS_LAYER="$validation_layer" METRICS_PASS="${pass_count:-0}" \
       METRICS_FAIL="${fail_count:-0}" METRICS_SKIP="${skip_count:-0}" \
+      METRICS_CACHE_REUSED="${cache_reused_count:-0}" METRICS_PARSE_ERRORS="${output_parse_errors:-0}" \
       python3 -B - <<'PY' >/dev/null 2>&1 || printf '[INFO] metrics_write_failed\n' >&2
 import json, os, tempfile
 from pathlib import Path
 d=Path(os.environ["METRICS_DIR"])
 try:
     d.mkdir(parents=True, exist_ok=True)
-    payload={"schema_version":1,"run_id":os.environ["METRICS_RUN_ID"],"layer":os.environ["METRICS_LAYER"],"duration_ms":int(os.environ.get("METRICS_DURATION","0")),"counts":{"PASS":int(os.environ["METRICS_PASS"]),"FAIL":int(os.environ["METRICS_FAIL"]),"SKIP":int(os.environ["METRICS_SKIP"])},"agent_allowed":0,"agent_denied":0,"cache_reused":0,"output_parse_errors":0}
+    payload={"schema_version":1,"run_id":os.environ["METRICS_RUN_ID"],"layer":os.environ["METRICS_LAYER"],"duration_ms":int(os.environ.get("METRICS_DURATION","0")),"counts":{"PASS":int(os.environ["METRICS_PASS"]),"FAIL":int(os.environ["METRICS_FAIL"]),"SKIP":int(os.environ["METRICS_SKIP"])},"agent_allowed":0,"agent_denied":0,"cache_reused":int(os.environ["METRICS_CACHE_REUSED"]),"output_parse_errors":int(os.environ["METRICS_PARSE_ERRORS"])}
     if os.environ.get('WORKFLOW_TASK_ID'):
         payload['task_id'] = os.environ['WORKFLOW_TASK_ID']
     fd,tmp=tempfile.mkstemp(prefix=".metrics.",dir=d); os.close(fd)
@@ -267,15 +408,25 @@ report_contract_suite_success() {
   return 1
 }
 
+# R3：core check 事件的 command/exit_code 取自实际被包装的命令与其退出码。
+core_command="scripts/lib/validate-workflow-core.sh"
+if test "${#forwarded_arguments[@]}" -gt 0; then
+  core_command="$core_command ${forwarded_arguments[*]}"
+fi
 core_status=0
-if test "$fast_mode" -eq 1; then
+if test "$fast_mode" -eq 1 || { test "$standard_mode" -eq 1 && test "$require_openspec_user" -eq 0; }; then
   WORKFLOW_FAST_CACHE=1 bash scripts/lib/validate-workflow-core.sh ${forwarded_arguments[@]+"${forwarded_arguments[@]}"} >"$core_output" 2>&1 || core_status=$?
 else
-  # 非 fast 门禁必须实际执行：显式关闭外部可能继承的缓存开关。
+  # 非 fast/standard 门禁（含 promoted 为 required 的调用）必须实际执行：
+  # 显式关闭外部可能继承的缓存开关，维持 required 层"禁止读写验证缓存"契约。
   WORKFLOW_FAST_CACHE=0 bash scripts/lib/validate-workflow-core.sh ${forwarded_arguments[@]+"${forwarded_arguments[@]}"} >"$core_output" 2>&1 || core_status=$?
 fi
 internal_result="$(sed -n "s/^INTERNAL_RESULT PASS=[0-9][0-9]* FAIL=[0-9][0-9]* SKIP=[0-9][0-9]*$/&/p" "$core_output" | tail -1)"
 sed "/^INTERNAL_RESULT PASS=[0-9][0-9]* FAIL=[0-9][0-9]* SKIP=[0-9][0-9]*$/d" "$core_output"
+
+# R4：缓存沿用计数来自 core 输出的实际"指纹…沿用"行（实测值，非常量）。
+cache_reused_count=0
+cache_reused_count="$(grep -c '未变，沿用' "$core_output")" || cache_reused_count=0
 
 if test -n "$internal_result"; then
   counts="${internal_result#INTERNAL_RESULT }"
@@ -287,27 +438,30 @@ if test -n "$internal_result"; then
   fail_count="${fail_field#FAIL=}"
   skip_count="${skip_field#SKIP=}"
   if test "$fail_count" -gt 0; then
-    emit_event check FAIL core_failed
+    emit_event check FAIL core_failed "" "" "$core_status" "$core_command"
   else
-    emit_event check PASS core_passed
+    emit_event check PASS core_passed "" "" "$core_status" "$core_command"
   fi
 else
   pass_count=0
   fail_count=1
   skip_count=0
   printf "[FAIL] 内部验证 core 未返回可解析结果\n"
-  emit_event check FAIL core_result_unparseable
+  emit_event check FAIL core_result_unparseable "" "" "$core_status" "$core_command"
 fi
 
 if test "$fail_count" -gt 0 || test "$core_status" -ne 0; then
-  emit_event check SKIP dependent_layer_blocked
-  if test "$fast_mode" -eq 0 && test "$archive_light" -eq 0 && test "$core_status" -eq 1; then
+  if test "$fast_mode" -eq 0 && test "$archive_light" -eq 0 && test "$standard_suite_pruned" -eq 0 && test "$core_status" -eq 1; then
+    # 门禁立即终止（exit 1）；随包契约套件仅作诊断执行（不参与门禁计数），
+    # 事件必须如实记录实际执行（F2），不得谎报 SKIP。
+    emit_event check INFO diagnostic_suite_run
     if run_contract_suite; then
       report_contract_suite_success || true
     else
       printf "[FAIL] 工作流顶层契约测试（core failed）\n" >&2
     fi
   else
+    emit_event check SKIP dependent_layer_blocked
     printf '[SKIP] 依赖层因 core 失败未执行\n'
   fi
   printf "PASS=%d FAIL=%d SKIP=%d\n" "$pass_count" "$fail_count" "$skip_count"
@@ -346,6 +500,16 @@ if test "$archive_light" -eq 1; then
     fi
     render_contract_suite_skips
   fi
+  printf "PASS=%d FAIL=%d SKIP=%d\n" "$pass_count" "$fail_count" "$skip_count"
+  if test "$fail_count" -gt 0 || test "$core_status" -ne 0; then
+    exit 1
+  fi
+  exit 0
+fi
+
+if test "$standard_suite_pruned" -eq 1; then
+  printf '[INFO] 工作流顶层契约测试裁剪（standard：%s）\n' "$standard_suite_reason"
+  emit_event check INFO contract_suite_pruned
   printf "PASS=%d FAIL=%d SKIP=%d\n" "$pass_count" "$fail_count" "$skip_count"
   if test "$fail_count" -gt 0 || test "$core_status" -ne 0; then
     exit 1

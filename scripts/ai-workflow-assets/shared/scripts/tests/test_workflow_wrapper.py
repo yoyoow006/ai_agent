@@ -66,5 +66,88 @@ class WorkflowWrapperOutputTests(unittest.TestCase):
 
 
 
+    def test_summary_events_carry_numeric_exit_code(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'events.jsonl'
+            env = {**os.environ, 'WORKFLOW_JSONL_PATH': str(path)}
+            ok = subprocess.run(['bash', str(WRAPPER), '--fast'], cwd=ROOT, env=env,
+                                capture_output=True, text=True, check=False)
+            self.assertEqual(0, ok.returncode, msg=ok.stdout)
+            rows = [json.loads(line) for line in path.read_text().splitlines()]
+            summary_ok = [row for row in rows if row['event'] == 'summary'][-1]
+            self.assertEqual(0, summary_ok['exit_code'])
+            conflict = subprocess.run(['bash', str(WRAPPER), '--fast', '--require-openspec'],
+                                      cwd=ROOT, env=env, capture_output=True, text=True,
+                                      check=False)
+            self.assertEqual(2, conflict.returncode)
+            rows = [json.loads(line) for line in path.read_text().splitlines()]
+            summary_conflict = [row for row in rows if row['event'] == 'summary'][-1]
+            self.assertEqual(2, summary_conflict['exit_code'])
+
+    def test_conflict_summary_reports_derived_layer(self):
+        # 冲突退出的事件 layer 必须按请求旗标推导（fast→required→archive-light 顺序），
+        # 而不是无条件回退 standard。
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'events.jsonl'
+            env = {**os.environ, 'WORKFLOW_JSONL_PATH': str(path)}
+            cases = (
+                (['--fast', '--require-openspec'], 'required'),
+                (['--fast', '--archive-light'], 'archive-light'),
+            )
+            for flags, expected in cases:
+                with self.subTest(flags=flags):
+                    proc = subprocess.run(['bash', str(WRAPPER), *flags], cwd=ROOT, env=env,
+                                          capture_output=True, text=True, check=False)
+                    self.assertEqual(2, proc.returncode)
+                    rows = [json.loads(line) for line in path.read_text().splitlines()]
+                    summary = [row for row in rows if row['event'] == 'summary'][-1]
+                    self.assertEqual(expected, summary['layer'])
+
+    def test_plan_event_lists_trigger_checks_promotion_and_stop_rule(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'events.jsonl'
+            env = {**os.environ, 'WORKFLOW_JSONL_PATH': str(path)}
+            proc = subprocess.run(['bash', str(WRAPPER), '--fast'], cwd=ROOT, env=env,
+                                  capture_output=True, text=True, check=False)
+            self.assertEqual(0, proc.returncode, msg=proc.stdout)
+            plan = json.loads(path.read_text().splitlines()[0])
+            self.assertEqual('plan', plan['event'])
+            self.assertEqual('fast', plan['trigger'])
+            self.assertIn('core=run', plan['checks'])
+            self.assertIn('contract-suite', plan['checks'])
+            self.assertEqual('none', plan['promotion'])
+            self.assertIn('exit-1', plan['stop_rule'])
+
+    def test_core_check_event_carries_command_and_exit_code(self):
+        # R3：适用时事件包含 command 与 exit_code——core check 事件描述被包装的实际命令。
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'events.jsonl'
+            env = {**os.environ, 'WORKFLOW_JSONL_PATH': str(path)}
+            proc = subprocess.run(['bash', str(WRAPPER), '--fast'], cwd=ROOT, env=env,
+                                  capture_output=True, text=True, check=False)
+            self.assertEqual(0, proc.returncode, msg=proc.stdout)
+            rows = [json.loads(line) for line in path.read_text().splitlines()]
+            core_checks = [row for row in rows
+                           if row['event'] == 'check' and row.get('reason_code') == 'core_passed']
+            self.assertEqual(1, len(core_checks))
+            self.assertIn('validate-workflow-core.sh', core_checks[0]['command'])
+            self.assertEqual(0, core_checks[0]['exit_code'])
+
+    def test_output_jsonl_argument_streams_events_without_env(self):
+        # --output-jsonl 显式参数无须 WORKFLOW_OUTPUT=jsonl 即可输出事件流。
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'out.jsonl'
+            env = {k: v for k, v in os.environ.items()
+                   if k not in ('WORKFLOW_OUTPUT', 'WORKFLOW_JSONL_PATH')}
+            proc = subprocess.run(['bash', str(WRAPPER), '--fast', '--output-jsonl', str(path)],
+                                  cwd=ROOT, env=env, capture_output=True, text=True,
+                                  check=False)
+            self.assertEqual(0, proc.returncode, msg=proc.stdout)
+            rows = [json.loads(line) for line in path.read_text().splitlines()]
+            self.assertGreaterEqual(len(rows), 3)
+            self.assertEqual('summary', rows[-1]['event'])
+            self.assertIn('PASS=', proc.stdout.splitlines()[-1])
+
+
 if __name__ == "__main__":
     unittest.main()

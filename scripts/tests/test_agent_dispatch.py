@@ -121,5 +121,50 @@ class AgentDispatchTests(unittest.TestCase):
             self.assertEqual(event["dispatch"], "allowed")
 
 
+    def test_result_mode_emits_validated_result_event(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "events.jsonl"
+            for exit_code, expected_status in ((0, "PASS"), (1, "FAIL")):
+                with self.subTest(exit_code=exit_code):
+                    payload = {
+                        "exit_code": exit_code,
+                        "failed": exit_code,
+                        "unverified_scope": "无",
+                        "residual_risk": "无",
+                    }
+                    proc = subprocess.run(
+                        [sys.executable, "-m", "scripts.lib.agent_dispatch", "result",
+                         "--event-path", str(path), "--run-id", "run-1", "--layer", "required"],
+                        input=json.dumps(payload) + "\n", cwd=ROOT, text=True,
+                        capture_output=True, check=False,
+                    )
+                    self.assertEqual(proc.returncode, 0, msg=proc.stdout + proc.stderr)
+                    event = json.loads(path.read_text().splitlines()[-1])
+                    self.assertEqual(event["event"], "result")
+                    self.assertEqual(event["status"], expected_status)
+                    self.assertEqual(event["exit_code"], exit_code)
+                    self.assertEqual(event["failed"], exit_code)
+                    self.assertEqual(event["unverified_scope"], "无")
+                    self.assertEqual(event["residual_risk"], "无")
+
+    def test_result_mode_rejects_missing_fields(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "events.jsonl"
+            payload = {"exit_code": 1, "failed": 2, "unverified_scope": "无"}
+            proc = subprocess.run(
+                [sys.executable, "-m", "scripts.lib.agent_dispatch", "result",
+                 "--event-path", str(path), "--run-id", "run-1", "--layer", "required"],
+                input=json.dumps(payload) + "\n", cwd=ROOT, text=True,
+                capture_output=True, check=False,
+            )
+            self.assertEqual(proc.returncode, 1)
+            event = json.loads(path.read_text().splitlines()[-1])
+            self.assertEqual(event["event"], "result")
+            self.assertEqual(event["status"], "DENIED")
+            self.assertEqual(event["reason_code"], "result_fields_missing")
+
+
 if __name__ == "__main__":
     unittest.main()
