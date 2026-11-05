@@ -88,4 +88,3 @@
 ## 2026-08-27 · 来源变更 add-cancel-state-ci-mirror（沙箱白名单）
 **坑**：validate-workflow-core.sh 的 mirror_equal 改用 `| cat -s` 后，契约测试沙箱的 PATH 白名单（test_validate_workflow.py 的 VALIDATOR_COMMANDS）不含 cat：管道失败、重定向先建空临时文件、cmp 比较两个空文件相等——沙箱内全部镜像检查空转假绿；真实 PATH 下一切正常，假绿仅出现在契约沙箱。
 **解**：core 新增任何外部命令（cat、sort、tr 等）必须同步 VALIDATOR_COMMANDS 白名单并重跑契约套件；保真度可用「白名单独占 PATH + 注入技能漂移」探针验证镜像检查非零。
-
