@@ -1,6 +1,6 @@
 模板版本: 1
 模式: 标准
-状态: 构建中
+状态: 待验证
 
 # 工作流提速增量缓存上下文优化
 
@@ -44,8 +44,8 @@
 
 ## Unverified scope
 
-目标契约测试、fast 已现跑通过；`--standard` 暖跑计数一致、required 门禁与 OpenSpec strict 在终验链现跑后记录。
+已于 2026-11-05 现跑并记录：目标契约测试（StandardSuitePruningTest 6 例、WrapperFastCacheSwitchTest 5 例、模板/摘要 15 例全绿）、`--fast` PASS=283、`--standard` 暖跑 PASS=284 FAIL=0（指纹沿用可见）、required 门禁 PASS=284（222 契约测试）、`openspec validate --strict` valid。required 门禁在源仓含本次工作流资产变更语义下全量执行；裁剪分支的行为由契约夹具覆盖。
 
 ## Residual risk
 
-缓存指纹遗漏新输入源会导致假命中；裁剪漏分类会漏检。均用 fail-open 缺失拦截、未跟踪资产全量与分类外全量兜底。裁剪仅在调用方显式提供 `WORKFLOW_STANDARD_BASE` 时生效，默认行为不变。
+缓存指纹遗漏新输入源会导致假命中；裁剪漏分类会漏检。均用 fail-open 缺失拦截、未跟踪资产全量与分类外全量兜底。裁剪仅在调用方显式提供 `WORKFLOW_STANDARD_BASE` 时生效，默认行为不变；Verify/Archive 技能尚未接线该环境变量（后续变更可在技能层传递基线以激活裁剪收益）。
