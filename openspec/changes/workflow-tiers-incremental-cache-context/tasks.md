@@ -8,10 +8,10 @@
   - 预期结果：暖跑行内标注指纹来源，PASS 计数与冷跑一致
 
 - [x] 2. 校验增量裁剪
-  - [x] 2.1 修改：`scripts/validate-workflow.sh`、`scripts/lib/validate-workflow-core.sh` 按变更文件分类决定检查子集
-  - [x] 2.2 补充契约测试：文档-only 跳过树复制、core 子集、分类外全量
+  - [x] 2.1 修改：`scripts/validate-workflow.sh`、`scripts/lib/validate-workflow-core.sh` 按工作流资产分类决定契约套件执行
+  - [x] 2.2 补充契约测试：无工作流资产变更裁剪、scripts/README/docs 资产全量、未跟踪资产全量、无基线全量、promoted 全量且关缓存
   - [x] 2.3 验证：`bash scripts/validate-workflow.sh --standard --print-plan` 检查集合符合分类
-  - 预期结果：文档-only 变更不再全量 281 项，分类外仍全量
+  - 预期结果：显式基线且无工作流资产变更才裁剪；工作流资产变更/未跟踪/无基线/升级一律全量
 
 - [x] 3. 内存轮转
   - [x] 3.1 修改：`.ai/memory/workflow.md` 轮转至最近 30 条，超出部分移入 `workflow-archive.md`；`.gitignore` 白名单与 `.ai/memory/README.md` 轮转规则

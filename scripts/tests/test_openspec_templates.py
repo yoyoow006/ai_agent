@@ -105,6 +105,11 @@ class OpenSpecTemplateTests(unittest.TestCase):
                 "  - [x] 1.1 修改：`a.md`\n"
                 "  - [ ] 1.2 验证：`python3 check.py`\n"
                 "  - 预期结果：通过\n\n"
+                "示例代码块不计入：\n\n"
+                "```\n"
+                "- [ ] 示例中的任务\n"
+                "- [x] 示例中的完成项\n"
+                "```\n\n"
                 "## 本地整合策略\n\n- 分支/worktree：feature\n"
             )
             result = self.run_tool("summary", str(target))

@@ -74,7 +74,10 @@ def summary(change):
  unchecked=total=0
  tasks=change/'tasks.md'
  if tasks.is_file():
+  fence=False
   for l in tasks.read_text(encoding='utf-8').splitlines():
+   if l.lstrip().startswith('```'):fence=not fence;continue
+   if fence:continue
    m=re.match(r'\s*-\s+\[([ xX])\]\s',l)
    if m:
     total+=1

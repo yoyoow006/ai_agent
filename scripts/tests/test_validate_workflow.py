@@ -2126,6 +2126,12 @@ class WrapperFastCacheSwitchTest(unittest.TestCase):
                 self.assertEqual(0, result.returncode, msg=result.stdout)
                 self.assertIn("WORKFLOW_FAST_CACHE=0", result.stdout)
 
+    def test_promoted_standard_does_not_enable_cache_env(self) -> None:
+        result = self._run_wrapper("--standard", "--archive-files", "AGENTS.md")
+        self.assertEqual(0, result.returncode, msg=result.stdout)
+        self.assertIn("promoted to --require-openspec", result.stdout)
+        self.assertIn("WORKFLOW_FAST_CACHE=0", result.stdout)
+
     def test_conflicting_mode_combinations_fail_closed(self) -> None:
         for arguments in (
             ("--fast", "--require-openspec"),
@@ -2231,7 +2237,6 @@ class StandardSuitePruningTest(unittest.TestCase):
             root = Path(temporary)
             self._stage_tree(root)
             self._commit_base(root)
-            (root / "README.md").write_text("# fixture changed\n", encoding="utf-8")
             proposal = root / "openspec" / "changes" / "feature-x" / "proposal.md"
             proposal.write_text("模式: 标准\n状态: 待验证\n", encoding="utf-8")
 
@@ -2243,6 +2248,52 @@ class StandardSuitePruningTest(unittest.TestCase):
             self.assertIn("契约测试裁剪", result.stdout)
             self.assertNotIn("[PASS] 工作流顶层契约测试", result.stdout)
             self.assertIn("PASS=1 FAIL=0 SKIP=0", result.stdout)
+
+    def test_scripts_change_keeps_full_suite(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root)
+            self._commit_base(root)
+            (root / "scripts" / "install-workflow.sh").write_text(
+                "#!/bin/sh\n# installer probe\n", encoding="utf-8"
+            )
+
+            result = self._run(
+                root, "--standard", env_extras={"WORKFLOW_STANDARD_BASE": "HEAD"}
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+            self.assertNotIn("契约测试裁剪", result.stdout)
+
+    def test_readme_change_keeps_full_suite(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root)
+            self._commit_base(root)
+            (root / "README.md").write_text("# fixture changed\n", encoding="utf-8")
+
+            result = self._run(
+                root, "--standard", env_extras={"WORKFLOW_STANDARD_BASE": "HEAD"}
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+            self.assertNotIn("契约测试裁剪", result.stdout)
+
+    def test_docs_asset_change_keeps_full_suite(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root)
+            self._commit_base(root)
+            intro = root / "docs" / "ai-workflow-intro.md"
+            intro.parent.mkdir(parents=True)
+            intro.write_text("# intro changed\n", encoding="utf-8")
+
+            result = self._run(
+                root, "--standard", env_extras={"WORKFLOW_STANDARD_BASE": "HEAD"}
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+            self.assertNotIn("契约测试裁剪", result.stdout)
 
     def test_core_change_keeps_full_suite(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -2312,7 +2363,8 @@ class StandardSuitePruningTest(unittest.TestCase):
             root = Path(temporary)
             self._stage_tree(root)
             self._commit_base(root)
-            (root / "README.md").write_text("# fixture changed\n", encoding="utf-8")
+            proposal = root / "openspec" / "changes" / "feature-x" / "proposal.md"
+            proposal.write_text("模式: 标准\n状态: 待验证\n", encoding="utf-8")
 
             pruned = self._run(
                 root,

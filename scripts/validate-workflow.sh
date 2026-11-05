@@ -129,7 +129,6 @@ fi
 if test "$fast_mode" -eq 1; then validation_layer=fast; fi
 if test "$require_openspec_user" -eq 1; then validation_layer=required; fi
 if test "$archive_light" -eq 1; then validation_layer=archive-light; fi
-emit_event plan INFO validation_plan
 
 # --archive-light 单独使用 = 纯轻量（仅跑 core，不做 diff 分类）
 #   配合 --archive-files + WORKFLOW_ARCHIVE_GATE=1 才做 diff 分类自动升级
@@ -170,10 +169,10 @@ standard_suite_reason="未提供 WORKFLOW_STANDARD_BASE"
 
 workflow_asset_changed() {
   # 用法: workflow_asset_changed <仓库相对路径>
+  # fail-closed 口径：顶层契约套件实际依赖的资产（含 README/docs 语义漂移断言、
+  # 安装器入口、压力契约场景）变更即全量；scripts 整目录视为工作流资产。
   case "$1" in
-    AGENTS.md|CLAUDE.md|.ai/*|.claude/*|.codex/*|.github/*|shared/*|\
-    scripts/validate-workflow.sh|scripts/lib/*|scripts/new-openspec-change.py|\
-    scripts/tests/*|scripts/hooks/*|scripts/ai-workflow-assets/*)
+    AGENTS.md|CLAUDE.md|README.md|.ai/*|.claude/*|.codex/*|.github/*|shared/*|docs/*|scripts/*)
       return 0
       ;;
     openspec/*)
@@ -253,6 +252,9 @@ if test "$print_plan" -eq 1; then
   fi
   exit 0
 fi
+
+# plan 事件置于 print-plan 退出点之后：只读诊断模式不产生任何事件流记录。
+emit_event plan INFO validation_plan
 
 # 串行化同一工作树的并发校验：契约套件含 mutation,并发实例会互踩产生假失败。
 if command -v flock >/dev/null 2>&1; then
@@ -366,10 +368,11 @@ report_contract_suite_success() {
 }
 
 core_status=0
-if test "$fast_mode" -eq 1 || test "$standard_mode" -eq 1; then
+if test "$fast_mode" -eq 1 || { test "$standard_mode" -eq 1 && test "$require_openspec_user" -eq 0; }; then
   WORKFLOW_FAST_CACHE=1 bash scripts/lib/validate-workflow-core.sh ${forwarded_arguments[@]+"${forwarded_arguments[@]}"} >"$core_output" 2>&1 || core_status=$?
 else
-  # 非 fast/standard 门禁必须实际执行：显式关闭外部可能继承的缓存开关。
+  # 非 fast/standard 门禁（含 promoted 为 required 的调用）必须实际执行：
+  # 显式关闭外部可能继承的缓存开关，维持 required 层"禁止读写验证缓存"契约。
   WORKFLOW_FAST_CACHE=0 bash scripts/lib/validate-workflow-core.sh ${forwarded_arguments[@]+"${forwarded_arguments[@]}"} >"$core_output" 2>&1 || core_status=$?
 fi
 internal_result="$(sed -n "s/^INTERNAL_RESULT PASS=[0-9][0-9]* FAIL=[0-9][0-9]* SKIP=[0-9][0-9]*$/&/p" "$core_output" | tail -1)"

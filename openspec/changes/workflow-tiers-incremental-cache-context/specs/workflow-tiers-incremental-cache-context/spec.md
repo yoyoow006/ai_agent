@@ -25,21 +25,21 @@
 - **THEN** 不生成指纹且不命中缓存
 - **AND** 实际执行检查并按真实结果汇总
 
-### Requirement: 校验按变更分类增量裁剪且分类外全量
+### Requirement: 契约套件按工作流资产分类裁剪且不确定时全量
 
-系统 SHALL 依据变更文件分类决定检查集合：文档变更跳过契约树复制；core 脚本变更跑对应单测子集；分类外任意变更全量执行 281 项。裁剪规则 MUST 可审计且命中全覆盖。
+系统 SHALL 仅在调用方显式提供 `WORKFLOW_STANDARD_BASE` 且基线后（含未跟踪文件）无工作流资产变更时，裁剪 standard 层顶层契约套件；工作流资产 SHALL 覆盖 AGENTS.md、CLAUDE.md、README.md、.ai/、.claude/、.codex/、.github/、shared/、docs/、scripts/ 及源仓形态下的 openspec/。git 缺失、diff 失败、未跟踪工作流资产或层级升级为 required 时 SHALL 保持全量；裁剪决定 SHALL 可经 `--print-plan` 审计。
 
-#### Scenario: 文档-only 变更裁剪
+#### Scenario: 无工作流资产变更裁剪
 
-- **WHEN** 变更仅含 Markdown/纯文本且不命中工作流入口
-- **THEN** 跳过契约树复制类检查
-- **AND** 其余检查全量执行
+- **WHEN** 显式基线后变更仅含非工作流资产（如安装目标内的业务 openspec 数据）
+- **THEN** 跳过顶层契约套件并输出裁剪原因
+- **AND** core 层检查仍全量执行
 
-#### Scenario: 分类外全量回退
+#### Scenario: 工作流资产或不确定时全量
 
-- **WHEN** 变更文件未被任一裁剪规则覆盖
-- **THEN** 全量执行全部检查
-- **AND** 裁剪规则输出未匹配告警
+- **WHEN** 基线后存在工作流资产变更、未跟踪工作流资产、git 不可用、diff 失败或层级升级
+- **THEN** 顶层契约套件全量执行
+- **AND** `--print-plan` 输出对应原因
 
 ### Requirement: 内存轮转控制上下文规模
 
