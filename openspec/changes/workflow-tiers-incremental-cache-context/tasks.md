@@ -13,34 +13,30 @@
   - [x] 2.3 验证：`bash scripts/validate-workflow.sh --standard --print-plan` 检查集合符合分类
   - 预期结果：文档-only 变更不再全量 281 项，分类外仍全量
 
-- [ ] 3. 巨型技能拆分
-  - [ ] 3.1 修改：`.claude/skills/systematic-debugging/`、`.claude/skills/writing-skills/` + `.codex/skills/` 镜像拆核心+附录
-  - [ ] 3.2 验证：`bash scripts/validate-workflow.sh --fast` 镜像 byte-identical 通过
-  - 预期结果：两技能核心 ≤80 行，双树镜像一致
+- [ ] 3. 内存轮转
+  - [x] 3.1 修改：`.ai/memory/workflow.md` 轮转至最近 30 条，超出部分移入 `workflow-archive.md`；`.gitignore` 白名单与 `.ai/memory/README.md` 轮转规则
+  - [x] 3.2 验证：`bash scripts/validate-workflow.sh --fast` + 统计续传行数
+  - 预期结果：新会话上下文 <350 行（实测 318 行）
 
-- [ ] 4. 内存与索引瘦身
-  - [ ] 4.1 修改：`.ai/memory/workflow.md` 轮转至 30 条分模块文件；`.ai/rules/index.md` 关键词截断完整表入附录
-  - [x] 4.2 验证：`bash scripts/validate-workflow.sh --fast` + 统计续传行数
-  - 预期结果：新会话上下文 <350 行，路由测试通过
-
-- [ ] 5. 续传摘要命令
-  - [x] 5.1 修改：`scripts/new-openspec-change.py` 新增摘要子命令
-  - [x] 5.2 验证：`python3 scripts/new-openspec-change.py summary openspec/changes/workflow-tiers-incremental-cache-context`
+- [ ] 4. 续传摘要命令
+  - [x] 4.1 修改：`scripts/new-openspec-change.py` 新增摘要子命令
+  - [x] 4.2 验证：`python3 scripts/new-openspec-change.py summary openspec/changes/workflow-tiers-incremental-cache-context`
   - 预期结果：一行输出状态/未勾任务/commit/指纹且可独立解析
 
-- [ ] 6. 待验证变更收尾归档
-  - [ ] 6.1 操作：确认 `openspec/changes/layered-validation-agent-gating-output-metrics/` 归档证据已持久化后归档并精确清理 `.ai-local/reviews/layered-validation-agent-gating-output-metrics/`
-  - [ ] 6.2 验证：`bash scripts/validate-workflow.sh --archive-light` + `git status --porcelain -- .ai-local/reviews`
-  - 预期结果：归档完成，残留 reviews 目录仅剩活跃变更
-
-- [ ] 7. 全量终验
-  - [ ] 7.1 验证：`bash scripts/validate-workflow.sh --require-openspec`
-  - [ ] 7.2 验证：`openspec validate workflow-tiers-incremental-cache-context --strict --no-interactive`
+- [ ] 5. 全量终验
+  - [ ] 5.1 验证：`bash scripts/validate-workflow.sh --require-openspec`
+  - [ ] 5.2 验证：`openspec validate workflow-tiers-incremental-cache-context --strict --no-interactive`
   - 预期结果：全绿，无 FAIL/SKIP
+
+## 已移除任务（2026-11-05 用户确认）
+
+- 技能拆分（原任务 3）：技能为触发式加载，主路径不读；拆分需同步 manifest/资产/规格锚点，成本高收益趋零。
+- index.md 关键词截断（原 4.1 后半）：关键词列即路由表，截断有路由降级风险；<350 行已由内存轮转单独达成。
+- layered-validation 变更归档收尾（原任务 6）：该严格变更的 Verify 双阶段+归档移出本范围，随后单独处理。
 
 ## 本地整合策略
 
 - 分支/worktree：默认 feature 分支 `feat/workflow-tiers-incremental-cache-context`，无需隔离 worktree
-- 提交边界：standard 缓存+裁剪 / 技能拆分+索引瘦身 / 摘要+收尾归档三组职责单元独立提交
-- 外部副作用授权：不推送、不合并 main、不删除归档外数据；清理仅限已持久化证据的精确子路径
+- 提交边界：standard 缓存+裁剪 / 内存轮转+摘要命令 / 范围收缩同步 三个职责单元独立提交
+- 外部副作用授权：不推送、不合并 main、不删除归档外数据
 - 手工测试编译输出：默认不适用；若用手工 javac/java，输出仅位于 /tmp

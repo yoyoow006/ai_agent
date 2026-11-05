@@ -41,37 +41,15 @@
 - **THEN** 全量执行全部检查
 - **AND** 裁剪规则输出未匹配告警
 
-### Requirement: 巨型技能核心与附录分离
+### Requirement: 内存轮转控制上下文规模
 
-系统 SHALL 将 `systematic-debugging` 与 `writing-skills` 拆分为核心 ≤80 行与按需附录；决策链默认只读核心，触发条件命中时再加载附录.Double-check 索引、`.claude/skills/` 与 `.codex/skills/` 镜像 byte-identical。
-
-#### Scenario: 主路径只读核心
-
-- **WHEN** 新会话进入标准/严格主路径
-- **THEN** 只加载两技能核心
-- **AND** 未命中触发条件不读附录
-
-#### Scenario: 附录按需加载
-
-- **WHEN** 用户触发 debugging 或 writing-skills 触发条件
-- **THEN** 加载对应附录
-- **AND** 双树镜像校验保持通过
-
-### Requirement: 内存轮转与路由索引瘦身
-
-系统 SHALL 将 `.ai/memory/workflow.md` 轮转至最近 30 条分模块文件；`.ai/rules/index.md` 保留短别名与关键词，完整路由表放附录。新会话上下文 MUST <350 行且路由准确率不降。
+系统 SHALL 将 `.ai/memory/workflow.md` 单模块条目限制为最近 30 条，超出部分按时间顺序移入同目录 `<模块>-archive.md` 且不删改内容；主文件仅保留最近 30 条时新会话决策链上下文 MUST <350 行。
 
 #### Scenario: memory 轮转
 
 - **WHEN** Archive 执行且 workflow.md 条目 >30
-- **THEN** 超出部分按模块文件归档
+- **THEN** 超出部分按模块归档文件保存
 - **AND** 主文件仅保留最近 30 条
-
-#### Scenario: 索引瘦身
-
-- **WHEN** 读取 index.md 进行路由
-- **THEN** 只读短别名表
-- **AND** 完整表在附录按需加载
 
 ### Requirement: 续传摘要命令一行输出
 
@@ -82,13 +60,3 @@
 - **WHEN** 运行摘要命令于活跃变更目录
 - **THEN** 输出一行含状态/计数/commit/指纹
 - **AND** 不修改变更状态
-
-### Requirement: 待验证变更收尾归档
-
-系统 SHALL 在确认 `layered-validation-agent-gating-output-metrics` 的最终 manifest ID、comparison base、finding 状态已持久化后归档该变更，并精确清理 `.ai-local/reviews/<change>/` 子路径。
-
-#### Scenario: 精确清理
-
-- **WHEN** 归档证据已持久化
-- **THEN** 仅删除对应子路径
-- **AND** 不递归删除 `.ai-local` 或活跃 review
