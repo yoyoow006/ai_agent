@@ -90,3 +90,12 @@
 ## 2026-11-05 · 来源变更 workflow-tiers-incremental-cache-context（缓存入口必须排除升级路径）
 **坑**：给 --standard 开指纹缓存时未排除 `--archive-files` 升级为 required 的调用，required 语义会读写缓存，违反"required 禁止读写验证缓存"契约（综合审查 F-2）。
 **解**：缓存开关条件必须带 `require_openspec_user=0` 守卫；新增任何缓存入口时同步检查 promoted/升级路径，并用夹具测试锁定。
+## 2026-11-06 · 来源变更 layered-validation-agent-gating-output-metrics（镜像资产必须登记 byte-sync 映射）
+**坑**：源树与 `scripts/ai-workflow-assets/shared/scripts/**` 是双树镜像，但 byte-sync 断言只检查 `test_install_ai_workflow.py` 映射表里登记过的路径；workflow-tiers 给 `new-openspec-change.py` 加 summary 子命令时漏同步镜像，37 行漂移因未登记而长期无人发现（阶段二 CQ-2）。
+**解**：改动任何在 `scripts/ai-workflow-assets/shared/scripts/` 有对应副本的源文件时，先 cp 同步镜像，再确认该路径已登记进 byte-sync 映射；新增镜像文件必须同步补映射条目。
+## 2026-11-06 · 来源变更 layered-validation-agent-gating-output-metrics（agent_dispatch stdin 非法 UTF-8 崩溃）
+**坑**：`json.load(sys.stdin)` 遇非法 UTF-8 字节抛 `UnicodeDecodeError`，它虽是 `ValueError` 子类但不在 `(JSONDecodeError, OSError, TypeError)` 捕获集内，承诺"稳定单行 JSON 输出"的 CLI 直接 traceback 且不记事件（阶段二 CQ-1）。
+**解**：stdin 解析的 except 元组显式加 `UnicodeDecodeError`；自定义异常（如 ResultError）同为 ValueError 子类，收宽捕获时必须排在前面。
+## 2026-11-06 · 来源变更 layered-validation-agent-gating-output-metrics（sharedRepository 模式断言环境失败）
+**坑**：git `core.sharedRepository=true` + umask 0002 使干净检出工作树全为 664/775，`test_manifest_modes_are_exact_and_match_files` 在不含任何改动的 HEAD 上同样失败；全套运行时 `__pycache__` 还会让资产枚举断言瞬态失败。易把环境失败误记为变更引入的回归。
+**解**：怀疑环境性失败时用临时干净 worktree（`git worktree add <path> HEAD --detach`）复跑同用例归因；确属环境后在台账记录"预存、与本变更无关"，探针 worktree 用完即删。
