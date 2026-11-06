@@ -171,7 +171,7 @@ def main() -> int:
         # R2-S2：合法派发后必须可上报 result 事件（退出码/失败数/未验证范围/残余风险）。
         try:
             validated = validate_result_payload(json.load(sys.stdin))
-        except (json.JSONDecodeError, OSError, TypeError) as error:
+        except (json.JSONDecodeError, OSError, TypeError, UnicodeDecodeError) as error:
             validated = None
             reason_code, detail = "result_invalid", str(error)
         except ResultError as error:
@@ -199,18 +199,15 @@ def main() -> int:
     try:
         payload = json.load(sys.stdin)
         result = gate_dispatch(payload)
-    except (json.JSONDecodeError, OSError, TypeError):
+    except (json.JSONDecodeError, OSError, TypeError, UnicodeDecodeError):
         result = _decision("denied", "request_invalid", "", "主会话处理")
     sys.stdout.write(json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n")
     if args.event_path:
-        try:
-            from scripts.lib.workflow_events import EventWriter
-        except ImportError:
-            from workflow_events import EventWriter
-        writer = EventWriter(Path(args.event_path), args.run_id, args.layer)
-        status = "INFO" if result["dispatch"] == "allowed" else "DENIED"
-        writer.emit("dispatch", status, dispatch=result["dispatch"], role=result["role"], reason_code=result["reason_code"], next_action=result["next_action"])
-        writer.close()
+        writer = event_writer(args.event_path)
+        if writer:
+            status = "INFO" if result["dispatch"] == "allowed" else "DENIED"
+            writer.emit("dispatch", status, dispatch=result["dispatch"], role=result["role"], reason_code=result["reason_code"], next_action=result["next_action"])
+            writer.close()
     return 0
 
 

@@ -37,7 +37,7 @@
 
 - 分层顺序、升级原因和失败停止均有测试；代理四条件门控拒绝不合格调用。
 - 人类输出末行为 `PASS=... FAIL=... SKIP=...`，JSONL 每行可独立解析。
-- 指标含 schema、run_id、耗时、结果及代理/缓存计数；写入失败不影响验证。
+- 指标含 schema、run_id、耗时、结果及缓存/解析计数（代理计数由 agent_dispatch 事件流按 run_id 记录）；写入失败不影响验证。
 - 相关契约、OpenSpec strict、镜像检查和 `git diff --check` 通过。
 
 ## Unverified scope

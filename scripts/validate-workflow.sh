@@ -5,7 +5,10 @@ set -u
 cd "$(dirname "$0")/.."
 export PYTHONDONTWRITEBYTECODE=1
 
-run_id="$(python3 -B -c 'import uuid; print(uuid.uuid4().hex)')"
+# CQ-7：run_id 与起始时间合并为单次派生，减少每次验证的固定 python 启动开销。
+run_seed="$(python3 -B -c 'import time,uuid; print(uuid.uuid4().hex, time.monotonic_ns())')"
+run_id="${run_seed%% *}"
+run_started_ns="${run_seed#* }"
 jsonl_path="${WORKFLOW_JSONL_PATH:-}"
 if test "${WORKFLOW_OUTPUT:-}" = "jsonl" && test -z "$jsonl_path"; then
   jsonl_path=".ai-local/workflow-events.jsonl"
@@ -73,6 +76,13 @@ while test "$#" -gt 0; do
         printf '[FAIL] --output-jsonl 需要路径（conflict）\n' >&2
         exit 2
       fi
+      case "$1" in
+        --*)
+          # CQ-8：不得把后续选项当路径消费，否则层级被静默改写。
+          printf '[FAIL] --output-jsonl 需要路径，收到选项 %s（conflict）\n' "$1" >&2
+          exit 2
+          ;;
+      esac
       jsonl_path="$1"
       shift
       ;;
@@ -242,19 +252,20 @@ EOF
 classify_standard_suite
 
 # R1：计划事件必须可审计地列明检查集合与升级条件（触发原因=layer，停止规则固定）。
+# CQ-6：--print-plan 文本与 plan 事件共用同一格式化来源，防止双表示漂移。
 contract_suite_state() {
   if test "$fast_mode" -eq 1; then
-    printf 'contract-suite=not-run(fast)'
+    printf 'not-run(fast)'
   elif test "$archive_light" -eq 1; then
     if test "$archive_promoted" -eq 1; then
-      printf 'contract-suite=run(archive-gate-promoted)'
+      printf 'run(archive-gate-promoted)'
     else
-      printf 'contract-suite=not-run(archive-light)'
+      printf 'not-run(archive-light)'
     fi
   elif test "$standard_suite_pruned" -eq 1; then
-    printf 'contract-suite=pruned(%s)' "$standard_suite_reason"
+    printf 'pruned(%s)' "$standard_suite_reason"
   else
-    printf 'contract-suite=run(%s)' "$standard_suite_reason"
+    printf 'run(%s)' "$standard_suite_reason"
   fi
 }
 plan_promotion() {
@@ -262,27 +273,20 @@ plan_promotion() {
   if test "$standard_promoted" -eq 1; then printf 'standard→required'; return; fi
   printf 'none'
 }
+# core 输入指纹缓存开关：fast/standard(未升级) 开，其余（含 promoted required）关。
+core_cache_enabled() {
+  test "$fast_mode" -eq 1 || { test "$standard_mode" -eq 1 && test "$require_openspec_user" -eq 0; }
+}
 
 if test "$print_plan" -eq 1; then
   printf '[PLAN] layer: %s\n' "$validation_layer"
-  if test "$fast_mode" -eq 1 || test "$standard_mode" -eq 1; then
+  if core_cache_enabled; then
     printf '[PLAN] core: run（输入指纹缓存：开）\n'
   else
     printf '[PLAN] core: run（输入指纹缓存：关）\n'
   fi
-  if test "$fast_mode" -eq 1; then
-    printf '[PLAN] contract-suite: not-run（fast 层不执行契约套件）\n'
-  elif test "$archive_light" -eq 1; then
-    if test "$archive_promoted" -eq 1; then
-      printf '[PLAN] contract-suite: run（archive gate 升级）\n'
-    else
-      printf '[PLAN] contract-suite: not-run（archive-light）\n'
-    fi
-  elif test "$standard_suite_pruned" -eq 1; then
-    printf '[PLAN] contract-suite: pruned（%s）\n' "$standard_suite_reason"
-  else
-    printf '[PLAN] contract-suite: run（%s）\n' "$standard_suite_reason"
-  fi
+  printf '[PLAN] contract-suite: %s\n' "$(contract_suite_state)"
+  printf '[PLAN] promotion: %s\n' "$(plan_promotion)"
   exit 0
 fi
 
@@ -291,7 +295,7 @@ if test -n "$jsonl_path"; then
   python3 -B scripts/lib/workflow_event_cli.py "$jsonl_path" "$run_id" "$validation_layer" plan INFO validation_plan \
     --task-id "${WORKFLOW_TASK_ID:-}" \
     --field "trigger=$validation_layer" \
-    --field "checks=core=run;$(contract_suite_state)" \
+    --field "checks=core=run;contract-suite=$(contract_suite_state)" \
     --field "promotion=$(plan_promotion)" \
     --field "stop_rule=core-failure:exit-1-diagnostic-suite-allowed" >/dev/null 2>&1 || { output_parse_errors=$((output_parse_errors + 1)); printf '[INFO] output_parse_error\n' >&2; }
 fi
@@ -335,19 +339,26 @@ finalize() {
       METRICS_FAIL="${fail_count:-0}" METRICS_SKIP="${skip_count:-0}" \
       METRICS_CACHE_REUSED="${cache_reused_count:-0}" METRICS_PARSE_ERRORS="${output_parse_errors:-0}" \
       python3 -B - <<'PY' >/dev/null 2>&1 || printf '[INFO] metrics_write_failed\n' >&2
-import json, os, tempfile
-from pathlib import Path
-d=Path(os.environ["METRICS_DIR"])
-try:
-    d.mkdir(parents=True, exist_ok=True)
-    payload={"schema_version":1,"run_id":os.environ["METRICS_RUN_ID"],"layer":os.environ["METRICS_LAYER"],"duration_ms":int(os.environ.get("METRICS_DURATION","0")),"counts":{"PASS":int(os.environ["METRICS_PASS"]),"FAIL":int(os.environ["METRICS_FAIL"]),"SKIP":int(os.environ["METRICS_SKIP"])},"agent_allowed":0,"agent_denied":0,"cache_reused":int(os.environ["METRICS_CACHE_REUSED"]),"output_parse_errors":int(os.environ["METRICS_PARSE_ERRORS"])}
-    if os.environ.get('WORKFLOW_TASK_ID'):
-        payload['task_id'] = os.environ['WORKFLOW_TASK_ID']
-    fd,tmp=tempfile.mkstemp(prefix=".metrics.",dir=d); os.close(fd)
-    with open(tmp,"w",encoding="utf-8") as h: json.dump(payload,h,sort_keys=True); h.write("\n")
-    os.replace(tmp,d/(payload["run_id"]+".json"))
-except (OSError, ValueError, TypeError):
-    raise SystemExit(1)
+import os, sys
+sys.path.insert(0, "scripts/lib")
+from workflow_events import write_metrics
+metrics = {
+    "run_id": os.environ["METRICS_RUN_ID"],
+    "layer": os.environ["METRICS_LAYER"],
+    "duration_ms": int(os.environ.get("METRICS_DURATION", "0")),
+    "counts": {
+        "PASS": int(os.environ["METRICS_PASS"]),
+        "FAIL": int(os.environ["METRICS_FAIL"]),
+        "SKIP": int(os.environ["METRICS_SKIP"]),
+    },
+    "cache_reused": int(os.environ["METRICS_CACHE_REUSED"]),
+    "output_parse_errors": int(os.environ["METRICS_PARSE_ERRORS"]),
+}
+# CQ-3（用户裁定 2026-11-05）：wrapper 不派发代理，metrics 不含恒 0 的代理计数
+# 死字段；真实派发计数由 agent_dispatch 事件流按 run_id 记录。
+if os.environ.get("WORKFLOW_TASK_ID"):
+    metrics["task_id"] = os.environ["WORKFLOW_TASK_ID"]
+raise SystemExit(0 if write_metrics(os.environ["METRICS_DIR"], metrics).ok else 1)
 PY
   fi
   cleanup
@@ -414,7 +425,7 @@ if test "${#forwarded_arguments[@]}" -gt 0; then
   core_command="$core_command ${forwarded_arguments[*]}"
 fi
 core_status=0
-if test "$fast_mode" -eq 1 || { test "$standard_mode" -eq 1 && test "$require_openspec_user" -eq 0; }; then
+if core_cache_enabled; then
   WORKFLOW_FAST_CACHE=1 bash scripts/lib/validate-workflow-core.sh ${forwarded_arguments[@]+"${forwarded_arguments[@]}"} >"$core_output" 2>&1 || core_status=$?
 else
   # 非 fast/standard 门禁（含 promoted 为 required 的调用）必须实际执行：

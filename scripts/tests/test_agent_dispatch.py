@@ -166,5 +166,23 @@ class AgentDispatchTests(unittest.TestCase):
             self.assertEqual(event["reason_code"], "result_fields_missing")
 
 
+    def test_invalid_utf8_input_yields_stable_json_not_traceback(self):
+        # CQ-1：非法 UTF-8 输入必须落进稳定 JSON 拒绝对象，不得 traceback。
+        for mode, expected_rc in (([], 0), (["result"], 1)):
+            with self.subTest(mode=mode or "dispatch"):
+                proc = subprocess.run(
+                    [sys.executable, "-m", "scripts.lib.agent_dispatch", *mode],
+                    input=b"\xff\xfe broken\n", cwd=ROOT, text=False,
+                    capture_output=True, check=False,
+                )
+                self.assertEqual(expected_rc, proc.returncode,
+                                 msg=proc.stderr.decode("utf-8", "replace"))
+                stdout = proc.stdout.decode("utf-8", "replace")
+                self.assertEqual(1, len(stdout.splitlines()), stdout)
+                output = json.loads(stdout)
+                self.assertIn(output.get("reason_code"),
+                              ("request_invalid", "result_invalid"))
+
+
 if __name__ == "__main__":
     unittest.main()

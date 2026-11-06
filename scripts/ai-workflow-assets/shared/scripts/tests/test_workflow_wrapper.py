@@ -149,5 +149,52 @@ class WorkflowWrapperOutputTests(unittest.TestCase):
             self.assertIn('PASS=', proc.stdout.splitlines()[-1])
 
 
+    def test_output_jsonl_rejects_option_as_path(self):
+        # CQ-8：--output-jsonl 后跟选项时必须报冲突，不得把 --fast 当路径静默改层级。
+        proc = subprocess.run(
+            ["bash", str(WRAPPER), "--output-jsonl", "--fast"],
+            cwd=ROOT, capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(2, proc.returncode)
+        self.assertIn("需要路径", proc.stderr)
+
+    def test_print_plan_and_plan_event_agree_on_contract_suite_state(self):
+        # CQ-6：--print-plan 文本与 plan 事件的检查集合/升级条件必须同源一致。
+        import re
+        plan = subprocess.run(
+            ["bash", str(WRAPPER), "--fast", "--print-plan"],
+            cwd=ROOT, capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(0, plan.returncode, msg=plan.stdout)
+        match = re.search(r"\[PLAN\] contract-suite: (.+)$", plan.stdout, re.M)
+        self.assertIsNotNone(match, plan.stdout)
+        value = match.group(1)
+        self.assertIn("[PLAN] promotion:", plan.stdout)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'events.jsonl'
+            env = {**os.environ, 'WORKFLOW_JSONL_PATH': str(path)}
+            proc = subprocess.run(['bash', str(WRAPPER), '--fast'], cwd=ROOT, env=env,
+                                  capture_output=True, text=True, check=False)
+            self.assertEqual(0, proc.returncode, msg=proc.stdout)
+            plan_event = json.loads(path.read_text().splitlines()[0])
+            self.assertIn(f"contract-suite={value}", plan_event["checks"])
+
+    def test_real_core_warm_cache_counts_cache_reuse(self):
+        # CQ-4：cache_reused 指标与真实 core 缓存沿用输出耦合的回归锁——
+        # core 沿用文案变化时本测试变红，指标不会无声归零。
+        with tempfile.TemporaryDirectory() as tmp:
+            metrics = Path(tmp) / 'metrics'
+            env = {**os.environ, 'METRICS_DIR': str(metrics)}
+            for _ in range(2):
+                proc = subprocess.run(['bash', str(WRAPPER), '--fast'], cwd=ROOT,
+                                      env=env, capture_output=True, text=True,
+                                      check=False)
+                self.assertEqual(0, proc.returncode, msg=proc.stdout)
+            records = sorted(metrics.glob('*.json'))
+            self.assertEqual(2, len(records))
+            payload = json.loads(records[-1].read_text(encoding='utf-8'))
+            self.assertGreaterEqual(payload['cache_reused'], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

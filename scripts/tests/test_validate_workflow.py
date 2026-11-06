@@ -3761,7 +3761,7 @@ class WrapperFailureTelemetryTest(unittest.TestCase):
             self.assertIn(("check", "dependent_layer_blocked"), pairs)
             self.assertNotIn(("check", "diagnostic_suite_run"), pairs)
 
-    def test_metrics_measure_cache_reuse_and_dispatch_counts(self) -> None:
+    def test_metrics_measure_cache_reuse_without_dead_agent_fields(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             self._stage_tree(root, self.FAILING_CORE)
@@ -3772,8 +3772,10 @@ class WrapperFailureTelemetryTest(unittest.TestCase):
             self.assertEqual(1, len(records))
             payload = json.loads(records[0].read_text(encoding="utf-8"))
             self.assertEqual(1, payload["cache_reused"])
-            self.assertEqual(0, payload["agent_allowed"])
-            self.assertEqual(0, payload["agent_denied"])
+            # CQ-3（用户裁定）：wrapper 不派发代理，metrics 不含恒 0 的死字段；
+            # 真实派发计数由 agent_dispatch 事件流按 run_id 记录。
+            self.assertNotIn("agent_allowed", payload)
+            self.assertNotIn("agent_denied", payload)
 
     def test_metrics_count_output_parse_errors(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

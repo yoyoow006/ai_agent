@@ -52,7 +52,7 @@
 
 ### Requirement: 轻量度量必须可丢弃且不改变门禁
 
-系统 SHALL 为每次运行记录 schema、run_id、层级总耗时、检查结果计数、代理允许/拒绝计数、缓存沿用计数和输出解析错误计数；指标写入 .ai-local/metrics/ 失败或记录损坏 SHALL 不改变验证结果，且 required SHALL 不读取验证缓存。
+系统 SHALL 为每次运行记录 schema、run_id、层级总耗时、检查结果计数、缓存沿用计数和输出解析错误计数；代理允许/拒绝计数 SHALL 由 agent_dispatch 事件流按 run_id 记录而不进入 wrapper 指标；指标写入 .ai-local/metrics/ 失败或记录损坏 SHALL 不改变验证结果，且 required SHALL 不读取验证缓存。
 
 #### Scenario: 指标写入失败
 

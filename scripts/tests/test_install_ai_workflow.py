@@ -286,10 +286,17 @@ class PortableAssetContentTests(unittest.TestCase):
             "shared/.ai/tools/tests/test_project_facts.py": ".ai/tools/tests/test_project_facts.py",
             "shared/.ai/tools/tests/test_review_manifest.py": ".ai/tools/tests/test_review_manifest.py",
             "shared/scripts/validate-workflow.sh": "scripts/validate-workflow.sh",
+            "shared/scripts/new-openspec-change.py": "scripts/new-openspec-change.py",
             "shared/scripts/lib/validate-workflow-core.sh": "scripts/lib/validate-workflow-core.sh",
+            "shared/scripts/lib/agent_dispatch.py": "scripts/lib/agent_dispatch.py",
+            "shared/scripts/lib/workflow_event_cli.py": "scripts/lib/workflow_event_cli.py",
+            "shared/scripts/lib/workflow_events.py": "scripts/lib/workflow_events.py",
             "shared/scripts/tests/__init__.py": "scripts/tests/__init__.py",
             "shared/scripts/tests/run_validate_workflow_parallel.py": "scripts/tests/run_validate_workflow_parallel.py",
             "shared/scripts/tests/test_validate_workflow.py": "scripts/tests/test_validate_workflow.py",
+            "shared/scripts/tests/test_agent_dispatch.py": "scripts/tests/test_agent_dispatch.py",
+            "shared/scripts/tests/test_workflow_events.py": "scripts/tests/test_workflow_events.py",
+            "shared/scripts/tests/test_workflow_wrapper.py": "scripts/tests/test_workflow_wrapper.py",
             "shared/scripts/workflow-pressure-scenarios.md": "scripts/workflow-pressure-scenarios.md",
         }
         for assistant, suffix, source_prefix in (("codex", ".toml", ".codex"), ("claude", ".md", ".claude")):
