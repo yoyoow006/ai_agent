@@ -130,5 +130,24 @@ class OpenSpecTemplateTests(unittest.TestCase):
             self.assertIn("FAIL", result.stderr)
 
 
+    def test_check_passes_when_all_tasks_are_completed(self):
+        # 锁定预检放宽：tasks.md 全勾（无 '- [ ]'）也能通过结构预检，
+        # 使预检可用于构建后任一生命周期阶段（verify F4，经用户确认保留）。
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "change"
+            self.run_tool("create", "sample-change", "--mode", "standard", "--target", str(target))
+            proposal = target / "proposal.md"
+            proposal.write_text(proposal.read_text().replace("{{WHY}}", "说明原因").replace("{{TITLE}}", "标题").replace("{{CHANGE}}", "变化").replace("{{IMPACT}}", "影响").replace("{{RISK}}", "风险").replace("{{INCLUDED}}", "范围").replace("{{EXCLUDED}}", "非范围").replace("{{ACCEPTANCE}}", "验收").replace("{{UNVERIFIED_SCOPE}}", "无").replace("{{RESIDUAL_RISK}}", "无"))
+            for path in (target / "specs" / "sample-change").glob("spec.md"):
+                path.write_text(path.read_text().replace("{{CAPABILITY}}", "能力").replace("{{REQUIREMENT}}", "要求").replace("{{REQUIREMENT_RULE}}", "满足要求").replace("{{SCENARIO}}", "场景").replace("{{WHEN}}", "条件").replace("{{THEN}}", "结果"))
+            tasks = target / "tasks.md"
+            text = tasks.read_text().replace("{{TASK}}", "任务").replace("{{PATH}}", "file.md").replace("{{COMMAND}}", "python3 check.py").replace("{{EXPECTED}}", "通过").replace("{{INTEGRATION}}", "feature 分支").replace("{{COMMIT_BOUNDARY}}", "职责单元").replace("{{SIDE_EFFECTS}}", "无")
+            self.assertIn("- [ ]", text)
+            tasks.write_text(text.replace("- [ ]", "- [x]"), encoding="utf-8")
+            result = self.run_tool("check", str(target))
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertIn("PASS", result.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()

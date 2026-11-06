@@ -3665,5 +3665,139 @@ class StandardLayerContractTest(unittest.TestCase):
         self.assertIn("schema_version=1", core)
         self.assertIn("require_openspec\" -eq 0", core)
 
+class WrapperFailureTelemetryTest(unittest.TestCase):
+    """core 失败分支的事件真实性与 metrics 计数（verify 阶段 F1/F2/F10）。"""
+
+    FAILING_CORE = (
+        "#!/usr/bin/env bash\n"
+        "printf '[PASS] fixture 探针\\n'\n"
+        "printf 'stub（指纹 abcd1234 未变，沿用 2026-11-05T00:00:00Z 实际执行结果）\\n'\n"
+        "printf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\n"
+        "exit 1\n"
+    )
+
+    PASSING_CORE = (
+        "#!/usr/bin/env bash\n"
+        "printf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\n"
+        "exit 0\n"
+    )
+
+    def _stage_tree(self, root: Path, core_script: str) -> None:
+        (root / "scripts" / "lib").mkdir(parents=True)
+        (root / "scripts" / "lib" / "validate-workflow-core.sh").write_text(
+            core_script, encoding="utf-8"
+        )
+        (root / "scripts" / "validate-workflow.sh").write_text(
+            (REPOSITORY_ROOT / "scripts" / "validate-workflow.sh").read_text(
+                encoding="utf-8"
+            ),
+            encoding="utf-8",
+        )
+        for helper in ("workflow_event_cli.py", "workflow_events.py"):
+            (root / "scripts" / "lib" / helper).write_text(
+                (REPOSITORY_ROOT / "scripts" / "lib" / helper).read_text(
+                    encoding="utf-8"
+                ),
+                encoding="utf-8",
+            )
+        tests = root / "scripts" / "tests"
+        tests.mkdir()
+        (tests / "test_validate_workflow.py").write_text(
+            "import unittest\n"
+            "class SentinelTest(unittest.TestCase):\n"
+            "    def test_sentinel(self) -> None: self.assertTrue(True)\n",
+            encoding="utf-8",
+        )
+        runner = REPOSITORY_ROOT / "scripts" / "tests" / "run_validate_workflow_parallel.py"
+        (tests / "run_validate_workflow_parallel.py").write_text(
+            runner.read_text(encoding="utf-8") if runner.is_file() else "import unittest\n",
+            encoding="utf-8",
+        )
+        (root / ".ai-local").mkdir()
+
+    def _run(
+        self,
+        root: Path,
+        *arguments: str,
+        env_extras: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        environment = os.environ.copy()
+        environment.update(env_extras or {})
+        return subprocess.run(
+            ["/usr/bin/bash", "scripts/validate-workflow.sh", *arguments],
+            cwd=root,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            timeout=90,
+        )
+
+    def _read_rows(self, path: Path) -> list[dict]:
+        return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+    def test_core_failure_runs_diagnostic_suite_with_truthful_events(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root, self.FAILING_CORE)
+            events = root / "events.jsonl"
+            result = self._run(root, env_extras={"WORKFLOW_JSONL_PATH": str(events)})
+            self.assertEqual(1, result.returncode, msg=result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+            pairs = {(row["event"], row.get("reason_code")) for row in self._read_rows(events)}
+            self.assertIn(("check", "diagnostic_suite_run"), pairs)
+            self.assertNotIn(("check", "dependent_layer_blocked"), pairs)
+
+    def test_core_failure_in_fast_mode_skips_dependent_layer_truthfully(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root, self.FAILING_CORE)
+            events = root / "events.jsonl"
+            result = self._run(root, "--fast", env_extras={"WORKFLOW_JSONL_PATH": str(events)})
+            self.assertEqual(1, result.returncode, msg=result.stdout)
+            self.assertIn("[SKIP] 依赖层因 core 失败未执行", result.stdout)
+            pairs = {(row["event"], row.get("reason_code")) for row in self._read_rows(events)}
+            self.assertIn(("check", "dependent_layer_blocked"), pairs)
+            self.assertNotIn(("check", "diagnostic_suite_run"), pairs)
+
+    def test_metrics_measure_cache_reuse_without_dead_agent_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root, self.FAILING_CORE)
+            metrics = root / "metrics"
+            result = self._run(root, "--fast", env_extras={"METRICS_DIR": str(metrics)})
+            self.assertEqual(1, result.returncode, msg=result.stdout)
+            records = list(metrics.glob("*.json"))
+            self.assertEqual(1, len(records))
+            payload = json.loads(records[0].read_text(encoding="utf-8"))
+            self.assertEqual(1, payload["cache_reused"])
+            # CQ-3（用户裁定）：wrapper 不派发代理，metrics 不含恒 0 的死字段；
+            # 真实派发计数由 agent_dispatch 事件流按 run_id 记录。
+            self.assertNotIn("agent_allowed", payload)
+            self.assertNotIn("agent_denied", payload)
+
+    def test_metrics_count_output_parse_errors(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root, self.PASSING_CORE)
+            metrics = root / "metrics"
+            blocked = root / "blocked.jsonl"
+            blocked.mkdir()
+            result = self._run(
+                root,
+                "--fast",
+                env_extras={
+                    "WORKFLOW_JSONL_PATH": str(blocked),
+                    "METRICS_DIR": str(metrics),
+                },
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            payload = json.loads(
+                next(metrics.glob("*.json")).read_text(encoding="utf-8")
+            )
+            self.assertGreaterEqual(payload["output_parse_errors"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

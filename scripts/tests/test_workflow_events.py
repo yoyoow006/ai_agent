@@ -60,5 +60,21 @@ class WorkflowEventsTest(unittest.TestCase):
         self.assertEqual(result.reason_code, "metrics_write_failed")
 
 
+    def test_cli_rejects_reserved_field_keys(self):
+        # CQ-5：--field 不得覆盖协议保留键（schema_version/status/event 等）。
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "events.jsonl"
+            for key in ("status", "schema_version"):
+                with self.subTest(key=key):
+                    proc = subprocess.run(
+                        [sys.executable, str(ROOT / "scripts/lib/workflow_event_cli.py"),
+                         str(path), "run", "fast", "check", "PASS", "ok",
+                         "--field", f"{key}=X"],
+                        capture_output=True, text=True, check=False,
+                    )
+                    self.assertNotEqual(0, proc.returncode)
+                    self.assertFalse(path.exists())
+
+
 if __name__ == "__main__":
     unittest.main()

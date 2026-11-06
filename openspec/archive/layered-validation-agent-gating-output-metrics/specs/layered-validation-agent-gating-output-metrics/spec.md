@@ -15,8 +15,8 @@
 #### Scenario: 层级失败停止
 
 - **WHEN** 前置 core 层返回 FAIL 或不可解析结果
-- **THEN** 后续依赖层不执行
-- **AND** 人类汇总与诊断事件均保留失败原因和未执行层级
+- **THEN** 门禁立即以非零退出终止，依赖层不作为门禁执行
+- **AND** 未执行的依赖层记录 `dependent_layer_blocked` SKIP 事件；随包契约套件在默认/standard 全量形态下仅可作诊断执行（不参与门禁计数）并如实记录 `diagnostic_suite_run` 事件，人类汇总与诊断事件均保留失败原因
 
 ### Requirement: 代理调用必须满足四项门控条件
 
@@ -52,7 +52,7 @@
 
 ### Requirement: 轻量度量必须可丢弃且不改变门禁
 
-系统 SHALL 为每次运行记录 schema、run_id、层级总耗时、检查结果计数、代理允许/拒绝计数、缓存沿用计数和输出解析错误计数；指标写入 .ai-local/metrics/ 失败或记录损坏 SHALL 不改变验证结果，且 required SHALL 不读取验证缓存。
+系统 SHALL 为每次运行记录 schema、run_id、层级总耗时、检查结果计数、缓存沿用计数和输出解析错误计数；代理允许/拒绝计数 SHALL 由 agent_dispatch 事件流按 run_id 记录而不进入 wrapper 指标；指标写入 .ai-local/metrics/ 失败或记录损坏 SHALL 不改变验证结果，且 required SHALL 不读取验证缓存。
 
 #### Scenario: 指标写入失败
 

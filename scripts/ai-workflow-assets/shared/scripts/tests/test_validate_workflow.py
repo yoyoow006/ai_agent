@@ -2107,19 +2107,30 @@ class WrapperFastCacheSwitchTest(unittest.TestCase):
         self.assertEqual(0, result.returncode, msg=result.stdout)
         self.assertIn("WORKFLOW_FAST_CACHE=1", result.stdout)
 
+    def test_standard_mode_enables_cache_env(self) -> None:
+        result = self._run_wrapper("--standard")
+        self.assertEqual(0, result.returncode, msg=result.stdout)
+        self.assertIn("WORKFLOW_FAST_CACHE=1", result.stdout)
+
     def test_default_mode_does_not_enable_cache_env(self) -> None:
         result = self._run_wrapper()
         self.assertEqual(0, result.returncode, msg=result.stdout)
         self.assertIn("WORKFLOW_FAST_CACHE=0", result.stdout)
         self.assertIn("[PASS] 工作流顶层契约测试", result.stdout)
 
-    def test_inherited_cache_env_is_neutralized_outside_fast(self) -> None:
+    def test_inherited_cache_env_is_neutralized_outside_fast_and_standard(self) -> None:
         inherited = {"WORKFLOW_FAST_CACHE": "1"}
         for arguments in ((), ("--require-openspec",), ("--archive-light",)):
             with self.subTest(arguments=arguments or ("default",)):
                 result = self._run_wrapper(*arguments, environment_extras=inherited)
                 self.assertEqual(0, result.returncode, msg=result.stdout)
                 self.assertIn("WORKFLOW_FAST_CACHE=0", result.stdout)
+
+    def test_promoted_standard_does_not_enable_cache_env(self) -> None:
+        result = self._run_wrapper("--standard", "--archive-files", "AGENTS.md")
+        self.assertEqual(0, result.returncode, msg=result.stdout)
+        self.assertIn("promoted to --require-openspec", result.stdout)
+        self.assertIn("WORKFLOW_FAST_CACHE=0", result.stdout)
 
     def test_conflicting_mode_combinations_fail_closed(self) -> None:
         for arguments in (
@@ -2130,6 +2141,255 @@ class WrapperFastCacheSwitchTest(unittest.TestCase):
                 result = self._run_wrapper(*arguments)
                 self.assertEqual(2, result.returncode, msg=result.stdout)
                 self.assertIn("conflict", result.stdout.lower())
+
+
+class StandardSuitePruningTest(unittest.TestCase):
+    """--standard 契约套件增量裁剪：无工作流资产变更时裁剪，其余一律全量 fail-closed。"""
+
+    STUB_CORE = (
+        "#!/usr/bin/env bash\n"
+        "printf 'WORKFLOW_FAST_CACHE=%s\\n' \"${WORKFLOW_FAST_CACHE:-0}\"\n"
+        "printf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\n"
+        "exit 0\n"
+    )
+
+    def _stage_tree(self, root: Path, *, source_repo: bool = False) -> None:
+        (root / "scripts" / "lib").mkdir(parents=True)
+        (root / "scripts" / "lib" / "validate-workflow-core.sh").write_text(
+            self.STUB_CORE, encoding="utf-8"
+        )
+        if source_repo:
+            (root / "scripts" / "lib" / "install_ai_workflow.py").write_text(
+                "# installer marker\n", encoding="utf-8"
+            )
+        (root / "scripts" / "validate-workflow.sh").write_text(
+            (REPOSITORY_ROOT / "scripts" / "validate-workflow.sh").read_text(
+                encoding="utf-8"
+            ),
+            encoding="utf-8",
+        )
+        tests = root / "scripts" / "tests"
+        tests.mkdir()
+        (tests / "test_validate_workflow.py").write_text(
+            "import unittest\n"
+            "class SentinelTest(unittest.TestCase):\n"
+            "    def test_sentinel(self) -> None: self.assertTrue(True)\n",
+            encoding="utf-8",
+        )
+        runner_source = (
+            REPOSITORY_ROOT / "scripts" / "tests" / "run_validate_workflow_parallel.py"
+        )
+        (tests / "run_validate_workflow_parallel.py").write_text(
+            runner_source.read_text(encoding="utf-8")
+            if runner_source.is_file()
+            else "import unittest\n",
+            encoding="utf-8",
+        )
+        (root / ".ai-local").mkdir()
+        (root / "README.md").write_text("# fixture\n", encoding="utf-8")
+        change = root / "openspec" / "changes" / "feature-x"
+        change.mkdir(parents=True)
+        (change / "proposal.md").write_text("模式: 标准\n状态: 构建中\n", encoding="utf-8")
+
+    def _commit_base(self, root: Path) -> None:
+        subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "checkout", "-b", "main"], cwd=root, check=True, capture_output=True
+        )
+        subprocess.run(
+            ["git", "config", "user.email", "fixture@example.com"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "fixture"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(["git", "add", "-A"], cwd=root, check=True, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "base"], cwd=root, check=True, capture_output=True
+        )
+
+    def _run(
+        self,
+        root: Path,
+        *arguments: str,
+        env_extras: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        environment = os.environ.copy()
+        environment.update(env_extras or {})
+        return subprocess.run(
+            ["/usr/bin/bash", "scripts/validate-workflow.sh", *arguments],
+            cwd=root,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            timeout=90,
+        )
+
+    def test_docs_only_change_prunes_contract_suite(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root)
+            self._commit_base(root)
+            proposal = root / "openspec" / "changes" / "feature-x" / "proposal.md"
+            proposal.write_text("模式: 标准\n状态: 待验证\n", encoding="utf-8")
+
+            result = self._run(
+                root, "--standard", env_extras={"WORKFLOW_STANDARD_BASE": "HEAD"}
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("WORKFLOW_FAST_CACHE=1", result.stdout)
+            self.assertIn("契约测试裁剪", result.stdout)
+            self.assertNotIn("[PASS] 工作流顶层契约测试", result.stdout)
+            self.assertIn("PASS=1 FAIL=0 SKIP=0", result.stdout)
+
+    def test_scripts_change_keeps_full_suite(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root)
+            self._commit_base(root)
+            (root / "scripts" / "install-workflow.sh").write_text(
+                "#!/bin/sh\n# installer probe\n", encoding="utf-8"
+            )
+
+            result = self._run(
+                root, "--standard", env_extras={"WORKFLOW_STANDARD_BASE": "HEAD"}
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+            self.assertNotIn("契约测试裁剪", result.stdout)
+
+    def test_readme_change_keeps_full_suite(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root)
+            self._commit_base(root)
+            (root / "README.md").write_text("# fixture changed\n", encoding="utf-8")
+
+            result = self._run(
+                root, "--standard", env_extras={"WORKFLOW_STANDARD_BASE": "HEAD"}
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+            self.assertNotIn("契约测试裁剪", result.stdout)
+
+    def test_docs_asset_change_keeps_full_suite(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root)
+            self._commit_base(root)
+            intro = root / "docs" / "ai-workflow-intro.md"
+            intro.parent.mkdir(parents=True)
+            intro.write_text("# intro changed\n", encoding="utf-8")
+
+            result = self._run(
+                root, "--standard", env_extras={"WORKFLOW_STANDARD_BASE": "HEAD"}
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+            self.assertNotIn("契约测试裁剪", result.stdout)
+
+    def test_core_change_keeps_full_suite(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root)
+            self._commit_base(root)
+            core = root / "scripts" / "lib" / "validate-workflow-core.sh"
+            core.write_text(
+                core.read_text(encoding="utf-8") + "\n# prune probe\n",
+                encoding="utf-8",
+            )
+
+            result = self._run(
+                root, "--standard", env_extras={"WORKFLOW_STANDARD_BASE": "HEAD"}
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+            self.assertNotIn("契约测试裁剪", result.stdout)
+            self.assertIn("PASS=2 FAIL=0 SKIP=0", result.stdout)
+
+    def test_source_repo_openspec_change_keeps_full_suite(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root, source_repo=True)
+            self._commit_base(root)
+            proposal = root / "openspec" / "changes" / "feature-x" / "proposal.md"
+            proposal.write_text("模式: 标准\n状态: 待验证\n", encoding="utf-8")
+
+            result = self._run(
+                root, "--standard", env_extras={"WORKFLOW_STANDARD_BASE": "HEAD"}
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+            self.assertNotIn("契约测试裁剪", result.stdout)
+
+    def test_missing_base_keeps_full_suite(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root)
+            self._commit_base(root)
+            (root / "README.md").write_text("# fixture changed\n", encoding="utf-8")
+
+            result = self._run(root, "--standard")
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+            self.assertNotIn("契约测试裁剪", result.stdout)
+
+    def test_untracked_workflow_asset_keeps_full_suite(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root)
+            self._commit_base(root)
+            (root / ".ai" / "rules").mkdir(parents=True)
+            (root / ".ai" / "rules" / "new-rule.md").write_text(
+                "# untracked workflow asset\n", encoding="utf-8"
+            )
+
+            result = self._run(
+                root, "--standard", env_extras={"WORKFLOW_STANDARD_BASE": "HEAD"}
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+            self.assertNotIn("契约测试裁剪", result.stdout)
+
+    def test_print_plan_reports_pruning_without_running(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root)
+            self._commit_base(root)
+            proposal = root / "openspec" / "changes" / "feature-x" / "proposal.md"
+            proposal.write_text("模式: 标准\n状态: 待验证\n", encoding="utf-8")
+
+            pruned = self._run(
+                root,
+                "--standard",
+                "--print-plan",
+                env_extras={"WORKFLOW_STANDARD_BASE": "HEAD"},
+            )
+            self.assertEqual(0, pruned.returncode, msg=pruned.stdout)
+            self.assertIn("[PLAN] contract-suite: pruned", pruned.stdout)
+            self.assertNotIn("INTERNAL_RESULT", pruned.stdout)
+            self.assertNotIn("[PASS]", pruned.stdout)
+
+            core = root / "scripts" / "lib" / "validate-workflow-core.sh"
+            core.write_text(
+                core.read_text(encoding="utf-8") + "\n# prune probe\n",
+                encoding="utf-8",
+            )
+            full = self._run(
+                root,
+                "--standard",
+                "--print-plan",
+                env_extras={"WORKFLOW_STANDARD_BASE": "HEAD"},
+            )
+            self.assertEqual(0, full.returncode, msg=full.stdout)
+            self.assertIn("[PLAN] contract-suite: run", full.stdout)
 
 
 class WrapperRequiredForwardingTest(unittest.TestCase):
@@ -3404,6 +3664,140 @@ class StandardLayerContractTest(unittest.TestCase):
         self.assertIn("static_rules_cache_dir=\".ai-local/rules-cache\"", core)
         self.assertIn("schema_version=1", core)
         self.assertIn("require_openspec\" -eq 0", core)
+
+class WrapperFailureTelemetryTest(unittest.TestCase):
+    """core 失败分支的事件真实性与 metrics 计数（verify 阶段 F1/F2/F10）。"""
+
+    FAILING_CORE = (
+        "#!/usr/bin/env bash\n"
+        "printf '[PASS] fixture 探针\\n'\n"
+        "printf 'stub（指纹 abcd1234 未变，沿用 2026-11-05T00:00:00Z 实际执行结果）\\n'\n"
+        "printf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\n"
+        "exit 1\n"
+    )
+
+    PASSING_CORE = (
+        "#!/usr/bin/env bash\n"
+        "printf 'INTERNAL_RESULT PASS=1 FAIL=0 SKIP=0\\n'\n"
+        "exit 0\n"
+    )
+
+    def _stage_tree(self, root: Path, core_script: str) -> None:
+        (root / "scripts" / "lib").mkdir(parents=True)
+        (root / "scripts" / "lib" / "validate-workflow-core.sh").write_text(
+            core_script, encoding="utf-8"
+        )
+        (root / "scripts" / "validate-workflow.sh").write_text(
+            (REPOSITORY_ROOT / "scripts" / "validate-workflow.sh").read_text(
+                encoding="utf-8"
+            ),
+            encoding="utf-8",
+        )
+        for helper in ("workflow_event_cli.py", "workflow_events.py"):
+            (root / "scripts" / "lib" / helper).write_text(
+                (REPOSITORY_ROOT / "scripts" / "lib" / helper).read_text(
+                    encoding="utf-8"
+                ),
+                encoding="utf-8",
+            )
+        tests = root / "scripts" / "tests"
+        tests.mkdir()
+        (tests / "test_validate_workflow.py").write_text(
+            "import unittest\n"
+            "class SentinelTest(unittest.TestCase):\n"
+            "    def test_sentinel(self) -> None: self.assertTrue(True)\n",
+            encoding="utf-8",
+        )
+        runner = REPOSITORY_ROOT / "scripts" / "tests" / "run_validate_workflow_parallel.py"
+        (tests / "run_validate_workflow_parallel.py").write_text(
+            runner.read_text(encoding="utf-8") if runner.is_file() else "import unittest\n",
+            encoding="utf-8",
+        )
+        (root / ".ai-local").mkdir()
+
+    def _run(
+        self,
+        root: Path,
+        *arguments: str,
+        env_extras: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
+        environment = os.environ.copy()
+        environment.update(env_extras or {})
+        return subprocess.run(
+            ["/usr/bin/bash", "scripts/validate-workflow.sh", *arguments],
+            cwd=root,
+            env=environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            timeout=90,
+        )
+
+    def _read_rows(self, path: Path) -> list[dict]:
+        return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+    def test_core_failure_runs_diagnostic_suite_with_truthful_events(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root, self.FAILING_CORE)
+            events = root / "events.jsonl"
+            result = self._run(root, env_extras={"WORKFLOW_JSONL_PATH": str(events)})
+            self.assertEqual(1, result.returncode, msg=result.stdout)
+            self.assertIn("[PASS] 工作流顶层契约测试（1 tests）", result.stdout)
+            pairs = {(row["event"], row.get("reason_code")) for row in self._read_rows(events)}
+            self.assertIn(("check", "diagnostic_suite_run"), pairs)
+            self.assertNotIn(("check", "dependent_layer_blocked"), pairs)
+
+    def test_core_failure_in_fast_mode_skips_dependent_layer_truthfully(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root, self.FAILING_CORE)
+            events = root / "events.jsonl"
+            result = self._run(root, "--fast", env_extras={"WORKFLOW_JSONL_PATH": str(events)})
+            self.assertEqual(1, result.returncode, msg=result.stdout)
+            self.assertIn("[SKIP] 依赖层因 core 失败未执行", result.stdout)
+            pairs = {(row["event"], row.get("reason_code")) for row in self._read_rows(events)}
+            self.assertIn(("check", "dependent_layer_blocked"), pairs)
+            self.assertNotIn(("check", "diagnostic_suite_run"), pairs)
+
+    def test_metrics_measure_cache_reuse_without_dead_agent_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root, self.FAILING_CORE)
+            metrics = root / "metrics"
+            result = self._run(root, "--fast", env_extras={"METRICS_DIR": str(metrics)})
+            self.assertEqual(1, result.returncode, msg=result.stdout)
+            records = list(metrics.glob("*.json"))
+            self.assertEqual(1, len(records))
+            payload = json.loads(records[0].read_text(encoding="utf-8"))
+            self.assertEqual(1, payload["cache_reused"])
+            # CQ-3（用户裁定）：wrapper 不派发代理，metrics 不含恒 0 的死字段；
+            # 真实派发计数由 agent_dispatch 事件流按 run_id 记录。
+            self.assertNotIn("agent_allowed", payload)
+            self.assertNotIn("agent_denied", payload)
+
+    def test_metrics_count_output_parse_errors(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._stage_tree(root, self.PASSING_CORE)
+            metrics = root / "metrics"
+            blocked = root / "blocked.jsonl"
+            blocked.mkdir()
+            result = self._run(
+                root,
+                "--fast",
+                env_extras={
+                    "WORKFLOW_JSONL_PATH": str(blocked),
+                    "METRICS_DIR": str(metrics),
+                },
+            )
+            self.assertEqual(0, result.returncode, msg=result.stdout)
+            payload = json.loads(
+                next(metrics.glob("*.json")).read_text(encoding="utf-8")
+            )
+            self.assertGreaterEqual(payload["output_parse_errors"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
