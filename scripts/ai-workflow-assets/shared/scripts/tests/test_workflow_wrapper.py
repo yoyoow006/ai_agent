@@ -192,8 +192,10 @@ class WorkflowWrapperOutputTests(unittest.TestCase):
                 self.assertEqual(0, proc.returncode, msg=proc.stdout)
             records = sorted(metrics.glob('*.json'))
             self.assertEqual(2, len(records))
-            payload = json.loads(records[-1].read_text(encoding='utf-8'))
-            self.assertGreaterEqual(payload['cache_reused'], 1)
+            # CQ-10：记录文件名是随机 uuid，字典序与运行顺序无关（冷缓存首跑
+            # cache_reused=0 时旧 records[-1] 断言约半数概率取错记录）；断言对顺序不敏感。
+            payloads = [json.loads(record.read_text(encoding='utf-8')) for record in records]
+            self.assertGreaterEqual(max(item['cache_reused'] for item in payloads), 1)
 
 
 if __name__ == "__main__":
