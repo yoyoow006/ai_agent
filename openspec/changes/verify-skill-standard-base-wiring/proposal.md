@@ -9,10 +9,10 @@ workflow-tiers 变更已落地 standard 层契约套件按工作流资产分类�
 
 ## What Changes
 
-- 两棵技能树的 verify 技能第 57 行：标准层调用改为显式传基线 `WORKFLOW_STANDARD_BASE=<基线> bash scripts/validate-workflow.sh --standard`，并注明基线取值（上一全量验证通过的提交，如上一变更归档提交或本轮构建起点）与不传/不确定时保持现状全量、升级 required 时不适用。
+- 两棵技能树的 verify 技能第 57 行：标准层调用改为显式传基线 `WORKFLOW_STANDARD_BASE=<基线> bash scripts/validate-workflow.sh --standard`，并注明基线取值（上一全量验证通过的提交，如上一变更归档提交，或已通过全量验证的本轮构建起点）与不传/不确定时保持现状全量、升级 required 时不适用；打包资产中的技能副本随源逐字节同步。
 - core 锚点（`validate-workflow-core.sh:911` Verify 标准分层 `contains_all`）增补 `WORKFLOW_STANDARD_BASE` token；`test_validate_workflow.py::test_core_requires_current_standard_verification_layers` 同步增补该 token 断言（锚点镜像锁定惯例）。
 - `.ai/kb/overview.md` 验证入口条目补一句接线事实（基线取值与回退语义）。
-- delta spec MODIFIED workflow-tiers 裁剪 Requirement：追加调用方（技能）接线义务与场景。
+- delta spec 在 workflow-tiers 能力下 ADDED 新增接线 Requirement（不动既有裁剪 Requirement；预检工具仅认 `## ADDED Requirements` 字面锚）：声明调用方（技能）接线义务与场景。
 
 ## Impact
 
@@ -26,7 +26,8 @@ workflow-tiers 变更已落地 standard 层契约套件按工作流资产分类�
 - `.claude/skills/verify/SKILL.md`、`.codex/skills/verify/SKILL.md`（两树同步）。
 - `scripts/lib/validate-workflow-core.sh`（锚点行 token 增补）、`scripts/tests/test_validate_workflow.py`（锚点镜像断言增补）；两者镜像资产 `scripts/ai-workflow-assets/shared/scripts/**` 同步。
 - `.ai/kb/overview.md` 验证入口条目。
-- delta spec：`workflow-tiers-incremental-cache-context` 能力裁剪 Requirement MODIFIED。
+- delta spec：`workflow-tiers-incremental-cache-context` 能力下 ADDED 新增接线 Requirement。
+- 打包资产技能副本：`scripts/ai-workflow-assets/{claude,codex}/` 下的 verify 技能随源同步（既有字节同步契约）。
 
 ### Excluded
 

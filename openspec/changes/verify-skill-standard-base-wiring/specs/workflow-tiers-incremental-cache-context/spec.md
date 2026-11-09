@@ -4,7 +4,7 @@
 
 ### Requirement: Verify 技能必须接线标准层裁剪基线
 
-Verify 技能 SHALL 在标准层验证调用中显式提供 `WORKFLOW_STANDARD_BASE` 基线，基线取上一全量验证通过的提交（如上一变更归档提交或本轮构建起点）；技能文本 SHALL 声明基线不确定时不提供变量以保持契约套件全量、层级升级为 required 时基线不适用。两棵助手技能树的 verify 技能 SHALL 保持镜像一致。
+Verify 技能 SHALL 在标准层验证调用中显式提供 `WORKFLOW_STANDARD_BASE` 基线，基线取上一全量验证通过的提交（如上一变更归档提交，或已通过全量验证的本轮构建起点）；技能文本 SHALL 声明基线不确定时不提供变量以保持契约套件全量、层级升级为 required 时基线不适用。两棵助手技能树的 verify 技能 SHALL 保持镜像一致，打包资产副本 SHALL 与源逐字节同步。
 
 #### Scenario: 技能接线提供基线
 
