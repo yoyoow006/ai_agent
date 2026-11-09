@@ -3034,6 +3034,7 @@ class StrictGateRoutingContractTest(unittest.TestCase):
         line = next(line for line in text.splitlines() if "Verify 标准分层" in line)
         self.assertIn("--standard", line)
         self.assertIn("--require-openspec", line)
+        self.assertIn("WORKFLOW_STANDARD_BASE", line)
 
     def test_core_enforces_gate_route_and_mutations(self) -> None:
         text = (REPOSITORY_ROOT / "scripts/lib/validate-workflow-core.sh").read_text()
