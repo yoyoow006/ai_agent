@@ -99,3 +99,8 @@
 ## 2026-11-06 · 来源变更 layered-validation-agent-gating-output-metrics（sharedRepository 模式断言环境失败）
 **坑**：git `core.sharedRepository=true` + umask 0002 使干净检出工作树全为 664/775，`test_manifest_modes_are_exact_and_match_files` 在不含任何改动的 HEAD 上同样失败；全套运行时 `__pycache__` 还会让资产枚举断言瞬态失败。易把环境失败误记为变更引入的回归。
 **解**：怀疑环境性失败时用临时干净 worktree（`git worktree add <path> HEAD --detach`）复跑同用例归因；确属环境后在台账记录"预存、与本变更无关"，探针 worktree 用完即删。
+## 2026-11-09 · 来源变更 verify-skill-standard-base-wiring（技能源改动必须同步打包副本）
+**坑**：改 `.claude/.codex` 技能源文本后只同步了 shared/scripts 镜像，漏了打包技能副本 `scripts/ai-workflow-assets/{claude,codex}/`——安装目标拿到的还是旧技能；required 门禁全绿没抓到，因为必需测试集不含 `test_install_ai_workflow.py`，打包字节同步契约只有该套件锁定（R-VSW-04）。
+**解**：触及技能/prompts/rules 等有打包副本的资产时，改完源必须 cp 同步 `scripts/ai-workflow-assets/` 对应副本并手动跑 `python3 -B -m pytest scripts/tests/test_install_ai_workflow.py -q`（字节同步契约在 `test_reusable_assets_are_byte_synchronized_with_active_sources`），门禁不代替此步。
+## 2026-11-09 · 来源变更 verify-skill-standard-base-wiring（standard 层裁剪基线接线）
+**事实**：wrapper 的 standard 层契约套件裁剪需调用方显式传 `WORKFLOW_STANDARD_BASE=<基线>`，基线取上一全量验证通过的提交；不确定时不传保持全量，required 层不适用。Verify 技能第 57 行已接线，core 锚点 + 契约测试锁定 token。

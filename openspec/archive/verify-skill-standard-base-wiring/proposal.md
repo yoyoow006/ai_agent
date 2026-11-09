@@ -1,5 +1,5 @@
 模式: 标准
-状态: 待归档
+状态: 已归档
 
 # Verify 技能接线 WORKFLOW_STANDARD_BASE 基线
 
