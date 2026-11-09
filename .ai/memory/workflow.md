@@ -102,3 +102,8 @@
 ## 2026-11-09 · 来源变更 asset-manifest-mode-assertion-env-robust（模式断言真源改 git 索引）
 **坑**：manifest 模式断言用工作树 stat 全量位比对 0644/0755 常量，在 sharedRepository/宽松 umask 环境恒假红（上一条坑的根治）。
 **解**：规范模式断言以 git 索引（`git ls-files -s` → 100644/100755）为真源，未跟踪资产 fail-fast；工作树仅校验可执行位（`mode & 0o111`）一致性。安装器只消费 manifest 声明模式，不读源工作树 stat，写位差异纯属环境策略。
+## 2026-11-09 · 来源变更 verify-skill-standard-base-wiring（技能源改动必须同步打包副本）
+**坑**：改 `.claude/.codex` 技能源文本后只同步了 shared/scripts 镜像，漏了打包技能副本 `scripts/ai-workflow-assets/{claude,codex}/`——安装目标拿到的还是旧技能；required 门禁全绿没抓到，因为必需测试集不含 `test_install_ai_workflow.py`，打包字节同步契约只有该套件锁定（R-VSW-04）。
+**解**：触及技能/prompts/rules 等有打包副本的资产时，改完源必须 cp 同步 `scripts/ai-workflow-assets/` 对应副本并手动跑 `python3 -B -m pytest scripts/tests/test_install_ai_workflow.py -q`（字节同步契约在 `test_reusable_assets_are_byte_synchronized_with_active_sources`），门禁不代替此步。
+## 2026-11-09 · 来源变更 verify-skill-standard-base-wiring（standard 层裁剪基线接线）
+**事实**：wrapper 的 standard 层契约套件裁剪需调用方显式传 `WORKFLOW_STANDARD_BASE=<基线>`，基线取上一全量验证通过的提交；不确定时不传保持全量，required 层不适用。Verify 技能第 57 行已接线，core 锚点 + 契约测试锁定 token。

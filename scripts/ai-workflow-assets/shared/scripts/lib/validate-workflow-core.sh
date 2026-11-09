@@ -908,7 +908,7 @@ for agent in "${required_agents[@]}"; do
   check "$agent Build 风险分支" contains_all "$agent/skills/build/SKILL.md" '标准小型、边界清晰任务' '严格' '可独立回滚的职责单元'
   check "$agent Verify 标准单审严格双审" contains_all "$agent/skills/verify/SKILL.md" '一次综合审查' '双阶段独立审查' '规格符合性' '代码质量'
   check "$agent Verify 严格 required 门禁" contains_all "$agent/skills/verify/SKILL.md" 'bash scripts/validate-workflow.sh --require-openspec' '不得 SKIP'
-  check "$agent Verify 标准分层" contains_all "$agent/skills/verify/SKILL.md" '--standard' '--require-openspec'
+  check "$agent Verify 标准分层" contains_all "$agent/skills/verify/SKILL.md" '--standard' '--require-openspec' 'WORKFLOW_STANDARD_BASE'
   check "$agent Archive 模式分支" contains_all "$agent/skills/archive/SKILL.md" '标准模式' '严格模式' 'ADDED' '知识沉淀'
   check "$agent Archive required 门禁" contains_all "$agent/skills/archive/SKILL.md" 'bash scripts/validate-workflow.sh --require-openspec' '不得 SKIP'
   check "$agent Archive 归档索引" contains_all "$agent/skills/archive/SKILL.md" 'openspec/archive/README.md'
