@@ -210,6 +210,23 @@ def managed_block(assistant: str) -> bytes:
     ).encode("utf-8")
 
 
+def git_index_mode(relative_to_repo: str) -> int | None:
+    """git 索引记录的规范模式（0o644/0o755）；未跟踪返回 None。
+
+    工作树 stat 受 `core.sharedRepository`、umask 等环境策略影响（如 664/775），
+    规范模式的真源是 git 索引（100644/100755）。
+    """
+    result = subprocess.run(
+        ["git", "-C", str(REPOSITORY_ROOT), "ls-files", "-s", "--", relative_to_repo],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return None
+    return 0o755 if result.stdout.split()[0] == "100755" else 0o644
+
+
 class PortableAssetManifestTests(unittest.TestCase):
     def setUp(self):
         self.manifest = json.loads((ASSET_ROOT / "manifest.json").read_text(encoding="utf-8"))
@@ -231,9 +248,25 @@ class PortableAssetManifestTests(unittest.TestCase):
         }
         for group in EXPECTED_ASSET_PATHS:
             for entry in self.manifest[group]:
-                expected = "0755" if group == "shared" and entry["path"] in executable else "0644"
-                self.assertEqual(entry, {"path": entry["path"], "mode": expected})
-                self.assertEqual(stat.S_IMODE((ASSET_ROOT / group / entry["path"]).stat().st_mode), int(expected, 8))
+                relative = entry["path"]
+                expected = 0o755 if group == "shared" and relative in executable else 0o644
+                self.assertEqual(entry, {"path": relative, "mode": f"{expected:04o}"})
+                packaged_relative = f"scripts/ai-workflow-assets/{group}/{relative}"
+                # 规范模式以 git 索引为真源；未跟踪资产 fail-fast（无从校验规范模式）。
+                index_mode = git_index_mode(packaged_relative)
+                self.assertIsNotNone(
+                    index_mode, f"manifest asset not tracked by git: {packaged_relative}"
+                )
+                self.assertEqual(
+                    index_mode, expected, f"git index mode drift: {packaged_relative}"
+                )
+                # 工作树仅校验可执行位一致性；写位差异属环境策略，不作断言。
+                disk_mode = stat.S_IMODE((ASSET_ROOT / group / relative).stat().st_mode)
+                self.assertEqual(
+                    disk_mode & 0o111,
+                    expected & 0o111,
+                    f"executable-bit drift between manifest and worktree: {packaged_relative}",
+                )
 
     def test_parallel_runner_asset_is_manifested_and_byte_identical(self):
         relative = "scripts/tests/run_validate_workflow_parallel.py"
@@ -242,9 +275,9 @@ class PortableAssetManifestTests(unittest.TestCase):
         packaged = ASSET_ROOT / "shared" / relative
         self.assertTrue(packaged.is_file(), f"missing asset: {packaged}")
         self.assertEqual(
-            stat.S_IMODE(packaged.stat().st_mode),
+            git_index_mode(str(packaged.relative_to(REPOSITORY_ROOT))),
             0o644,
-            f"unexpected mode for asset: {packaged}",
+            f"unexpected canonical mode for asset: {packaged}",
         )
         self.assertEqual(
             packaged.read_bytes(),
