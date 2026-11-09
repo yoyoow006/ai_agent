@@ -99,3 +99,6 @@
 ## 2026-11-06 · 来源变更 layered-validation-agent-gating-output-metrics（sharedRepository 模式断言环境失败）
 **坑**：git `core.sharedRepository=true` + umask 0002 使干净检出工作树全为 664/775，`test_manifest_modes_are_exact_and_match_files` 在不含任何改动的 HEAD 上同样失败；全套运行时 `__pycache__` 还会让资产枚举断言瞬态失败。易把环境失败误记为变更引入的回归。
 **解**：怀疑环境性失败时用临时干净 worktree（`git worktree add <path> HEAD --detach`）复跑同用例归因；确属环境后在台账记录"预存、与本变更无关"，探针 worktree 用完即删。
+## 2026-11-09 · 来源变更 asset-manifest-mode-assertion-env-robust（模式断言真源改 git 索引）
+**坑**：manifest 模式断言用工作树 stat 全量位比对 0644/0755 常量，在 sharedRepository/宽松 umask 环境恒假红（上一条坑的根治）。
+**解**：规范模式断言以 git 索引（`git ls-files -s` → 100644/100755）为真源，未跟踪资产 fail-fast；工作树仅校验可执行位（`mode & 0o111`）一致性。安装器只消费 manifest 声明模式，不读源工作树 stat，写位差异纯属环境策略。

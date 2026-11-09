@@ -38,3 +38,4 @@
 - `merge-lc-workflow-improvements` — 合并 LC 通用流程、门禁路由与工具改进（严格）
 - `workflow-tiers-incremental-cache-context` — 工作流提速增量缓存上下文优化（标准）
 - `layered-validation-agent-gating-output-metrics` — 验证分层、代理门控、输出协议与轻量度量（严格）
+- `asset-manifest-mode-assertion-env-robust` — 资产清单模式断言环境无关化（标准）
